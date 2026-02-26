@@ -9,14 +9,16 @@ npm install
 npm start
 ```
 
-Default port: **53134**. Open http://localhost:53134
+Default port: **3000**. Open http://localhost:3000
+
+If you serve the game from another port (e.g. Live Server on 5500), either run the server on that port (`PORT=5500 npm start`) or open the game with `?api=http://localhost:3000` so login and progress use the API on 3000.
 
 ## Environment variables
 
 | Variable | Description |
 |----------|-------------|
-| `PORT` | Server port (default 53134) |
-| `BASE_URL` | Full base URL for OAuth redirects (e.g. `http://localhost:53134` or `https://yoursite.com`) |
+| `PORT` | Server port (default 3000) |
+| `BASE_URL` | Full base URL for OAuth redirects (e.g. `http://localhost:3000` or `https://yoursite.com`) |
 | `DISCORD_CLIENT_ID` | Discord Application Client ID |
 | `DISCORD_CLIENT_SECRET` | Discord Application Client Secret |
 | `SESSION_SECRET` | Secret for session cookies (change in production) |
@@ -25,7 +27,7 @@ Default port: **53134**. Open http://localhost:53134
 ## Discord OAuth setup
 
 1. Go to [Discord Developer Portal](https://discord.com/developers/applications) → create an application.
-2. **OAuth2** → Redirects: add `http://localhost:53134/auth/discord/callback` (and your production URL when you deploy).
+2. **OAuth2** → Redirects: add `http://localhost:3000/auth/discord/callback` (and your production URL when you deploy).
 3. Copy **Client ID** and **Client Secret** into `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET`.
 
 ## Admin user list (“spreadsheet”)

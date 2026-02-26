@@ -4,13 +4,24 @@ const session = require('express-session');
 const { findOrCreateUser, setUsername, getUserByDiscordId, listUsersByCreation, getProgress, saveProgress } = require('./store.js');
 
 const app = express();
-const PORT = process.env.PORT || 53134;
+const PORT = process.env.PORT || 3000;
 
 const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID || '';
 const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || '';
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'florexe-session-secret-change-in-production';
 const ADMIN_SECRET = process.env.ADMIN_SECRET || 'florexe-admin-secret-change-me';
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:'))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
 
 app.use(express.json());
 app.use(

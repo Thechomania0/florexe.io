@@ -21,6 +21,7 @@ let canvas, ctx, mainMenu, gameContainer, minimapCanvas, minimapCtx;
 let accountUser = { loggedIn: false, username: null, needsUsername: false };
 
 function getApiBase() {
+  if (typeof window !== 'undefined' && window.FLOREXE_API_URL) return window.FLOREXE_API_URL.replace(/\/$/, '');
   return '';
 }
 

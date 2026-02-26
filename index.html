@@ -10,6 +10,8 @@
       var base = path.endsWith('/') ? path : path.replace(/\/[^/]*$/, '') + '/';
       if (!base) base = '/';
       document.write('<base href="' + base + '">');
+      var match = location.search && location.search.match(/[?&]api=([^&]+)/);
+      if (match) window.FLOREXE_API_URL = decodeURIComponent(match[1]);
     })();
   </script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
