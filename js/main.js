@@ -27,9 +27,10 @@ function getApiBase() {
 async function fetchMe() {
   try {
     const r = await fetch(getApiBase() + '/api/me', { credentials: 'include' });
-    return r.ok ? await r.json() : { loggedIn: false };
+    const data = r.ok ? await r.json() : { loggedIn: false };
+    return { ...data, authAvailable: r.status !== 404 };
   } catch {
-    return { loggedIn: false };
+    return { loggedIn: false, authAvailable: false };
   }
 }
 
@@ -1705,6 +1706,13 @@ function init() {
       } else {
         loginBtn.classList.remove('hidden');
         userWrap.classList.add('hidden');
+        if (me.authAvailable) {
+          loginBtn.href = getApiBase() + '/auth/discord';
+          loginBtn.removeAttribute('title');
+        } else {
+          loginBtn.href = '#';
+          loginBtn.title = 'Discord login is available when running the game server (see README).';
+        }
       }
     }
     if (accountUser.needsUsername) {
