@@ -564,9 +564,6 @@ export class Game {
       ctx.font = `${fontSize}px Rajdhani, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      const outlineWidth = Math.max(2, 6 / scale);
-      const haloOffset = Math.max(0.5, 2 / scale);
-      const haloDirs = [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [-1, 1], [1, -1], [1, 1]];
       const textHeight = fontSize;
       const cornerR = Math.max(3, 8 / scale);
       const bgColor = '#2a2a2a';
@@ -591,15 +588,6 @@ export class Game {
         ctx.arcTo(boxX, boxY, boxX + cornerR, boxY, cornerR);
         ctx.closePath();
         ctx.fill();
-        ctx.fillStyle = '#000';
-        for (const [dx, dy] of haloDirs) {
-          ctx.fillText(text, p.x + dx * haloOffset, y + dy * haloOffset);
-        }
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = outlineWidth;
-        ctx.lineJoin = 'round';
-        ctx.miterLimit = 2;
-        ctx.strokeText(text, p.x, y);
         ctx.fillStyle = '#fff';
         ctx.fillText(text, p.x, y);
       }
