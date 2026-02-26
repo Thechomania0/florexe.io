@@ -5,16 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Florexe.io</title>
   <script>
-    (function() {
-      if (typeof crypto !== 'undefined' && !crypto.randomUUID) {
-        crypto.randomUUID = function() {
-          return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-            var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-            return v.toString(16);
-          });
-        };
-      }
-      var path = location.pathname;
+    (function(){
+      var c=typeof window!=='undefined'&&(window.crypto||window.msCrypto);
+      if(c&&!c.randomUUID)c.randomUUID=function(){return'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(r){var t=Math.random()*16|0,v=r==='x'?t:(t&3|8);return v.toString(16);});};
+      var path=location.pathname;
       var base = path.endsWith('/') ? path : path.replace(/\/[^/]*$/, '') + '/';
       if (!base) base = '/';
       document.write('<base href="' + base + '">');
@@ -28,7 +22,7 @@
 <body>
   <div id="main-menu">
     <div class="menu-auth-wrap">
-      <a href="#" id="menuLoginBtn" class="menu-login-btn" onclick="event.preventDefault(); var base=window.location.pathname.endsWith('/')?window.location.pathname:window.location.pathname+'/'; var origin=window.location.origin; if(origin.startsWith('http://')&&(window.location.hostname==='florexe.io'||window.location.hostname.endsWith('.github.io'))){origin='https://'+window.location.host;} window.location.href='https://discord.com/oauth2/authorize?client_id=1476693949090500708&response_type=token&redirect_uri='+encodeURIComponent(origin+base+'auth/discord')+'&scope=identify';">Login with Discord</a>
+      <a href="#" id="menuLoginBtn" class="menu-login-btn" onclick="event.preventDefault(); var base=window.location.pathname.endsWith('/')?window.location.pathname:window.location.pathname+'/'; var origin=window.location.origin; if(origin.startsWith('http://')&&window.location.hostname!=='localhost'&&window.location.hostname!=='127.0.0.1'){origin='https://'+window.location.host;} window.location.href='https://discord.com/oauth2/authorize?client_id=1476693949090500708&response_type=token&redirect_uri='+encodeURIComponent(origin+base+'auth/discord')+'&scope=identify';">Login with Discord</a>
     </div>
     <div class="menu-content">
       <h1 class="logo">Florexe<span class="io">.io</span></h1>
