@@ -561,7 +561,7 @@ export class Game {
       const fontSize = Math.max(10, 20 / scale);
       const lineHeight = fontSize * 1.25;
       const baseY = p.y - p.size - 12;
-      ctx.font = `${fontSize}px Rajdhani, sans-serif`;
+      ctx.font = `bold ${fontSize}px Rajdhani, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       const textHeight = fontSize;
