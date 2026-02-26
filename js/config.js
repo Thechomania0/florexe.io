@@ -67,7 +67,7 @@ export const TANK_UPGRADES = {
   base: {
     name: 'Base',
     damageByRarity: { common: 10 },
-    bulletSize: 12,
+    bulletSize: 15,
     bulletSpeed: 1,
     reload: 1000,
     bulletMaxRangeBase: 600,
