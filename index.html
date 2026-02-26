@@ -6,6 +6,14 @@
   <title>Florexe.io</title>
   <script>
     (function() {
+      if (typeof crypto !== 'undefined' && !crypto.randomUUID) {
+        crypto.randomUUID = function() {
+          return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+          });
+        };
+      }
       var path = location.pathname;
       var base = path.endsWith('/') ? path : path.replace(/\/[^/]*$/, '') + '/';
       if (!base) base = '/';
@@ -20,7 +28,7 @@
 <body>
   <div id="main-menu">
     <div class="menu-auth-wrap">
-      <a href="#" id="menuLoginBtn" class="menu-login-btn">Login with Discord</a>
+      <a href="https://discord.com/oauth2/authorize?client_id=1476693949090500708&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fauth%2Fdiscord%2Fcallback&scope=identify" id="menuLoginBtn" class="menu-login-btn">Login with Discord</a>
       <span id="menuUserWrap" class="menu-user-wrap hidden">
         <span id="menuUsername" class="menu-username"></span>
         <a href="/auth/logout" class="menu-logout-btn">Logout</a>
