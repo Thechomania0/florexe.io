@@ -131,7 +131,7 @@ export const TANK_UPGRADES = {
     bulletSize: 12,
     bulletSpeed: 0.5,
     reload: 50,
-    bulletMaxRangeBase: 250,
+    bulletMaxRangeBase: 500,
     recoilMovePercent: 0.25,
     recoilMovePercentByRarity: { common: 0.1, uncommon: 0.15, rare: 0.2, epic: 0.25, legendary: 0.3, mythic: 0.35, ultra: 0.4, super: 0.5 },
   },

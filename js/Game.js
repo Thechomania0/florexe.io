@@ -564,11 +564,20 @@ export class Game {
       ctx.font = `${fontSize}px Rajdhani, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
+      const outlineWidth = Math.max(2, 6 / scale);
+      const haloOffset = Math.max(0.5, 2 / scale);
+      const haloDirs = [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [-1, 1], [1, -1], [1, 1]];
       for (let i = 0; i < this.floatingMessages.length; i++) {
         const y = baseY - (this.floatingMessages.length - 1 - i) * lineHeight;
         const text = this.floatingMessages[i].text;
+        ctx.fillStyle = '#000';
+        for (const [dx, dy] of haloDirs) {
+          ctx.fillText(text, p.x + dx * haloOffset, y + dy * haloOffset);
+        }
         ctx.strokeStyle = '#000';
-        ctx.lineWidth = 3 / scale;
+        ctx.lineWidth = outlineWidth;
+        ctx.lineJoin = 'round';
+        ctx.miterLimit = 2;
         ctx.strokeText(text, p.x, y);
         ctx.fillStyle = '#fff';
         ctx.fillText(text, p.x, y);
