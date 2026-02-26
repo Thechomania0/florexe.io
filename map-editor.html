@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Florexe map editor</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; margin: 12px; background: #1a1a1a; color: #e0e0e0; }
+    h1 { font-size: 1.2rem; margin-bottom: 8px; }
+    .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+    button { padding: 8px 14px; cursor: pointer; background: #333; color: #eee; border: 1px solid #555; border-radius: 6px; }
+    button:hover { background: #444; }
+    button.primary { background: #1a5fb4; border-color: #2a7fd4; }
+    button.primary:hover { background: #2a7fd4; }
+    button.danger { background: #5a2a2a; border-color: #7a3a3a; }
+    input[type="text"] { padding: 6px 10px; background: #252525; border: 1px solid #444; border-radius: 6px; color: #eee; font-size: 1rem; }
+    .pens { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+    .pens label { color: #aaa; margin-right: 4px; }
+    .pen-btn { width: 36px; height: 36px; padding: 0; border-radius: 8px; border: 3px solid transparent; cursor: pointer; }
+    .pen-btn:hover { transform: scale(1.05); }
+    .pen-btn.active { border-color: #fff; box-shadow: 0 0 0 1px #333; }
+    #canvas { display: block; background: #2a2a2a; border: 1px solid #444; cursor: crosshair; image-rendering: pixelated; image-rendering: crisp-edges; }
+    .info { margin-top: 10px; font-size: 0.9rem; color: #999; }
+    .save-section { margin-top: 16px; padding: 12px; background: #252525; border-radius: 8px; border: 1px solid #444; }
+    .save-section h3 { margin: 0 0 10px 0; font-size: 1rem; }
+    .save-section button { margin-right: 8px; margin-top: 6px; }
+    .msg { margin-top: 10px; padding: 8px 12px; border-radius: 6px; display: none; }
+    .msg.success { background: #1a4d1a; color: #b8e6b8; display: block; }
+    .maps-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+    .maps-row select { padding: 6px 10px; background: #252525; border: 1px solid #444; border-radius: 6px; color: #eee; min-width: 200px; }
+    .maps-row label { color: #aaa; }
+    .bucket-label { color: #aaa; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+    .bucket-label input { cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>Map editor — 400×400 grid (1:1 with game)</h1>
+  <p class="info">1:1 scale: each square = one 40-unit square in the game. Black = wall. Rarity colors = spawn zones. Blue = player spawn.</p>
+
+  <div class="toolbar">
+    <label>Map name:</label>
+    <input type="text" id="mapName" placeholder="My map" maxlength="60" />
+    <button type="button" id="saveMap">Save</button>
+    <button type="button" id="newMap">New map</button>
+    <div class="maps-row">
+      <label>Edit old map:</label>
+      <select id="oldMaps"></select>
+      <button type="button" id="loadMap">Load</button>
+      <button type="button" id="deleteMap" class="danger">Delete map</button>
+    </div>
+    <button type="button" id="undo">Undo</button>
+    <button type="button" id="clear" class="danger">Clear all</button>
+    <button type="button" id="rotate90" title="Rotate entire map 90° clockwise">Rotate 90°</button>
+    <button type="button" id="flipHorizontal" title="Mirror the entire map left-right">Flip horizontal</button>
+    <span id="count">0 wall cells</span>
+  </div>
+
+  <div class="pens">
+    <label>Pen:</label>
+    <button type="button" class="pen-btn active" id="penWall" title="Wall (black)"> </button>
+    <button type="button" class="pen-btn" id="penCommon" title="Common–Uncommon zone"> </button>
+    <button type="button" class="pen-btn" id="penRare" title="Rare–Epic zone"> </button>
+    <button type="button" class="pen-btn" id="penLegendary" title="Legendary–Mythic zone"> </button>
+    <button type="button" class="pen-btn" id="penUltra" title="Ultra–Super zone"> </button>
+    <button type="button" class="pen-btn" id="penSpawn" title="Player spawn zone"> </button>
+    <label class="bucket-label"><input type="checkbox" id="bucketMode" title="Bucket fill: click to fill connected area with current color" /> Bucket</label>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <div class="save-section">
+    <h3>Use this map in the game</h3>
+    <button type="button" id="saveConfirm" class="primary">Save and confirm implementation</button>
+    <p class="info" style="margin-top:8px;margin-bottom:0">Reload the game after saving. Only black walls appear in-game; zones control spawn and rarity %.</p>
+    <div id="saveMsg" class="msg"></div>
+  </div>
+
+  <script>
+    const GRID_SIZE = 400;
+    const SCALE = 40;
+    const CELL_WORLD = SCALE;
+    const GRID_WORLD_SPAN = GRID_SIZE * CELL_WORLD;
+    const GRID_WORLD_MIN = -GRID_WORLD_SPAN / 2;
+    const STORAGE_KEY = 'florexe_custom_walls';
+    const ZONES_KEY = 'florexe_custom_zones';
+    const MAPS_KEY = 'florexe_map_editor_maps';
+    const MAX_UNDO = 80;
+
+    const CELL = { EMPTY: 0, WALL: 1, COMMON_UNCOMMON: 2, RARE_EPIC: 3, LEGENDARY_MYTHIC: 4, ULTRA_SUPER: 5, SPAWN: 6 };
+    const PEN_COLORS = {
+      [CELL.WALL]: '#1a1a1a',
+      [CELL.COMMON_UNCOMMON]: '#bcec8b',
+      [CELL.RARE_EPIC]: '#3c78d8',
+      [CELL.LEGENDARY_MYTHIC]: '#ff0000',
+      [CELL.ULTRA_SUPER]: '#c82dd1',
+      [CELL.SPAWN]: '#2196F3'
+    };
+
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const countEl = document.getElementById('count');
+    const mapNameEl = document.getElementById('mapName');
+    const oldMapsEl = document.getElementById('oldMaps');
+    const saveMsgEl = document.getElementById('saveMsg');
+
+    const cellPx = 2;
+    const size = GRID_SIZE * cellPx;
+    canvas.width = size;
+    canvas.height = size;
+
+    let grid = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(CELL.EMPTY));
+    let isDrawing = false;
+    let drawValue = CELL.WALL;
+    let history = [];
+    let currentMapId = null;
+    let currentPen = CELL.WALL;
+
+    function deepCopyGrid(g) {
+      return g.map(row => row.slice());
+    }
+
+    function pushHistory() {
+      history.push(deepCopyGrid(grid));
+      if (history.length > MAX_UNDO) history.shift();
+    }
+
+    function setPen(value) {
+      currentPen = value;
+      drawValue = value;
+      document.querySelectorAll('.pen-btn').forEach((btn, idx) => {
+        btn.classList.toggle('active', parseInt(btn.dataset.pen, 10) === value);
+      });
+    }
+
+    function draw() {
+      ctx.fillStyle = '#e8e8e8';
+      ctx.fillRect(0, 0, size, size);
+
+      for (let j = 0; j < GRID_SIZE; j++) {
+        for (let i = 0; i < GRID_SIZE; i++) {
+          const v = grid[i][j];
+          if (v === CELL.EMPTY) continue;
+          ctx.fillStyle = PEN_COLORS[v] || '#888';
+          ctx.fillRect(i * cellPx, j * cellPx, cellPx, cellPx);
+        }
+      }
+
+      ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= GRID_SIZE; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * cellPx, 0);
+        ctx.lineTo(i * cellPx, size);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, i * cellPx);
+        ctx.lineTo(size, i * cellPx);
+        ctx.stroke();
+      }
+
+      const walls = grid.flat().filter(v => v === CELL.WALL).length;
+      countEl.textContent = walls + ' wall cell(s)';
+    }
+
+    function gridToWorld(i, j) {
+      return {
+        x1: GRID_WORLD_MIN + i * CELL_WORLD,
+        y1: GRID_WORLD_MIN + j * CELL_WORLD,
+        x2: GRID_WORLD_MIN + (i + 1) * CELL_WORLD,
+        y2: GRID_WORLD_MIN + (j + 1) * CELL_WORLD
+      };
+    }
+
+    function buildSegmentsFromGrid() {
+      const segments = [];
+      const yAt = (j) => GRID_WORLD_MIN + j * CELL_WORLD;
+      const x = (i) => GRID_WORLD_MIN + i * CELL_WORLD;
+      for (let j = 0; j < GRID_SIZE; j++) {
+        const y1 = yAt(j);
+        const y2 = y1 + CELL_WORLD;
+        for (let i = 0; i < GRID_SIZE; ) {
+          if (grid[i][j] !== CELL.WALL) { i++; continue; }
+          if (j > 0 && grid[i][j - 1] === CELL.WALL) { i++; continue; }
+          let iEnd = i;
+          while (iEnd + 1 < GRID_SIZE && grid[iEnd + 1][j] === CELL.WALL && (j === 0 || grid[iEnd + 1][j - 1] !== CELL.WALL)) iEnd++;
+          segments.push({ x1: x(i), y1, x2: x(iEnd + 1), y2: y1 });
+          i = iEnd + 1;
+        }
+        for (let i = 0; i < GRID_SIZE; ) {
+          if (grid[i][j] !== CELL.WALL) { i++; continue; }
+          if (j < GRID_SIZE - 1 && grid[i][j + 1] === CELL.WALL) { i++; continue; }
+          let iEnd = i;
+          while (iEnd + 1 < GRID_SIZE && grid[iEnd + 1][j] === CELL.WALL && (j === GRID_SIZE - 1 || grid[iEnd + 1][j + 1] !== CELL.WALL)) iEnd++;
+          segments.push({ x1: x(iEnd + 1), y1: y2, x2: x(i), y2: y2 });
+          i = iEnd + 1;
+        }
+      }
+      for (let i = 0; i < GRID_SIZE; i++) {
+        const x1 = x(i);
+        const x2 = x(i + 1);
+        for (let j = 0; j < GRID_SIZE; ) {
+          if (grid[i][j] !== CELL.WALL) { j++; continue; }
+          if (i > 0 && grid[i - 1][j] === CELL.WALL) { j++; continue; }
+          let jEnd = j;
+          while (jEnd + 1 < GRID_SIZE && grid[i][jEnd + 1] === CELL.WALL && (i === 0 || grid[i - 1][jEnd + 1] !== CELL.WALL)) jEnd++;
+          const yTop = yAt(j);
+          const yBot = yAt(jEnd) + CELL_WORLD;
+          segments.push({ x1: x2, y1: yBot, x2: x2, y2: yTop });
+          j = jEnd + 1;
+        }
+        for (let j = 0; j < GRID_SIZE; ) {
+          if (grid[i][j] !== CELL.WALL) { j++; continue; }
+          if (i < GRID_SIZE - 1 && grid[i + 1][j] === CELL.WALL) { j++; continue; }
+          let jEnd = j;
+          while (jEnd + 1 < GRID_SIZE && grid[i][jEnd + 1] === CELL.WALL && (i === GRID_SIZE - 1 || grid[i + 1][jEnd + 1] !== CELL.WALL)) jEnd++;
+          const yTop = yAt(j);
+          const yBot = yAt(jEnd) + CELL_WORLD;
+          segments.push({ x1: x1, y1: yBot, x2: x1, y2: yTop });
+          j = jEnd + 1;
+        }
+      }
+      return segments;
+    }
+
+    function buildZoneGridForGame() {
+      return grid.map(row => row.slice());
+    }
+
+    /** Rotate grid 90° clockwise: new[i][j] = old[j][GRID_SIZE-1-i] */
+    function rotateGrid90() {
+      const next = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(CELL.EMPTY));
+      const n = GRID_SIZE - 1;
+      for (let i = 0; i < GRID_SIZE; i++) {
+        for (let j = 0; j < GRID_SIZE; j++) {
+          next[i][j] = grid[j][n - i];
+        }
+      }
+      return next;
+    }
+
+    /** Flip grid horizontally: new[i][j] = old[GRID_SIZE-1-i][j] */
+    function flipGridHorizontal() {
+      const next = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(CELL.EMPTY));
+      const n = GRID_SIZE - 1;
+      for (let i = 0; i < GRID_SIZE; i++) {
+        for (let j = 0; j < GRID_SIZE; j++) {
+          next[i][j] = grid[n - i][j];
+        }
+      }
+      return next;
+    }
+
+    function getMapsList() {
+      try {
+        const s = localStorage.getItem(MAPS_KEY);
+        if (s) {
+          const p = JSON.parse(s);
+          if (Array.isArray(p)) return p;
+        }
+      } catch (e) {}
+      return [];
+    }
+
+    function saveMapsList(list) {
+      try {
+        localStorage.setItem(MAPS_KEY, JSON.stringify(list));
+      } catch (e) {}
+    }
+
+    function refreshOldMapsSelect() {
+      const list = getMapsList();
+      oldMapsEl.innerHTML = '<option value="">-- Choose a map --</option>';
+      list.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name || 'Unnamed';
+        oldMapsEl.appendChild(opt);
+      });
+    }
+
+    function getCell(ev) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const px = (ev.clientX - rect.left) * scaleX;
+      const py = (ev.clientY - rect.top) * scaleY;
+      const i = Math.floor(px / cellPx);
+      const j = Math.floor(py / cellPx);
+      if (i >= 0 && i < GRID_SIZE && j >= 0 && j < GRID_SIZE) return [i, j];
+      return null;
+    }
+
+    /** 4-connected flood fill: replace all cells with replaceValue connected to (i,j) with fillValue. */
+    function floodFill(i, j, replaceValue, fillValue) {
+      if (replaceValue === fillValue) return;
+      const queue = [[i, j]];
+      const visited = new Set();
+      visited.add(i + ',' + j);
+      let count = 0;
+      const maxCells = GRID_SIZE * GRID_SIZE;
+      while (queue.length > 0 && count < maxCells) {
+        const [qi, qj] = queue.shift();
+        if (grid[qi][qj] !== replaceValue) continue;
+        grid[qi][qj] = fillValue;
+        count++;
+        for (const [di, dj] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+          const ni = qi + di, nj = qj + dj;
+          if (ni < 0 || ni >= GRID_SIZE || nj < 0 || nj >= GRID_SIZE) continue;
+          const key = ni + ',' + nj;
+          if (visited.has(key)) continue;
+          visited.add(key);
+          if (grid[ni][nj] === replaceValue) queue.push([ni, nj]);
+        }
+      }
+    }
+
+    function paint(ev, value) {
+      const cell = getCell(ev);
+      if (!cell) return;
+      const [i, j] = cell;
+      if (grid[i][j] === value) return;
+      grid[i][j] = value;
+      draw();
+    }
+
+    function showSaveMsg(text, isSuccess) {
+      saveMsgEl.textContent = text;
+      saveMsgEl.className = 'msg ' + (isSuccess ? 'success' : '');
+      saveMsgEl.style.display = 'block';
+      setTimeout(() => { saveMsgEl.style.display = 'none'; }, 4000);
+    }
+
+    canvas.addEventListener('mousedown', (ev) => {
+      ev.preventDefault();
+      const cell = getCell(ev);
+      if (!cell) return;
+      const [i, j] = cell;
+      const bucketMode = document.getElementById('bucketMode').checked;
+      if (bucketMode) {
+        const fillValue = ev.button === 2 ? CELL.EMPTY : currentPen;
+        const replaceValue = grid[i][j];
+        if (replaceValue === fillValue) return;
+        pushHistory();
+        floodFill(i, j, replaceValue, fillValue);
+        draw();
+        return;
+      }
+      drawValue = ev.button === 2 ? CELL.EMPTY : currentPen;
+      pushHistory();
+      grid[i][j] = drawValue;
+      isDrawing = true;
+      draw();
+    });
+
+    canvas.addEventListener('mousemove', (ev) => {
+      if (!isDrawing) return;
+      paint(ev, drawValue);
+    });
+
+    canvas.addEventListener('mouseup', () => { isDrawing = false; });
+    canvas.addEventListener('mouseleave', () => { isDrawing = false; });
+    canvas.addEventListener('contextmenu', (ev) => ev.preventDefault());
+
+    document.getElementById('penWall').dataset.pen = CELL.WALL;
+    document.getElementById('penWall').style.background = PEN_COLORS[CELL.WALL];
+    document.getElementById('penCommon').dataset.pen = CELL.COMMON_UNCOMMON;
+    document.getElementById('penCommon').style.background = PEN_COLORS[CELL.COMMON_UNCOMMON];
+    document.getElementById('penRare').dataset.pen = CELL.RARE_EPIC;
+    document.getElementById('penRare').style.background = PEN_COLORS[CELL.RARE_EPIC];
+    document.getElementById('penLegendary').dataset.pen = CELL.LEGENDARY_MYTHIC;
+    document.getElementById('penLegendary').style.background = PEN_COLORS[CELL.LEGENDARY_MYTHIC];
+    document.getElementById('penUltra').dataset.pen = CELL.ULTRA_SUPER;
+    document.getElementById('penUltra').style.background = PEN_COLORS[CELL.ULTRA_SUPER];
+    document.getElementById('penSpawn').dataset.pen = CELL.SPAWN;
+    document.getElementById('penSpawn').style.background = PEN_COLORS[CELL.SPAWN];
+
+    document.querySelectorAll('.pen-btn').forEach(btn => {
+      btn.onclick = () => setPen(parseInt(btn.dataset.pen, 10));
+    });
+
+    document.getElementById('newMap').onclick = () => {
+      pushHistory();
+      grid = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(CELL.EMPTY));
+      currentMapId = null;
+      mapNameEl.value = '';
+      history = [];
+      draw();
+      showSaveMsg('New map started.', true);
+    };
+
+    document.getElementById('loadMap').onclick = () => {
+      const id = oldMapsEl.value;
+      if (!id) return;
+      const list = getMapsList();
+      const m = list.find(x => x.id === id);
+      if (!m || !m.grid) return;
+      let loaded = m.grid.map(row => row.slice());
+      if (loaded[0] && typeof loaded[0][0] === 'boolean') {
+        loaded = loaded.map(row => row.map(c => c ? CELL.WALL : CELL.EMPTY));
+      }
+      if (loaded.length === 80 && loaded[0] && loaded[0].length === 80) {
+        const big = Array.from({ length: 400 }, () => Array(400).fill(CELL.EMPTY));
+        for (let i = 0; i < 400; i++) {
+          for (let j = 0; j < 400; j++) {
+            big[i][j] = loaded[Math.floor(i / 5)][Math.floor(j / 5)];
+          }
+        }
+        loaded = big;
+      }
+      grid = loaded;
+      mapNameEl.value = m.name || '';
+      currentMapId = m.id;
+      history = [];
+      draw();
+      showSaveMsg('Map loaded.', true);
+    };
+
+    document.getElementById('saveMap').onclick = () => {
+      const name = (mapNameEl.value || '').trim() || 'Unnamed';
+      const list = getMapsList();
+      const gridCopy = deepCopyGrid(grid);
+      if (currentMapId) {
+        const idx = list.findIndex(m => m.id === currentMapId);
+        if (idx >= 0) {
+          list[idx] = { id: currentMapId, name, grid: gridCopy, createdAt: list[idx].createdAt };
+        } else {
+          list.push({ id: currentMapId, name, grid: gridCopy, createdAt: Date.now() });
+        }
+      } else {
+        const id = 'map_' + Date.now();
+        currentMapId = id;
+        list.push({ id, name, grid: gridCopy, createdAt: Date.now() });
+      }
+      saveMapsList(list);
+      refreshOldMapsSelect();
+      showSaveMsg('Saved. Load this map later from Edit old map.', true);
+    };
+
+    document.getElementById('deleteMap').onclick = () => {
+      const id = oldMapsEl.value;
+      if (!id) {
+        showSaveMsg('Choose a map from the dropdown to delete.', false);
+        return;
+      }
+      const list = getMapsList().filter(m => m.id !== id);
+      saveMapsList(list);
+      refreshOldMapsSelect();
+      if (currentMapId === id) {
+        currentMapId = null;
+        mapNameEl.value = '';
+      }
+      oldMapsEl.value = '';
+      showSaveMsg('Map deleted.', true);
+    };
+
+    document.getElementById('undo').onclick = () => {
+      if (history.length === 0) return;
+      grid = history.pop();
+      draw();
+    };
+
+    document.getElementById('clear').onclick = () => {
+      pushHistory();
+      grid = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(CELL.EMPTY));
+      draw();
+    };
+
+    document.getElementById('rotate90').onclick = () => {
+      pushHistory();
+      grid = rotateGrid90();
+      draw();
+      showSaveMsg('Map rotated 90° clockwise.', true);
+    };
+
+    document.getElementById('flipHorizontal').onclick = () => {
+      pushHistory();
+      grid = flipGridHorizontal();
+      draw();
+      showSaveMsg('Map flipped horizontally.', true);
+    };
+
+    document.getElementById('saveConfirm').onclick = () => {
+      const segments = buildSegmentsFromGrid();
+      const zoneGrid = buildZoneGridForGame();
+      const name = (mapNameEl.value || '').trim() || 'Unnamed';
+
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(segments));
+        localStorage.setItem(ZONES_KEY, JSON.stringify({ grid: zoneGrid }));
+      } catch (e) {
+        showSaveMsg('Failed to save: ' + e.message, false);
+        return;
+      }
+
+      const list = getMapsList();
+      const gridCopy = deepCopyGrid(grid);
+      if (currentMapId) {
+        const idx = list.findIndex(m => m.id === currentMapId);
+        if (idx >= 0) {
+          list[idx] = { id: currentMapId, name, grid: gridCopy, createdAt: list[idx].createdAt };
+        } else {
+          list.push({ id: currentMapId, name, grid: gridCopy, createdAt: Date.now() });
+        }
+      } else {
+        const id = 'map_' + Date.now();
+        currentMapId = id;
+        list.push({ id, name, grid: gridCopy, createdAt: Date.now() });
+      }
+      saveMapsList(list);
+      refreshOldMapsSelect();
+
+      showSaveMsg('Map saved. Reload the game to use it.', true);
+    };
+
+    refreshOldMapsSelect();
+    draw();
+  </script>
+</body>
+</html>

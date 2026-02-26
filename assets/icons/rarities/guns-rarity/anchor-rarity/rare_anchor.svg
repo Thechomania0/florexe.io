@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <rect x="2" y="2" width="44" height="44" rx="10" ry="10" fill="#3c78d8" stroke="#2a56a8" stroke-width="2"/>
+  <rect x="23" y="16.5" width="10" height="15" fill="#9e9e9e" stroke="#4a4a4a" stroke-width="1"/>
+  <polygon points="33,16.5 33,31.5 39,39 39,9" fill="#9e9e9e" stroke="#4a4a4a" stroke-width="1" stroke-linejoin="round"/>
+  <circle cx="20.64" cy="24" r="9.9" fill="#1ca8c9" stroke="#0d6b85" stroke-width="1.2"/>
+  <text x="24" y="40" font-family="Rajdhani, sans-serif" font-size="10.2" font-weight="700" fill="#ffffff" stroke="#000000" stroke-width="1.1" paint-order="stroke fill" text-anchor="middle">Anchor</text>
+</svg>

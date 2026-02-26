@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Florexe.io</title>
+  <script>
+    (function() {
+      var path = location.pathname;
+      var base = path.endsWith('/') ? path : path.replace(/\/[^/]*$/, '') + '/';
+      if (!base) base = '/';
+      document.write('<base href="' + base + '">');
+    })();
+  </script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="main-menu">
+    <div class="menu-content">
+      <h1 class="logo">Florexe<span class="io">.io</span></h1>
+      <div class="gamemode-buttons">
+        <button class="gamemode-btn" data-mode="ffa">FFA</button>
+        <button class="gamemode-btn" data-mode="2tdm">2TDM</button>
+        <button class="gamemode-btn" data-mode="4tdm">4TDM</button>
+        <button class="gamemode-btn heaven" data-mode="heaven">Heaven <span class="lvl-req">(Lv50)</span></button>
+      </div>
+      <div class="menu-map-editor-row">
+        <a href="map-editor.html" target="_blank" rel="noopener" class="map-editor-btn">Map editor</a>
+      </div>
+    </div>
+  </div>
+
+  <div id="game-container" class="hidden">
+    <canvas id="gameCanvas"></canvas>
+    <div id="hud">
+
+      <div id="autoAttackToast" class="auto-attack-toast hidden" aria-live="polite">Auto-Attack (E): Off</div>
+
+      <div class="hud-top">
+        <div class="hud-top-left">
+          <button id="shopBtn" class="shop-btn">Shop</button>
+          <span class="stars" id="stars">★ 0</span>
+        </div>
+        <div class="hud-top-right">
+          <span id="visionZoomLabel" class="vision-zoom-label" aria-live="polite">+0%</span>
+          <div class="minimap-wrap">
+            <canvas id="minimapCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="hud-center-bottom">
+        <div class="hud-bars">
+          <div class="hand-row hud-hand-row">
+            <div class="hand-label">Gun</div>
+            <div class="hand-slot hand-tank" id="handTank" data-slot="tank">–</div>
+            <div class="hand-label">Body</div>
+            <div class="hand-slot hand-body" id="handBody" data-slot="body">–</div>
+          </div>
+          <div class="hud-bar level-bar">
+            <span class="level" id="level">Level 1 Node-Base</span>
+          </div>
+          <div class="hud-bar score-bar">
+            <span class="hud-icon"></span>
+            <span class="score" id="score">Score: 0</span>
+          </div>
+          <div class="hud-bar hp-bar-row">
+            <span class="hud-icon"></span>
+            <span class="hp-bar-container">
+              <span class="hp-bar" id="hpBar"></span>
+              <span class="hp-text" id="hpText">500/500</span>
+            </span>
+          </div>
+          <div class="hud-bar xp-bar-row">
+            <span class="hud-icon"></span>
+            <span class="xp-bar-container">
+              <span class="xp-bar" id="xpBar"></span>
+            </span>
+            <span class="xp-text" id="xpText">0 / 100</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hud-bottom-left">
+        <div class="hud-bottom-tabs">
+          <div id="galleryBox" class="toggle-box" data-key="g">
+            <button class="toggle-box-tab" id="galleryBoxTab" title="Mob Gallery (G)">G</button>
+          </div>
+          <div id="craftBox" class="toggle-box" data-key="c">
+            <button class="toggle-box-tab" id="craftBoxTab" title="Craft (C)">C</button>
+          </div>
+          <div id="inventoryBox" class="toggle-box" data-key="z">
+            <button class="toggle-box-tab" id="inventoryBoxTab">Z</button>
+            <div class="toggle-box-content hidden" id="inventoryBoxContent">
+              <p class="controls-hint">Drag to equip</p>
+              <div class="inventory-split">
+                <div class="inventory-column">
+                  <div class="column-label">Guns</div>
+                  <div class="inventory-slots" id="gunSlots"></div>
+                </div>
+                <div class="inventory-column">
+                  <div class="column-label">Bodies</div>
+                  <div class="inventory-slots" id="bodySlots"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="chatWrap" class="chat-wrap">
+          <div id="chatMessages" class="chat-messages" aria-live="polite"></div>
+          <div class="chat-input-wrap">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Press [ENTER] or click here to chat" maxlength="200" autocomplete="off" />
+            <div id="chatCommandList" class="chat-command-list hidden" aria-live="polite"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="superMobAlert" class="super-mob-alert hidden">
+        A SUPER MOB HAS SPAWNED!
+      </div>
+
+      <div id="fireHint" class="fire-hint hidden">
+        <p>Left click to fire or press E to auto attack</p>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="loading-screen" class="loading-screen hidden" aria-live="polite">
+    <div class="loading-content">
+      <h1 class="loading-title">Florexe<span class="loading-io">.io</span></h1>
+      <p class="loading-status">Connecting...</p>
+      <div class="loading-spinner" aria-hidden="true"></div>
+    </div>
+    <div class="loading-dots">
+      <span></span><span></span><span></span>
+    </div>
+  </div>
+
+  <div id="crafting-modal" class="modal hidden">
+    <div class="craft-panel">
+      <div class="craft-header">
+        <h2 class="craft-title">Craft</h2>
+        <button id="craftClose" class="craft-close" aria-label="Close">×</button>
+      </div>
+
+      <div class="craft-upper">
+        <div class="craft-pentagon-wrap">
+          <div class="craft-result-slot" id="craftResultSlot">
+            <span class="craft-result-icon" id="craftResultIcon">?</span>
+            <span class="craft-result-name" id="craftResultName">—</span>
+          </div>
+          <div class="craft-slots-pentagon" id="craftSlots">
+            <!-- 5 slots at pentagon vertices -->
+          </div>
+        </div>
+        <div class="craft-action">
+          <button id="craftConfirm" class="craft-confirm-btn">Craft</button>
+          <span class="craft-chance" id="craftChance">0% success chance</span>
+        </div>
+      </div>
+
+      <p class="craft-instruction">Combine 5 of the same petal to craft an upgrade</p>
+
+      <div class="craft-inventory-section">
+        <div class="craft-inventory-grid" id="craftInventoryGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="mob-gallery-modal" class="modal hidden">
+    <div class="mob-gallery-panel">
+      <div class="mob-gallery-header">
+        <h2 class="mob-gallery-title">Mob Gallery</h2>
+        <button id="mobGalleryClose" class="mob-gallery-close" aria-label="Close">×</button>
+      </div>
+      <div class="mob-gallery-tooltip hidden" id="mobGalleryTooltip"></div>
+      <div class="mob-gallery-grid" id="mobGalleryGrid"></div>
+    </div>
+  </div>
+
+  <div id="death-screen" class="modal hidden">
+    <div class="modal-content death">
+      <h2>You Died</h2>
+      <p>Score not saved (below 50% HP)</p>
+      <button id="respawnBtn">Respawn</button>
+    </div>
+  </div>
+
+  <div class="item-detail-tooltip hidden" id="itemDetailTooltip"></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

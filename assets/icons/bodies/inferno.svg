@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Blue/teal body -->
+  <circle cx="24" cy="24" r="10" fill="#1ca8c9" stroke="#0a6b85" stroke-width="1"/>
+  <!-- Inferno: light grey circle +30% size, outline 50% thinner -->
+  <circle cx="24" cy="24" r="7.8" fill="#b0b0b0" stroke="#6a6a6a" stroke-width="0.75"/>
+  <!-- Small red circle +30% size, outline 50% thinner -->
+  <circle cx="24" cy="24" r="3.9" fill="#c00" stroke="#800" stroke-width="0.5"/>
+</svg>

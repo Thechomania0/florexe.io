@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Ziggurat scaled to 48% (40% base + 20% increase), centered -->
+  <g transform="translate(24,24) scale(0.48) translate(-24,-24)">
+    <polygon points="24,6 42,18 42,30 24,42 6,30 6,18" fill="#1ca8c9" stroke="#0a6b85" stroke-width="1"/>
+    <polygon points="24,14 36,22 36,26 24,34 12,26 12,22" fill="#1ca8c9" stroke="#0e7a9e" stroke-width="0.75"/>
+    <polygon points="24,20 30,24 30,26 24,30 18,26 18,24" fill="#1ca8c9" stroke="#0e7a9e" stroke-width="0.75"/>
+    <circle cx="24" cy="25" r="3" fill="#1ca8c9" stroke="#0e7a9e" stroke-width="0.5"/>
+    <!-- Dark grey outline around outer layer so it doesn't blend into blue item background -->
+    <polygon points="24,6 42,18 42,30 24,42 6,30 6,18" fill="none" stroke="#3a3a3a" stroke-width="2.5"/>
+  </g>
+</svg>
