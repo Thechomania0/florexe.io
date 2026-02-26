@@ -1,18 +1,24 @@
 # Where User Data Is Stored
 
-## Usernames and Discord Login Info
+## Server-side (in game files)
 
-### 1. Server-side (for unique usernames)
+### 1. Usernames (for unique usernames)
 
 **File: `server/data/users.json`**
 
 - Stores all registered usernames for uniqueness.
 - Format: `{ "username_lowercase": "discordId" }`
 - Example: `{ "thechomania": "123456789012345678" }`
-- Only you (the server operator) can see this file on your machine.
-- This is the **document that keeps usernames** (for global uniqueness).
 
-### 2. Browser localStorage (per-user, on their device)
+### 2. Admin Map Editor Maps
+
+**File: `server/data/maps.json`**
+
+- Stores all maps saved in the map editor (admin-only).
+- Format: array of `{ id, name, grid, createdAt }`.
+- Maps are saved when you click Save or "Save and confirm implementation".
+
+## Browser localStorage (per-user, on their device)
 
 **Keys:**
 - `florexe_auth` — Discord OAuth token and user info (username, id, avatar, etc.)
@@ -28,5 +34,6 @@
 | Data               | Location                    | Who can see it              |
 |--------------------|-----------------------------|-----------------------------|
 | Username registry  | `server/data/users.json`    | You (server operator)       |
+| Admin maps         | `server/data/maps.json`     | You (server operator)       |
 | Discord login info | Browser `localStorage`      | Only the logged-in user     |
 | Display name       | Browser `localStorage`      | Only the logged-in user     |

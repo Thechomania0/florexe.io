@@ -104,8 +104,7 @@
     const GRID_WORLD_MIN = -GRID_WORLD_SPAN / 2;
     const STORAGE_KEY = 'florexe_custom_walls';
     const ZONES_KEY = 'florexe_custom_zones';
-    const MAPS_KEY = 'florexe_map_editor_maps';
-    const MAX_UNDO = 80;
+    const API_BASE = window.FLOREXE_API_URL || '';
 
     const CELL = { EMPTY: 0, WALL: 1, COMMON_UNCOMMON: 2, RARE_EPIC: 3, LEGENDARY_MYTHIC: 4, ULTRA_SUPER: 5, SPAWN: 6 };
     const PEN_COLORS = {
@@ -271,25 +270,36 @@
       return next;
     }
 
-    function getMapsList() {
+    async function getMapsList() {
       try {
-        const s = localStorage.getItem(MAPS_KEY);
-        if (s) {
-          const p = JSON.parse(s);
-          if (Array.isArray(p)) return p;
-        }
-      } catch (e) {}
-      return [];
+        const r = await fetch(API_BASE + '/api/maps');
+        if (!r.ok) return [];
+        const data = await r.json();
+        return Array.isArray(data) ? data : [];
+      } catch (e) {
+        showSaveMsg('Could not load maps. Is the server running?', false);
+        return [];
+      }
     }
 
-    function saveMapsList(list) {
-      try {
-        localStorage.setItem(MAPS_KEY, JSON.stringify(list));
-      } catch (e) {}
+    async function saveMapToServer(id, name, gridCopy) {
+      const r = await fetch(API_BASE + '/api/maps', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: id || undefined, name, grid: gridCopy })
+      });
+      if (!r.ok) throw new Error('Save failed');
+      const d = await r.json();
+      return d.id;
     }
 
-    function refreshOldMapsSelect() {
-      const list = getMapsList();
+    async function deleteMapFromServer(id) {
+      const r = await fetch(API_BASE + '/api/maps/' + encodeURIComponent(id), { method: 'DELETE' });
+      if (!r.ok) throw new Error('Delete failed');
+    }
+
+    async function refreshOldMapsSelect() {
+      const list = await getMapsList();
       oldMapsEl.innerHTML = '<option value="">-- Choose a map --</option>';
       list.forEach(m => {
         const opt = document.createElement('option');
@@ -439,69 +449,69 @@
       showSaveMsg('New map started.', true);
     };
 
-    document.getElementById('loadMap').onclick = () => {
+    document.getElementById('loadMap').onclick = async () => {
       const id = oldMapsEl.value;
       if (!id) return;
-      const list = getMapsList();
-      const m = list.find(x => x.id === id);
-      if (!m || !m.grid) return;
-      let loaded = m.grid.map(row => row.slice());
-      if (loaded[0] && typeof loaded[0][0] === 'boolean') {
-        loaded = loaded.map(row => row.map(c => c ? CELL.WALL : CELL.EMPTY));
-      }
-      if (loaded.length === 80 && loaded[0] && loaded[0].length === 80) {
-        const big = Array.from({ length: 400 }, () => Array(400).fill(CELL.EMPTY));
-        for (let i = 0; i < 400; i++) {
-          for (let j = 0; j < 400; j++) {
-            big[i][j] = loaded[Math.floor(i / 5)][Math.floor(j / 5)];
+      try {
+        const r = await fetch(API_BASE + '/api/maps/' + encodeURIComponent(id));
+        if (!r.ok) { showSaveMsg('Map not found.', false); return; }
+        const m = await r.json();
+        if (!m || !m.grid) { showSaveMsg('Invalid map data.', false); return; }
+        let loaded = m.grid.map(row => row.slice());
+        if (loaded[0] && typeof loaded[0][0] === 'boolean') {
+          loaded = loaded.map(row => row.map(c => c ? CELL.WALL : CELL.EMPTY));
+        }
+        if (loaded.length === 80 && loaded[0] && loaded[0].length === 80) {
+          const big = Array.from({ length: 400 }, () => Array(400).fill(CELL.EMPTY));
+          for (let i = 0; i < 400; i++) {
+            for (let j = 0; j < 400; j++) {
+              big[i][j] = loaded[Math.floor(i / 5)][Math.floor(j / 5)];
+            }
           }
+          loaded = big;
         }
-        loaded = big;
+        grid = loaded;
+        mapNameEl.value = m.name || '';
+        currentMapId = m.id;
+        history = [];
+        draw();
+        showSaveMsg('Map loaded.', true);
+      } catch (e) {
+        showSaveMsg('Could not load map. Is the server running?', false);
       }
-      grid = loaded;
-      mapNameEl.value = m.name || '';
-      currentMapId = m.id;
-      history = [];
-      draw();
-      showSaveMsg('Map loaded.', true);
     };
 
-    document.getElementById('saveMap').onclick = () => {
+    document.getElementById('saveMap').onclick = async () => {
       const name = (mapNameEl.value || '').trim() || 'Unnamed';
-      const list = getMapsList();
       const gridCopy = deepCopyGrid(grid);
-      if (currentMapId) {
-        const idx = list.findIndex(m => m.id === currentMapId);
-        if (idx >= 0) {
-          list[idx] = { id: currentMapId, name, grid: gridCopy, createdAt: list[idx].createdAt };
-        } else {
-          list.push({ id: currentMapId, name, grid: gridCopy, createdAt: Date.now() });
-        }
-      } else {
-        const id = 'map_' + Date.now();
-        currentMapId = id;
-        list.push({ id, name, grid: gridCopy, createdAt: Date.now() });
+      try {
+        const savedId = await saveMapToServer(currentMapId, name, gridCopy);
+        currentMapId = savedId;
+        await refreshOldMapsSelect();
+        showSaveMsg('Saved to server. Load this map later from Edit old map.', true);
+      } catch (e) {
+        showSaveMsg('Could not save. Is the server running?', false);
       }
-      saveMapsList(list);
-      refreshOldMapsSelect();
-      showSaveMsg('Saved. Load this map later from Edit old map.', true);
     };
 
-    document.getElementById('deleteMap').onclick = () => {
+    document.getElementById('deleteMap').onclick = async () => {
       const id = oldMapsEl.value;
       if (!id) {
         showSaveMsg('Choose a map from the dropdown to delete.', false);
         return;
       }
-      const list = getMapsList().filter(m => m.id !== id);
-      saveMapsList(list);
-      refreshOldMapsSelect();
-      if (currentMapId === id) {
-        currentMapId = null;
-        mapNameEl.value = '';
+      try {
+        await deleteMapFromServer(id);
+        await refreshOldMapsSelect();
+        if (currentMapId === id) {
+          currentMapId = null;
+          mapNameEl.value = '';
+        }
+        oldMapsEl.value = '';
+        showSaveMsg('Map deleted from server.', true);
+      } catch (e) {
+        showSaveMsg('Could not delete. Is the server running?', false);
       }
-      oldMapsEl.value = '';
-      showSaveMsg('Map deleted.', true);
     };
 
     document.getElementById('undo').onclick = () => {
@@ -530,7 +540,7 @@
       showSaveMsg('Map flipped horizontally.', true);
     };
 
-    document.getElementById('saveConfirm').onclick = () => {
+    document.getElementById('saveConfirm').onclick = async () => {
       const segments = buildSegmentsFromGrid();
       const zoneGrid = buildZoneGridForGame();
       const name = (mapNameEl.value || '').trim() || 'Unnamed';
@@ -543,22 +553,13 @@
         return;
       }
 
-      const list = getMapsList();
-      const gridCopy = deepCopyGrid(grid);
-      if (currentMapId) {
-        const idx = list.findIndex(m => m.id === currentMapId);
-        if (idx >= 0) {
-          list[idx] = { id: currentMapId, name, grid: gridCopy, createdAt: list[idx].createdAt };
-        } else {
-          list.push({ id: currentMapId, name, grid: gridCopy, createdAt: Date.now() });
-        }
-      } else {
-        const id = 'map_' + Date.now();
-        currentMapId = id;
-        list.push({ id, name, grid: gridCopy, createdAt: Date.now() });
+      try {
+        const savedId = await saveMapToServer(currentMapId, name, deepCopyGrid(grid));
+        currentMapId = savedId;
+        await refreshOldMapsSelect();
+      } catch (e) {
+        showSaveMsg('Saved to browser, but could not save to server. Is the server running?', false);
       }
-      saveMapsList(list);
-      refreshOldMapsSelect();
 
       showSaveMsg('Map saved. Reload the game to use it.', true);
     };
@@ -576,7 +577,7 @@
       showSaveMsg('Downloaded custom-map.json. Add it to your repo as data/custom-map.json and push.', true);
     };
 
-    refreshOldMapsSelect();
+    refreshOldMapsSelect().then(() => {}).catch(() => {});
     draw();
   </script>
 </body>
