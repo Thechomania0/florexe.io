@@ -33,14 +33,55 @@ app.use(
   })
 );
 
-app.use(express.static(path.join(__dirname, '..')));
-
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'index.html'));
+app.get('/api/me', (req, res) => {
+  if (!req.session.discordId) {
+    return res.json({ loggedIn: false });
+  }
+  const user = getUserByDiscordId(req.session.discordId);
+  if (!user) {
+    req.session.destroy(() => {});
+    return res.json({ loggedIn: false });
+  }
+  res.json({
+    loggedIn: true,
+    discordId: user.discordId,
+    username: user.username,
+    needsUsername: !user.username,
+    discordUsername: user.discordUsername,
+  });
 });
 
-app.get('/map-editor.html', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'map-editor.html'));
+app.post('/api/username', (req, res) => {
+  if (!req.session.discordId) return res.status(401).json({ ok: false, error: 'Not logged in' });
+  const { username } = req.body;
+  if (username == null || typeof username !== 'string') {
+    return res.status(400).json({ ok: false, error: 'Username required' });
+  }
+  const ok = setUsername(req.session.discordId, username);
+  if (ok) req.session.needsUsername = false;
+  res.json({ ok, error: ok ? null : 'Invalid or empty username' });
+});
+
+app.get('/api/progress', (req, res) => {
+  if (!req.session.discordId) return res.status(401).json({ error: 'Not logged in' });
+  const progress = getProgress(req.session.discordId);
+  res.json(progress || {});
+});
+
+app.post('/api/progress', (req, res) => {
+  if (!req.session.discordId) return res.status(401).json({ error: 'Not logged in' });
+  const body = req.body || {};
+  saveProgress(req.session.discordId, {
+    inventory: Array.isArray(body.inventory) ? body.inventory : [],
+    hand: Array.isArray(body.hand) ? body.hand : [],
+    equippedTank: body.equippedTank || null,
+    equippedBody: body.equippedBody || null,
+    level: typeof body.level === 'number' ? body.level : 1,
+    xp: typeof body.xp === 'number' ? body.xp : 0,
+    stars: typeof body.stars === 'number' ? body.stars : 0,
+    score: typeof body.score === 'number' ? body.score : 0,
+  });
+  res.json({ ok: true });
 });
 
 app.get('/auth/discord', (req, res) => {
@@ -102,55 +143,14 @@ app.get('/auth/logout', (req, res) => {
   res.redirect('/');
 });
 
-app.get('/api/me', (req, res) => {
-  if (!req.session.discordId) {
-    return res.json({ loggedIn: false });
-  }
-  const user = getUserByDiscordId(req.session.discordId);
-  if (!user) {
-    req.session.destroy(() => {});
-    return res.json({ loggedIn: false });
-  }
-  res.json({
-    loggedIn: true,
-    discordId: user.discordId,
-    username: user.username,
-    needsUsername: !user.username,
-    discordUsername: user.discordUsername,
-  });
+app.use(express.static(path.join(__dirname, '..')));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'index.html'));
 });
 
-app.post('/api/username', (req, res) => {
-  if (!req.session.discordId) return res.status(401).json({ ok: false, error: 'Not logged in' });
-  const { username } = req.body;
-  if (username == null || typeof username !== 'string') {
-    return res.status(400).json({ ok: false, error: 'Username required' });
-  }
-  const ok = setUsername(req.session.discordId, username);
-  if (ok) req.session.needsUsername = false;
-  res.json({ ok, error: ok ? null : 'Invalid or empty username' });
-});
-
-app.get('/api/progress', (req, res) => {
-  if (!req.session.discordId) return res.status(401).json({ error: 'Not logged in' });
-  const progress = getProgress(req.session.discordId);
-  res.json(progress || {});
-});
-
-app.post('/api/progress', (req, res) => {
-  if (!req.session.discordId) return res.status(401).json({ error: 'Not logged in' });
-  const body = req.body || {};
-  saveProgress(req.session.discordId, {
-    inventory: Array.isArray(body.inventory) ? body.inventory : [],
-    hand: Array.isArray(body.hand) ? body.hand : [],
-    equippedTank: body.equippedTank || null,
-    equippedBody: body.equippedBody || null,
-    level: typeof body.level === 'number' ? body.level : 1,
-    xp: typeof body.xp === 'number' ? body.xp : 0,
-    stars: typeof body.stars === 'number' ? body.stars : 0,
-    score: typeof body.score === 'number' ? body.score : 0,
-  });
-  res.json({ ok: true });
+app.get('/map-editor.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'map-editor.html'));
 });
 
 app.get('/admin/users', (req, res) => {
