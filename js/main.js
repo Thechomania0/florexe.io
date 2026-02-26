@@ -1587,6 +1587,10 @@ function setupChat() {
         }
       } else {
         appendMessage(raw);
+        if (game?.player) {
+          if (game.floatingMessages.length >= 4) game.floatingMessages.shift();
+          game.floatingMessages.push({ text: raw, expiresAt: Date.now() + 2000 });
+        }
       }
       chatInput.value = '';
       chatInput.blur();

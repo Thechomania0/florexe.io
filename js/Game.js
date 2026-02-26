@@ -35,6 +35,8 @@ export class Game {
     this.scale = 1;
     this.spawnTimer = 0;
     this.running = true;
+    /** Floating chat messages above the local player: { text, expiresAt }. Max 4; 2s each. */
+    this.floatingMessages = [];
   }
 
   start() {
@@ -549,6 +551,28 @@ export class Game {
 
     if (this.player && !this.player.dead) {
       this.player.draw(ctx, scale);
+    }
+
+    // Floating chat messages above the player (newest just above, oldest higher; max 4, 2s each)
+    const now = Date.now();
+    this.floatingMessages = this.floatingMessages.filter((m) => m.expiresAt > now);
+    if (this.player && !this.player.dead && this.floatingMessages.length > 0) {
+      const p = this.player;
+      const fontSize = Math.max(10, 20 / scale);
+      const lineHeight = fontSize * 1.25;
+      const baseY = p.y - p.size - 12;
+      ctx.font = `${fontSize}px Rajdhani, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      for (let i = 0; i < this.floatingMessages.length; i++) {
+        const y = baseY - (this.floatingMessages.length - 1 - i) * lineHeight;
+        const text = this.floatingMessages[i].text;
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 3 / scale;
+        ctx.strokeText(text, p.x, y);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(text, p.x, y);
+      }
     }
 
     ctx.restore();
