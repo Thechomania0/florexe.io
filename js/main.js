@@ -17,45 +17,6 @@ let animationId = null;
 
 let canvas, ctx, mainMenu, gameContainer, minimapCanvas, minimapCtx;
 
-/** Logged-in account state: { loggedIn, username, needsUsername }. Set by init after /api/me. */
-let accountUser = { loggedIn: false, username: null, needsUsername: false };
-
-function getApiBase() {
-  if (typeof window !== 'undefined' && window.FLOREXE_API_URL) return window.FLOREXE_API_URL.replace(/\/$/, '');
-  return '';
-}
-
-async function fetchMe() {
-  try {
-    const r = await fetch(getApiBase() + '/api/me', { credentials: 'include' });
-    const data = r.ok ? await r.json() : { loggedIn: false };
-    return { ...data, authAvailable: r.status !== 404 };
-  } catch {
-    return { loggedIn: false, authAvailable: false };
-  }
-}
-
-async function fetchProgress() {
-  try {
-    const r = await fetch(getApiBase() + '/api/progress', { credentials: 'include' });
-    return r.ok ? await r.json() : null;
-  } catch {
-    return null;
-  }
-}
-
-async function saveProgressToAccount(data) {
-  if (!accountUser.loggedIn) return;
-  try {
-    await fetch(getApiBase() + '/api/progress', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-  } catch (_) {}
-}
-
 const MINIMAP_SIZE = 220; // fixed full-map view; entire map fits, does not pan
 
 /** Generate an SVG data URL for a regular polygon (mob/food shape) for use in the gallery. */
@@ -135,11 +96,7 @@ function startGame(gamemode) {
         chatEl.appendChild(line);
         chatEl.scrollTop = chatEl.scrollHeight;
       };
-      let savedState = null;
-      if (accountUser.loggedIn) {
-        savedState = await fetchProgress();
-      }
-      game.start(savedState).then(() => {
+      game.start(null).then(() => {
         requestAnimationFrame(() => {
           const elapsed = Date.now() - loadingShownAt;
           const minDisplay = 1200;
@@ -182,8 +139,6 @@ function startGame(gamemode) {
 
 let _keyDown, _keyUp, _wheelZoom;
 let _autoAttackToastHideTimeout = null;
-const PROGRESS_SAVE_INTERVAL_MS = 30000;
-let lastProgressSaveAt = 0;
 
 function showAutoAttackToast(isOn) {
   const el = document.getElementById('autoAttackToast');
@@ -1485,9 +1440,7 @@ const chatMessagesList = [];
 
 function setupChat() {
   if (chatGuestName == null) {
-    chatGuestName = accountUser.loggedIn && accountUser.username
-      ? accountUser.username
-      : 'Guest #' + String(1000 + Math.floor(Math.random() * 9000));
+    chatGuestName = 'Guest #' + String(1000 + Math.floor(Math.random() * 9000));
   }
   const chatInput = document.getElementById('chatInput');
   const chatMessages = document.getElementById('chatMessages');
@@ -1689,65 +1642,6 @@ function init() {
   preloadIcons();
   resize();
 
-  (async () => {
-    const me = await fetchMe();
-    accountUser = {
-      loggedIn: !!me.loggedIn,
-      username: me.username || null,
-      needsUsername: !!me.needsUsername,
-    };
-    const loginBtn = document.getElementById('menuLoginBtn');
-    const userWrap = document.getElementById('menuUserWrap');
-    const usernameEl = document.getElementById('menuUsername');
-    if (loginBtn && userWrap && usernameEl) {
-      if (accountUser.loggedIn) {
-        loginBtn.classList.add('hidden');
-        userWrap.classList.remove('hidden');
-        usernameEl.textContent = accountUser.username || 'Account';
-      } else {
-        loginBtn.classList.remove('hidden');
-        userWrap.classList.add('hidden');
-        if (me.authAvailable) {
-          loginBtn.href = getApiBase() + '/auth/discord';
-          loginBtn.removeAttribute('title');
-        } else {
-          loginBtn.href = '#';
-          loginBtn.title = 'Discord login is available when running the game server (see README).';
-        }
-      }
-    }
-    if (accountUser.needsUsername) {
-      const modal = document.getElementById('username-modal');
-      const input = document.getElementById('usernameInput');
-      const submitBtn = document.getElementById('usernameSubmit');
-      if (modal && input && submitBtn) {
-        modal.classList.remove('hidden');
-        const doSubmit = async () => {
-          const name = input.value.trim().slice(0, 50);
-          if (!name) return;
-          try {
-            const r = await fetch(getApiBase() + '/api/username', {
-              method: 'POST',
-              credentials: 'include',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ username: name }),
-            });
-            const data = await r.json();
-            if (data.ok) {
-              accountUser.username = name;
-              accountUser.needsUsername = false;
-              if (usernameEl) usernameEl.textContent = name;
-              modal.classList.add('hidden');
-              input.value = '';
-            }
-          } catch (_) {}
-        };
-        submitBtn.onclick = doSubmit;
-        input.onkeydown = (e) => { if (e.key === 'Enter') doSubmit(); };
-      }
-    }
-  })();
-
   document.querySelectorAll('.gamemode-btn').forEach(btn => {
     btn.onclick = () => {
       if (btn.disabled) return;
@@ -1759,11 +1653,9 @@ function init() {
 
   const respawnBtn = document.getElementById('respawnBtn');
   if (respawnBtn) {
-    respawnBtn.onclick = async () => {
+    respawnBtn.onclick = () => {
       document.getElementById('death-screen').classList.add('hidden');
-      let savedState = null;
-      if (accountUser.loggedIn) savedState = await fetchProgress();
-      if (game) game.start(savedState);
+      if (game) game.start(null);
       lastTime = performance.now();
       if (!animationId) loop(performance.now());
     };
@@ -1781,18 +1673,6 @@ function loop(now) {
   lastTime = now;
 
   if (game?.player?.dead) {
-    if (accountUser.loggedIn && game.player) {
-      saveProgressToAccount({
-        inventory: game.player.inventory || [],
-        hand: game.player.hand || [],
-        equippedTank: game.player.equippedTank || null,
-        equippedBody: game.player.equippedBody || null,
-        level: game.player.level ?? 1,
-        xp: game.player.xp ?? 0,
-        stars: game.player.stars ?? 0,
-        score: game.player.score ?? 0,
-      });
-    }
     document.getElementById('death-screen').classList.remove('hidden');
     game.running = false;
     animationId = requestAnimationFrame(loop);
@@ -1801,23 +1681,6 @@ function loop(now) {
 
   game?.update(dt);
   game?.draw(ctx);
-
-  if (accountUser.loggedIn && game?.player && !game.player.dead) {
-    const now = performance.now();
-    if (now - lastProgressSaveAt >= PROGRESS_SAVE_INTERVAL_MS) {
-      lastProgressSaveAt = now;
-      saveProgressToAccount({
-        inventory: game.player.inventory || [],
-        hand: game.player.hand || [],
-        equippedTank: game.player.equippedTank || null,
-        equippedBody: game.player.equippedBody || null,
-        level: game.player.level ?? 1,
-        xp: game.player.xp ?? 0,
-        stars: game.player.stars ?? 0,
-        score: game.player.score ?? 0,
-      });
-    }
-  }
 
   updateVisionZoomLabel();
   drawMinimap();

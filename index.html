@@ -28,11 +28,7 @@
 <body>
   <div id="main-menu">
     <div class="menu-auth-wrap">
-      <a href="https://discord.com/oauth2/authorize?client_id=1476693949090500708&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fauth%2Fdiscord%2Fcallback&scope=identify" id="menuLoginBtn" class="menu-login-btn">Login with Discord</a>
-      <span id="menuUserWrap" class="menu-user-wrap hidden">
-        <span id="menuUsername" class="menu-username"></span>
-        <a href="/auth/logout" class="menu-logout-btn">Logout</a>
-      </span>
+      <a href="https://discord.com/oauth2/authorize?client_id=1476693949090500708&response_type=token&redirect_uri=http%3A%2F%2Flocalhost%3A53134%2Fauth%2Fdiscord&scope=identify" id="menuLoginBtn" class="menu-login-btn">Login with Discord</a>
     </div>
     <div class="menu-content">
       <h1 class="logo">Florexe<span class="io">.io</span></h1>
@@ -209,15 +205,6 @@
   </div>
 
   <div class="item-detail-tooltip hidden" id="itemDetailTooltip"></div>
-
-  <div id="username-modal" class="modal hidden">
-    <div class="modal-content username-modal-content">
-      <h2>Choose your username</h2>
-      <p class="username-modal-hint">This name will appear in chat and in game. Max 50 characters.</p>
-      <input type="text" id="usernameInput" class="username-input" maxlength="50" placeholder="Enter username" autocomplete="off" />
-      <button id="usernameSubmit" class="username-submit">Save</button>
-    </div>
-  </div>
 
   <script type="module" src="js/main.js?v=4"></script>
 </body>
