@@ -571,8 +571,8 @@ export class Game {
         const y = baseY - (this.floatingMessages.length - 1 - i) * lineHeight;
         const text = this.floatingMessages[i].text;
         const textW = ctx.measureText(text).width;
-        const boxW = textW * 1.05;
-        const boxH = textHeight * 1.05;
+        const boxW = textW * 1.10;
+        const boxH = textHeight * 1.10;
         const boxX = p.x - boxW / 2;
         const boxY = y - boxH / 2;
         ctx.fillStyle = bgColor;
