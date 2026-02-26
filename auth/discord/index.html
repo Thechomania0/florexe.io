@@ -38,13 +38,25 @@
           const discriminator = response.discriminator || '0';
           const avatar = response.avatar;
           const id = response.id;
+          const displayName = discriminator !== '0' ? `${username}#${discriminator}` : username;
 
-          document.getElementById('name').textContent = discriminator !== '0' ? `${username}#${discriminator}` : username;
+          document.getElementById('name').textContent = displayName;
 
           const avatarEl = document.getElementById('avatar');
           if (id && avatar) {
             avatarEl.src = `https://cdn.discordapp.com/avatars/${id}/${avatar}.jpg`;
           }
+
+          // Persist login so we stay logged in across sessions
+          try {
+            const auth = {
+              accessToken,
+              tokenType,
+              user: { username, discriminator, avatar, id, displayName },
+              expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000
+            };
+            localStorage.setItem('florexe_auth', JSON.stringify(auth));
+          } catch (e) {}
         })
         .catch(console.error);
     };

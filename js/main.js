@@ -1627,6 +1627,76 @@ function escapeHtml(s) {
   return div.innerHTML;
 }
 
+/** Bad-word filter for username: common profanity and slurs (subset; add more as needed). */
+const BAD_WORDS = ['ass', 'asshole', 'bastard', 'bitch', 'bullshit', 'crap', 'damn', 'dick', 'dumbass', 'fag', 'faggot', 'fuck', 'fucker', 'fucking', 'hell', 'nigga', 'nigger', 'retard', 'retarded', 'shit', 'slut', 'whore', 'wtf'];
+
+function containsBadWord(s) {
+  const lower = s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  for (const w of BAD_WORDS) {
+    if (lower.includes(w)) return true;
+  }
+  return false;
+}
+
+function updateAuthDisplay() {
+  const wrap = document.getElementById('menuAuthWrap');
+  if (!wrap) return;
+  let auth = null;
+  try {
+    const s = localStorage.getItem('florexe_auth');
+    if (s) auth = JSON.parse(s);
+  } catch (e) {}
+  if (auth && auth.expiresAt && auth.expiresAt > Date.now()) {
+    const displayName = localStorage.getItem('florexe_username') || auth.user?.displayName || auth.user?.username || 'User';
+    wrap.innerHTML = '<div class="menu-user-wrap"><span class="menu-username">Logged in as ' + escapeHtml(displayName) + '</span><a href="#" id="menuLogoutBtn" class="menu-logout-btn">Logout</a></div>';
+    const logout = document.getElementById('menuLogoutBtn');
+    if (logout) logout.onclick = (e) => { e.preventDefault(); localStorage.removeItem('florexe_auth'); localStorage.removeItem('florexe_username'); updateAuthDisplay(); tryShowUsernameModal(); };
+    tryShowUsernameModal();
+  } else {
+    if (auth) { try { localStorage.removeItem('florexe_auth'); } catch (e) {} }
+    const path = window.location.pathname;
+    const base = path.endsWith('/') ? path : path.replace(/\/[^/]*$/, '') + '/';
+    const origin = (window.location.origin.startsWith('http://') && !/^(localhost|127\.0\.0\.1)$/.test(window.location.hostname))
+      ? 'https://' + window.location.host : window.location.origin;
+    const redirectUri = origin + (base || '/') + 'auth/discord';
+    wrap.innerHTML = '<a href="https://discord.com/oauth2/authorize?client_id=1476693949090500708&response_type=token&redirect_uri=' + encodeURIComponent(redirectUri) + '&scope=identify" id="menuLoginBtn" class="menu-login-btn">Login with Discord</a>';
+  }
+}
+
+function tryShowUsernameModal() {
+  const hasUsername = localStorage.getItem('florexe_username');
+  let auth = null;
+  try {
+    const s = localStorage.getItem('florexe_auth');
+    if (s) auth = JSON.parse(s);
+  } catch (e) {}
+  if (!auth || hasUsername) return;
+  const modal = document.getElementById('username-modal');
+  const input = document.getElementById('usernameInput');
+  const errEl = document.getElementById('usernameError');
+  const submit = document.getElementById('usernameSubmit');
+  if (!modal || !input || !errEl || !submit) return;
+  modal.classList.remove('hidden');
+  input.value = '';
+  errEl.classList.add('hidden');
+  input.focus();
+  const done = () => {
+    modal.classList.add('hidden');
+    updateAuthDisplay();
+  };
+  const doSubmit = () => {
+    let name = (input.value || '').trim();
+    errEl.classList.add('hidden');
+    if (!name) { errEl.textContent = 'Please enter a username.'; errEl.classList.remove('hidden'); return; }
+    if (name.length > 50) { errEl.textContent = 'Username must be 50 characters or less.'; errEl.classList.remove('hidden'); return; }
+    if (containsBadWord(name)) { errEl.textContent = 'That username contains inappropriate language. Please choose something else.'; errEl.classList.remove('hidden'); return; }
+    localStorage.setItem('florexe_username', name);
+    done();
+  };
+  submit.onclick = doSubmit;
+  input.onkeydown = (e) => { if (e.key === 'Enter') doSubmit(); };
+}
+
 function init() {
   canvas = document.getElementById('gameCanvas');
   ctx = canvas?.getContext('2d');
@@ -1639,6 +1709,7 @@ function init() {
     minimapCtx = minimapCanvas.getContext('2d');
   }
   if (!canvas || !ctx || !mainMenu || !gameContainer) return;
+  updateAuthDisplay();
   preloadIcons();
   resize();
 
