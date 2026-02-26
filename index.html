@@ -19,13 +19,15 @@
   <div id="main-menu">
     <div class="menu-content">
       <h1 class="logo">Florexe<span class="io">.io</span></h1>
-      <div class="gamemode-buttons">
-        <button class="gamemode-btn" data-mode="ffa">FFA</button>
-        <button class="gamemode-btn" data-mode="2tdm">2TDM</button>
-        <button class="gamemode-btn" data-mode="4tdm">4TDM</button>
-        <button class="gamemode-btn heaven" data-mode="heaven">Heaven <span class="lvl-req">(Lv50)</span></button>
+      <div class="gamemode-buttons gamemode-play-row">
+        <button class="gamemode-btn" data-mode="ffa">Play</button>
       </div>
-      <div class="menu-map-editor-row">
+      <div class="gamemode-buttons gamemode-coming-soon-row">
+        <button class="gamemode-btn gamemode-btn-disabled" data-mode="2tdm" disabled>Coming Soon!</button>
+        <button class="gamemode-btn gamemode-btn-disabled" data-mode="4tdm" disabled>Coming Soon!</button>
+        <button class="gamemode-btn gamemode-btn-disabled heaven" data-mode="heaven" disabled>Crossroads <span class="lvl-req">(Lv 80)</span></button>
+      </div>
+      <div class="menu-map-editor-wrap">
         <a href="map-editor.html" target="_blank" rel="noopener" class="map-editor-btn">Map editor</a>
       </div>
     </div>

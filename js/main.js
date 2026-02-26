@@ -1626,6 +1626,7 @@ function init() {
 
   document.querySelectorAll('.gamemode-btn').forEach(btn => {
     btn.onclick = () => {
+      if (btn.disabled) return;
       const mode = btn.dataset.mode;
       if (mode === 'heaven') startGame('heaven');
       else startGame(mode);

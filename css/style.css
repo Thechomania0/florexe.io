@@ -81,6 +81,24 @@ body {
   margin-bottom: 2rem;
 }
 
+.gamemode-play-row {
+  margin-bottom: 1.5rem;
+}
+
+.gamemode-coming-soon-row {
+  transform: scale(0.5);
+  transform-origin: center top;
+  margin-bottom: 0;
+  margin-top: -0.5rem;
+}
+
+.gamemode-btn-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+  filter: grayscale(0.4);
+}
+
 .gamemode-btn {
   font-family: 'Rajdhani', sans-serif;
   font-size: 1.25rem;
@@ -95,7 +113,7 @@ body {
   text-shadow: -1px -1px 1px #000, 1px -1px 1px #000, -1px 1px 1px #000, 1px 1px 1px #000, 0 0 2px #000;
 }
 
-.gamemode-btn:hover {
+.gamemode-btn:hover:not(.gamemode-btn-disabled) {
   background: rgba(0, 0, 0, 0.35);
   transform: translateY(-2px);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
@@ -106,8 +124,14 @@ body {
   background: rgba(0, 0, 0, 0.15);
 }
 
-.gamemode-btn.heaven:hover {
+.gamemode-btn.heaven:hover:not(.gamemode-btn-disabled) {
   background: rgba(0, 0, 0, 0.3);
+}
+
+.menu-map-editor-wrap {
+  position: absolute;
+  bottom: 1.5rem;
+  right: 1.5rem;
 }
 
 .menu-map-editor-row {
