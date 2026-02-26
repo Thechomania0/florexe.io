@@ -492,8 +492,11 @@ export class Game {
     const wallFills = getMergedWallFills();
     if (wallFills.length > 0) {
       ctx.fillStyle = '#1a1a1a';
+      const overlap = 0.5; // overlap rows so no horizontal grid line shows between them
       for (const r of wallFills) {
-        ctx.fillRect(r.x1, r.y1, r.x2 - r.x1, r.y2 - r.y1);
+        const y = r.y1 - overlap;
+        const h = (r.y2 - r.y1) + 2 * overlap;
+        ctx.fillRect(r.x1, y, r.x2 - r.x1, h);
       }
     } else {
       const wallWidth = 2 * WALL_HALF_WIDTH;
