@@ -28,7 +28,7 @@
 <body>
   <div id="main-menu">
     <div class="menu-auth-wrap">
-      <a href="https://discord.com/oauth2/authorize?client_id=1476693949090500708&response_type=token&redirect_uri=http%3A%2F%2Flocalhost%3A53134%2Fauth%2Fdiscord&scope=identify" id="menuLoginBtn" class="menu-login-btn">Login with Discord</a>
+      <a href="#" id="menuLoginBtn" class="menu-login-btn" onclick="event.preventDefault(); var base=window.location.pathname.endsWith('/')?window.location.pathname:window.location.pathname+'/'; window.location.href='https://discord.com/oauth2/authorize?client_id=1476693949090500708&response_type=token&redirect_uri='+encodeURIComponent(window.location.origin+base+'auth/discord')+'&scope=identify';">Login with Discord</a>
     </div>
     <div class="menu-content">
       <h1 class="logo">Florexe<span class="io">.io</span></h1>

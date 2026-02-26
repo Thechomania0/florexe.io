@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Florexe.io - Dashboard</title>
+  <link rel="stylesheet" href="../../css/style.css?v=5">
+</head>
+<body>
+  <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#36393f;color:#fff;flex-direction:column;font-family:sans-serif;">
+    <div style="font-size:1.5rem;">Welcome to the dashboard,</div>
+    <div style="font-size:2rem;margin-top:0.75rem;display:flex;align-items:center;">
+      <img src="" id="avatar" style="border-radius:50%;width:48px;height:48px;margin-right:0.75rem;" alt="" />
+      <div id="name"></div>
+    </div>
+    <a href="../../" style="font-size:0.875rem;margin-top:1.25rem;color:#7289da;">Back to game</a>
+  </div>
+
+  <script>
+    window.onload = () => {
+      const fragment = new URLSearchParams(window.location.hash.slice(1));
+      const accessToken = fragment.get('access_token');
+      const tokenType = fragment.get('token_type');
+
+      if (!accessToken) {
+        window.location.href = '../../';
+        return;
+      }
+
+      fetch('https://discord.com/api/users/@me', {
+        headers: {
+          authorization: `${tokenType} ${accessToken}`,
+        },
+      })
+        .then(result => result.json())
+        .then(response => {
+          const username = response.username || 'User';
+          const discriminator = response.discriminator || '0';
+          const avatar = response.avatar;
+          const id = response.id;
+
+          document.getElementById('name').textContent = discriminator !== '0' ? `${username}#${discriminator}` : username;
+
+          const avatarEl = document.getElementById('avatar');
+          if (id && avatar) {
+            avatarEl.src = `https://cdn.discordapp.com/avatars/${id}/${avatar}.jpg`;
+          }
+        })
+        .catch(console.error);
+    };
+  </script>
+</body>
+</html>
