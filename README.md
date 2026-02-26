@@ -1,6 +1,6 @@
 # Florexe.io
 
-A tank-based .io game combining elements of **Diep.io**, **Scenexe.io**, and **Florr.io**.
+A tank-based .io game combining elements of **Diep.io**, **Scenexe.io**, and **Florr.io**. https://thechomania0.github.io/florexe.io/
 
 ## How to Play
 
