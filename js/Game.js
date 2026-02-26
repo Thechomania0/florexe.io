@@ -427,10 +427,36 @@ export class Game {
     const top = cam.y - halfHeight;
     const bottom = cam.y + halfHeight;
 
-    /* ===========================
-       OUT-OF-BOUNDS + WALLS: draw first so they are fully black (no grid on top).
-    ============================ */
     const playableBounds = getPlayableBounds();
+
+    /* ===========================
+       GRID: draw first so walls can be drawn on top (no grid lines on black walls).
+    =========================== */
+    if (playableBounds) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(playableBounds.minX, playableBounds.minY, playableBounds.maxX - playableBounds.minX, playableBounds.maxY - playableBounds.minY);
+      ctx.clip();
+    }
+    const startX = Math.floor(left / gridSize) * gridSize;
+    const startY = Math.floor(top / gridSize) * gridSize;
+    for (let x = startX; x <= right; x += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, top);
+      ctx.lineTo(x, bottom);
+      ctx.stroke();
+    }
+    for (let y = startY; y <= bottom; y += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(left, y);
+      ctx.lineTo(right, y);
+      ctx.stroke();
+    }
+    if (playableBounds) ctx.restore();
+
+    /* ===========================
+       OUT-OF-BOUNDS + WALLS: draw on top of grid so they are fully black (no grid lines visible).
+    ============================ */
     if (playableBounds) {
       const { minX, maxX, minY, maxY } = playableBounds;
       ctx.fillStyle = '#1a1a1a';
@@ -492,31 +518,6 @@ export class Game {
         ctx.stroke();
       }
     }
-
-    /* ===========================
-      GRID: only inside playable area so walls stay fully black.
-    =========================== */
-    if (playableBounds) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(playableBounds.minX, playableBounds.minY, playableBounds.maxX - playableBounds.minX, playableBounds.maxY - playableBounds.minY);
-      ctx.clip();
-    }
-    const startX = Math.floor(left / gridSize) * gridSize;
-    const startY = Math.floor(top / gridSize) * gridSize;
-    for (let x = startX; x <= right; x += gridSize) {
-      ctx.beginPath();
-      ctx.moveTo(x, top);
-      ctx.lineTo(x, bottom);
-      ctx.stroke();
-    }
-    for (let y = startY; y <= bottom; y += gridSize) {
-      ctx.beginPath();
-      ctx.moveTo(left, y);
-      ctx.lineTo(right, y);
-      ctx.stroke();
-    }
-    if (playableBounds) ctx.restore();
 
     /* ===========================
        DRAW GAME OBJECTS
