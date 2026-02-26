@@ -64,6 +64,15 @@ body {
   color: #ffffff;
 }
 
+.menu-version {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 1rem 0;
+  text-shadow: -1px -1px 1px #000, 1px -1px 1px #000, -1px 1px 1px #000, 1px 1px 1px #000, 0 0 2px #000;
+}
+
 .tagline {
   font-family: 'Rajdhani', sans-serif;
   font-weight: 700;
