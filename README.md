@@ -4,8 +4,7 @@ A tank-based .io game combining elements of **Diep.io**, **Scenexe.io**, and **F
 
 ## How to Play
 
-1. Open `index.html` in a modern browser (Chrome, Firefox, Edge).
-2. Choose a gamemode: **FFA**, **2TDM**, **4TDM**, or **Heaven**.
+1. Choose a gamemode: -> only have 1 for now, will add more later on.
 3. **WASD** to move, **mouse** to aim.
 4. Destroy shapes (food) to gain XP, level up, and collect upgrade drops.
 5. Click inventory items to equip Body and Tank upgrades.
