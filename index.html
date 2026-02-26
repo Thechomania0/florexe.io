@@ -36,7 +36,7 @@
         <button class="gamemode-btn gamemode-btn-disabled" data-mode="4tdm" disabled>Coming Soon!</button>
         <button class="gamemode-btn gamemode-btn-disabled heaven" data-mode="heaven" disabled>Crossroads <span class="lvl-req">(Lv 80)</span></button>
       </div>
-      <div class="menu-map-editor-wrap">
+      <div class="menu-map-editor-wrap" id="menuMapEditorWrap" style="display:none">
         <a href="map-editor.html" target="_blank" rel="noopener" class="map-editor-btn">Map editor</a>
       </div>
     </div>
@@ -206,6 +206,10 @@
       <h2>Set Your Username</h2>
       <p class="username-permanent-warning">This name is <strong>permanent</strong> and cannot be changed later.</p>
       <input type="text" id="usernameInput" placeholder="Enter username (max 50 characters)" maxlength="50" autocomplete="off" />
+      <div id="adminColorRow" class="admin-color-row hidden">
+        <label>Admin name color:</label>
+        <input type="color" id="adminColorInput" value="#45f9ba" title="Choose your name color (admins only)" />
+      </div>
       <p id="usernameError" class="username-error hidden"></p>
       <button id="usernameSubmit" class="username-submit-btn">Confirm</button>
     </div>

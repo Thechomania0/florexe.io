@@ -1440,7 +1440,7 @@ const chatMessagesList = [];
 
 function setupChat() {
   if (chatGuestName == null) {
-    chatGuestName = 'Guest #' + String(1000 + Math.floor(Math.random() * 9000));
+    chatGuestName = localStorage.getItem('florexe_username') || 'Guest #' + String(1000 + Math.floor(Math.random() * 9000));
   }
   const chatInput = document.getElementById('chatInput');
   const chatMessages = document.getElementById('chatMessages');
@@ -1491,7 +1491,9 @@ function setupChat() {
     if (opts?.color) {
       line.innerHTML = `<span style="color:${escapeHtml(opts.color)}">${escapeHtml(msg.text)}</span>`;
     } else {
-      line.innerHTML = `[Local] <span class="username">${escapeHtml(msg.username)}</span>: ${escapeHtml(msg.text)}`;
+      const nameColor = isAdmin() ? getAdminColor() : '';
+      const nameStyle = nameColor ? ` style="color:${escapeHtml(nameColor)}"` : '';
+      line.innerHTML = `[Local] <span class="username"${nameStyle}>${escapeHtml(msg.username)}</span>: ${escapeHtml(msg.text)}`;
     }
     chatMessages.appendChild(line);
     chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -1524,6 +1526,7 @@ function setupChat() {
     chatInput.value = '';
     chatInput.blur();
     if (raw.toLowerCase() === '/kill all') {
+        if (!isAdmin()) return;
         const p = game?.player;
         if (!p) {
           appendMessage('[System] No player.');
@@ -1547,6 +1550,7 @@ function setupChat() {
           }
         }
       } else if (raw.toLowerCase().startsWith('/adminmode ')) {
+        if (!isAdmin()) return;
         const arg = raw.slice(10).trim().toLowerCase();
         const p = game?.player;
         if (!p) {
@@ -1564,6 +1568,7 @@ function setupChat() {
           appendMessage('[System] Use: /adminmode on or /adminmode off');
         }
       } else if (raw.toLowerCase().startsWith('/spawn ')) {
+        if (!isAdmin()) return;
         const parts = raw.slice(7).trim().toLowerCase().split(/\s+/);
         const p = game?.player;
         if (!p) {
@@ -1627,6 +1632,18 @@ function escapeHtml(s) {
   return div.innerHTML;
 }
 
+/** Admins: usernames (case-insensitive). Admins can use map editor and set name color. */
+const ADMIN_USERNAMES = ['thechomania'];
+
+function isAdmin() {
+  const u = localStorage.getItem('florexe_username') || '';
+  return ADMIN_USERNAMES.includes(u.trim().toLowerCase());
+}
+
+function getAdminColor() {
+  return localStorage.getItem('florexe_admin_color') || '#45f9ba';
+}
+
 /** Bad-word filter for username: common profanity and slurs (subset; add more as needed). */
 const BAD_WORDS = ['ass', 'asshole', 'bastard', 'bitch', 'bullshit', 'crap', 'damn', 'dick', 'dumbass', 'fag', 'faggot', 'fuck', 'fucker', 'fucking', 'hell', 'nigga', 'nigger', 'retard', 'retarded', 'shit', 'slut', 'whore', 'wtf'];
 
@@ -1648,9 +1665,27 @@ function updateAuthDisplay() {
   } catch (e) {}
   if (auth && auth.expiresAt && auth.expiresAt > Date.now()) {
     const displayName = localStorage.getItem('florexe_username') || auth.user?.displayName || auth.user?.username || 'User';
-    wrap.innerHTML = '<div class="menu-user-wrap"><span class="menu-username">Logged in as ' + escapeHtml(displayName) + '</span><a href="#" id="menuLogoutBtn" class="menu-logout-btn">Logout</a></div>';
+    const adminBadge = isAdmin() ? ' <span class="admin-badge">Admin</span><a href="#" id="adminColorBtn" class="admin-color-link" title="Change name color">Color</a>' : '';
+    const nameStyle = isAdmin() ? ' style="color:' + escapeHtml(getAdminColor()) + '"' : '';
+    wrap.innerHTML = '<div class="menu-user-wrap"><span class="menu-username">Logged in as <span' + nameStyle + '>' + escapeHtml(displayName) + '</span>' + adminBadge + '</span><a href="#" id="menuLogoutBtn" class="menu-logout-btn">Logout</a></div>';
     const logout = document.getElementById('menuLogoutBtn');
-    if (logout) logout.onclick = (e) => { e.preventDefault(); localStorage.removeItem('florexe_auth'); localStorage.removeItem('florexe_username'); updateAuthDisplay(); tryShowUsernameModal(); };
+    if (logout) logout.onclick = (e) => { e.preventDefault(); localStorage.removeItem('florexe_auth'); localStorage.removeItem('florexe_username'); localStorage.removeItem('florexe_admin_color'); updateAuthDisplay(); tryShowUsernameModal(); };
+    const adminColorBtn = document.getElementById('adminColorBtn');
+    if (adminColorBtn && isAdmin()) {
+      let colorInput = document.getElementById('florexeAdminColorInput');
+      if (!colorInput) {
+        colorInput = document.createElement('input');
+        colorInput.type = 'color';
+        colorInput.id = 'florexeAdminColorInput';
+        colorInput.style.cssText = 'position:absolute;opacity:0;pointer-events:none;';
+        document.body.appendChild(colorInput);
+        colorInput.onchange = () => { localStorage.setItem('florexe_admin_color', colorInput.value); updateAuthDisplay(); };
+      }
+      colorInput.value = getAdminColor();
+      adminColorBtn.onclick = (e) => { e.preventDefault(); colorInput.click(); };
+    }
+    const mapWrap = document.getElementById('menuMapEditorWrap');
+    if (mapWrap) mapWrap.style.display = isAdmin() ? '' : 'none';
     tryShowUsernameModal();
   } else {
     if (auth) { try { localStorage.removeItem('florexe_auth'); } catch (e) {} }
@@ -1660,6 +1695,8 @@ function updateAuthDisplay() {
       ? 'https://' + window.location.host : window.location.origin;
     const redirectUri = origin + (base || '/') + 'auth/discord';
     wrap.innerHTML = '<a href="https://discord.com/oauth2/authorize?client_id=1476693949090500708&response_type=token&redirect_uri=' + encodeURIComponent(redirectUri) + '&scope=identify" id="menuLoginBtn" class="menu-login-btn">Login with Discord</a>';
+    const mapWrap = document.getElementById('menuMapEditorWrap');
+    if (mapWrap) mapWrap.style.display = 'none';
   }
 }
 
@@ -1675,25 +1712,74 @@ function tryShowUsernameModal() {
   const input = document.getElementById('usernameInput');
   const errEl = document.getElementById('usernameError');
   const submit = document.getElementById('usernameSubmit');
+  const adminColorRow = document.getElementById('adminColorRow');
+  const adminColorInput = document.getElementById('adminColorInput');
   if (!modal || !input || !errEl || !submit) return;
   modal.classList.remove('hidden');
   input.value = '';
   errEl.classList.add('hidden');
+  if (adminColorRow) adminColorRow.classList.add('hidden');
+  if (adminColorInput) adminColorInput.value = getAdminColor();
   input.focus();
+
+  const updateAdminColorVisibility = () => {
+    const name = (input.value || '').trim().toLowerCase();
+    if (adminColorRow) adminColorRow.classList.toggle('hidden', !ADMIN_USERNAMES.includes(name));
+  };
+  input.addEventListener('input', updateAdminColorVisibility);
+
   const done = () => {
+    input.removeEventListener('input', updateAdminColorVisibility);
     modal.classList.add('hidden');
     updateAuthDisplay();
   };
-  const doSubmit = () => {
+
+  const doSubmit = async () => {
     let name = (input.value || '').trim();
     errEl.classList.add('hidden');
     if (!name) { errEl.textContent = 'Please enter a username.'; errEl.classList.remove('hidden'); return; }
     if (name.length > 50) { errEl.textContent = 'Username must be 50 characters or less.'; errEl.classList.remove('hidden'); return; }
     if (containsBadWord(name)) { errEl.textContent = 'That username contains inappropriate language. Please choose something else.'; errEl.classList.remove('hidden'); return; }
+
+    const apiBase = window.FLOREXE_API_URL || '';
+    try {
+      const checkRes = await fetch(apiBase + '/api/username/check?username=' + encodeURIComponent(name));
+      if (checkRes.ok) {
+        const { taken } = await checkRes.json();
+        if (taken) { errEl.textContent = 'That username is already taken.'; errEl.classList.remove('hidden'); return; }
+      }
+    } catch (e) {
+      errEl.textContent = 'Could not check username. Run the server for unique usernames.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+
+    const discordId = auth.user?.id || '';
+    try {
+      const regRes = await fetch(apiBase + '/api/username/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: name, discordId })
+      });
+      const regData = await regRes.json().catch(() => ({}));
+      if (!regRes.ok && regRes.status !== 200) {
+        errEl.textContent = regData.error || 'Username already taken.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+    } catch (e) {
+      errEl.textContent = 'Could not register. Run the server for unique usernames.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+
     localStorage.setItem('florexe_username', name);
+    if (ADMIN_USERNAMES.includes(name.toLowerCase()) && adminColorInput) {
+      localStorage.setItem('florexe_admin_color', adminColorInput.value);
+    }
     done();
   };
-  submit.onclick = doSubmit;
+  submit.onclick = () => doSubmit();
   input.onkeydown = (e) => { if (e.key === 'Enter') doSubmit(); };
 }
 

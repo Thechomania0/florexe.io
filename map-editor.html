@@ -4,6 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Florexe map editor</title>
+  <script>
+    (function() {
+      var ADMIN_USERNAMES = ['thechomania'];
+      var u = (localStorage.getItem('florexe_username') || '').trim().toLowerCase();
+      if (!ADMIN_USERNAMES.includes(u)) {
+        window.location.href = 'index.html' + (window.location.search || '');
+        return;
+      }
+    })();
+  </script>
   <style>
     * { box-sizing: border-box; }
     body { font-family: 'Segoe UI', sans-serif; margin: 12px; background: #1a1a1a; color: #e0e0e0; }
@@ -15,11 +25,14 @@
     button.primary:hover { background: #2a7fd4; }
     button.danger { background: #5a2a2a; border-color: #7a3a3a; }
     input[type="text"] { padding: 6px 10px; background: #252525; border: 1px solid #444; border-radius: 6px; color: #eee; font-size: 1rem; }
-    .pens { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
-    .pens label { color: #aaa; margin-right: 4px; }
+    .pen-palette { background: #fff; padding: 10px 12px; border-radius: 8px; display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+    .pen-palette label { color: #333; margin-right: 4px; }
     .pen-btn { width: 36px; height: 36px; padding: 0; border-radius: 8px; border: 3px solid transparent; cursor: pointer; }
     .pen-btn:hover { transform: scale(1.05); }
-    .pen-btn.active { border-color: #fff; box-shadow: 0 0 0 1px #333; }
+    .pen-btn.active { border-color: #333; box-shadow: 0 0 0 1px #333; }
+    .brush-size-wrap { display: flex; align-items: center; gap: 8px; margin-left: 12px; padding-left: 12px; border-left: 1px solid #ddd; }
+    .brush-size-wrap label { color: #333; font-size: 0.9rem; }
+    .brush-size-wrap input[type="range"] { width: 100px; cursor: pointer; }
     #canvas { display: block; background: #2a2a2a; border: 1px solid #444; cursor: crosshair; image-rendering: pixelated; image-rendering: crisp-edges; }
     .info { margin-top: 10px; font-size: 0.9rem; color: #999; }
     .save-section { margin-top: 16px; padding: 12px; background: #252525; border-radius: 8px; border: 1px solid #444; }
@@ -30,13 +43,13 @@
     .maps-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
     .maps-row select { padding: 6px 10px; background: #252525; border: 1px solid #444; border-radius: 6px; color: #eee; min-width: 200px; }
     .maps-row label { color: #aaa; }
-    .bucket-label { color: #aaa; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+    .bucket-label { color: #333; display: flex; align-items: center; gap: 6px; cursor: pointer; }
     .bucket-label input { cursor: pointer; }
   </style>
 </head>
 <body>
   <h1>Map editor — 400×400 grid (1:1 with game)</h1>
-  <p class="info">1:1 scale: each square = one 40-unit square in the game. Black = wall. Rarity colors = spawn zones. Blue = player spawn.</p>
+  <p class="info">1:1 scale: each square = one 40-unit square in the game. Black = wall. Rarity colors = spawn zones. Brown = player spawn.</p>
 
   <div class="toolbar">
     <label>Map name:</label>
@@ -56,7 +69,7 @@
     <span id="count">0 wall cells</span>
   </div>
 
-  <div class="pens">
+  <div class="pen-palette">
     <label>Pen:</label>
     <button type="button" class="pen-btn active" id="penWall" title="Wall (black)"> </button>
     <button type="button" class="pen-btn" id="penCommon" title="Common–Uncommon zone"> </button>
@@ -64,6 +77,11 @@
     <button type="button" class="pen-btn" id="penLegendary" title="Legendary–Mythic zone"> </button>
     <button type="button" class="pen-btn" id="penUltra" title="Ultra–Super zone"> </button>
     <button type="button" class="pen-btn" id="penSpawn" title="Player spawn zone"> </button>
+    <div class="brush-size-wrap">
+      <label>Brush size:</label>
+      <input type="range" id="brushSize" min="1" max="10" value="1" title="Brush stroke size (1–10 cells)" />
+      <span id="brushSizeLabel">1</span>
+    </div>
     <label class="bucket-label"><input type="checkbox" id="bucketMode" title="Bucket fill: click to fill connected area with current color" /> Bucket</label>
   </div>
 
@@ -96,7 +114,7 @@
       [CELL.RARE_EPIC]: '#3c78d8',
       [CELL.LEGENDARY_MYTHIC]: '#ff0000',
       [CELL.ULTRA_SUPER]: '#c82dd1',
-      [CELL.SPAWN]: '#2196F3'
+      [CELL.SPAWN]: '#8B4513'
     };
 
     const canvas = document.getElementById('canvas');
@@ -317,13 +335,28 @@
       }
     }
 
+    function getBrushSize() {
+      const el = document.getElementById('brushSize');
+      return el ? Math.max(1, Math.min(10, parseInt(el.value, 10) || 1)) : 1;
+    }
+
     function paint(ev, value) {
       const cell = getCell(ev);
       if (!cell) return;
-      const [i, j] = cell;
-      if (grid[i][j] === value) return;
-      grid[i][j] = value;
-      draw();
+      const [ci, cj] = cell;
+      const brush = getBrushSize();
+      const half = Math.floor(brush / 2);
+      let changed = false;
+      for (let di = -half; di <= half; di++) {
+        for (let dj = -half; dj <= half; dj++) {
+          const i = ci + di, j = cj + dj;
+          if (i >= 0 && i < GRID_SIZE && j >= 0 && j < GRID_SIZE && grid[i][j] !== value) {
+            grid[i][j] = value;
+            changed = true;
+          }
+        }
+      }
+      if (changed) draw();
     }
 
     function showSaveMsg(text, isSuccess) {
@@ -350,7 +383,16 @@
       }
       drawValue = ev.button === 2 ? CELL.EMPTY : currentPen;
       pushHistory();
-      grid[i][j] = drawValue;
+      const brush = getBrushSize();
+      const half = Math.floor(brush / 2);
+      for (let di = -half; di <= half; di++) {
+        for (let dj = -half; dj <= half; dj++) {
+          const ni = i + di, nj = j + dj;
+          if (ni >= 0 && ni < GRID_SIZE && nj >= 0 && nj < GRID_SIZE) {
+            grid[ni][nj] = drawValue;
+          }
+        }
+      }
       isDrawing = true;
       draw();
     });
@@ -380,6 +422,12 @@
     document.querySelectorAll('.pen-btn').forEach(btn => {
       btn.onclick = () => setPen(parseInt(btn.dataset.pen, 10));
     });
+
+    const brushSizeEl = document.getElementById('brushSize');
+    const brushSizeLabel = document.getElementById('brushSizeLabel');
+    if (brushSizeEl && brushSizeLabel) {
+      brushSizeEl.addEventListener('input', () => { brushSizeLabel.textContent = brushSizeEl.value; });
+    }
 
     document.getElementById('newMap').onclick = () => {
       pushHistory();
