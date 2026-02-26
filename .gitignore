@@ -1,6 +1,10 @@
 # Dependencies
 node_modules/
 
+# Server user/progress data (keep dir via server/data/.gitkeep)
+server/data/users.json
+server/data/progress.json
+
 # Environment / secrets
 .env
 .env.local

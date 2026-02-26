@@ -17,6 +17,13 @@
 </head>
 <body>
   <div id="main-menu">
+    <div class="menu-auth-wrap">
+      <a href="/auth/discord" id="menuLoginBtn" class="menu-login-btn">Login with Discord</a>
+      <span id="menuUserWrap" class="menu-user-wrap hidden">
+        <span id="menuUsername" class="menu-username"></span>
+        <a href="/auth/logout" class="menu-logout-btn">Logout</a>
+      </span>
+    </div>
     <div class="menu-content">
       <h1 class="logo">Florexe<span class="io">.io</span></h1>
       <p class="menu-version" id="menuVersion">Alpha V.0.0.1</p>
@@ -186,12 +193,21 @@
   <div id="death-screen" class="modal hidden">
     <div class="modal-content death">
       <h2>You Died</h2>
-      <p>Score not saved (below 50% HP)</p>
+      <p id="deathMessage">Click Respawn to play again.</p>
       <button id="respawnBtn">Respawn</button>
     </div>
   </div>
 
   <div class="item-detail-tooltip hidden" id="itemDetailTooltip"></div>
+
+  <div id="username-modal" class="modal hidden">
+    <div class="modal-content username-modal-content">
+      <h2>Choose your username</h2>
+      <p class="username-modal-hint">This name will appear in chat and in game. Max 50 characters.</p>
+      <input type="text" id="usernameInput" class="username-input" maxlength="50" placeholder="Enter username" autocomplete="off" />
+      <button id="usernameSubmit" class="username-submit">Save</button>
+    </div>
+  </div>
 
   <script type="module" src="js/main.js?v=4"></script>
 </body>

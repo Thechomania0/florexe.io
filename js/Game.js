@@ -39,13 +39,30 @@ export class Game {
     this.floatingMessages = [];
   }
 
-  start() {
+  start(savedState = null) {
     this.bullets = [];
     this.squares = [];
     this.drops = [];
     const { x: spawnX, y: spawnY } = getSpawnPoint();
     this.player = new Player('player1', spawnX, spawnY, this.gamemode);
+    if (savedState && typeof savedState === 'object') {
+      if (Array.isArray(savedState.inventory)) this.player.inventory = savedState.inventory.slice();
+      if (Array.isArray(savedState.hand)) this.player.hand = savedState.hand.slice();
+      if (savedState.equippedTank && typeof savedState.equippedTank === 'object') {
+        this.player.equippedTank = { ...savedState.equippedTank };
+      }
+      if (savedState.equippedBody && typeof savedState.equippedBody === 'object') {
+        this.player.equippedBody = { ...savedState.equippedBody };
+      }
+      if (typeof savedState.level === 'number' && savedState.level >= 1) {
+        this.player.level = Math.min(100, savedState.level);
+        this.player.xp = typeof savedState.xp === 'number' ? savedState.xp : 0;
+      }
+      if (typeof savedState.stars === 'number') this.player.stars = Math.max(0, savedState.stars);
+      if (typeof savedState.score === 'number') this.player.score = Math.max(0, savedState.score);
+    }
     this.player.applyStats();
+    this.player.hp = this.player.maxHp;
     this.camera.x = this.player.x;
     this.camera.y = this.player.y;
     this.running = true;
