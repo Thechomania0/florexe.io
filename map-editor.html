@@ -45,6 +45,11 @@
     .maps-row label { color: #aaa; }
     .bucket-label { color: #333; display: flex; align-items: center; gap: 6px; cursor: pointer; }
     .bucket-label input { cursor: pointer; }
+    .github-settings { margin: 10px 0; }
+    .github-settings summary { cursor: pointer; color: #aaa; }
+    .github-settings-row { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
+    .github-settings-row label { min-width: 50px; color: #aaa; }
+    .github-settings-row input { padding: 6px 10px; background: #252525; border: 1px solid #444; border-radius: 6px; color: #eee; flex: 1; max-width: 300px; }
   </style>
 </head>
 <body>
@@ -89,6 +94,18 @@
 
   <div class="save-section">
     <h3>Use this map in the game</h3>
+    <details class="github-settings">
+      <summary>Store maps on GitHub</summary>
+      <p class="info" style="margin:8px 0 4px 0">Maps can be stored in your GitHub repo so they sync across devices. Add a <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">Personal Access Token</a> with <code>repo</code> scope to enable saving to GitHub.</p>
+      <div class="github-settings-row">
+        <label>Repo:</label>
+        <input type="text" id="githubRepo" placeholder="Thechomania0/florexe.io" />
+      </div>
+      <div class="github-settings-row">
+        <label>Token:</label>
+        <input type="password" id="githubToken" placeholder="ghp_..." autocomplete="off" />
+      </div>
+    </details>
     <button type="button" id="saveConfirm" class="primary">Save and confirm implementation</button>
     <p class="info" style="margin-top:8px;margin-bottom:0">Reload the game after saving. Only black walls appear in-game; zones control spawn and rarity %.</p>
     <p class="info" style="margin-top:8px;margin-bottom:4px"><strong>Keep map across updates:</strong> Click &quot;Export for repo&quot; to download <code>custom-map.json</code>. Add it to your repo as <code>data/custom-map.json</code>, then push. The game will load this map whenever the browser has no saved map (e.g. new device or after clearing data).</p>
@@ -105,6 +122,11 @@
     const STORAGE_KEY = 'florexe_custom_walls';
     const ZONES_KEY = 'florexe_custom_zones';
     const API_BASE = window.FLOREXE_API_URL || '';
+    const MAPS_KEY = 'florexe_map_editor_maps';
+    const GITHUB_REPO_KEY = 'florexe_github_repo';
+    const GITHUB_TOKEN_KEY = 'florexe_github_token';
+    const GITHUB_MAPS_PATH = 'data/maps.json';
+    const MAX_UNDO = 80;
 
     const CELL = { EMPTY: 0, WALL: 1, COMMON_UNCOMMON: 2, RARE_EPIC: 3, LEGENDARY_MYTHIC: 4, ULTRA_SUPER: 5, SPAWN: 6 };
     const PEN_COLORS = {
@@ -270,32 +292,122 @@
       return next;
     }
 
+    function getGitHubConfig() {
+      const repoEl = document.getElementById('githubRepo');
+      const tokenEl = document.getElementById('githubToken');
+      const repo = (repoEl?.value || localStorage.getItem(GITHUB_REPO_KEY) || 'Thechomania0/florexe.io').trim();
+      const token = (tokenEl?.value || localStorage.getItem(GITHUB_TOKEN_KEY) || '').trim();
+      return { repo, token };
+    }
+
+    function getMapsListFromStorage() {
+      try {
+        const s = localStorage.getItem(MAPS_KEY);
+        if (s) {
+          const p = JSON.parse(s);
+          if (Array.isArray(p)) return p;
+        }
+      } catch (e) {}
+      return [];
+    }
+
+    function saveMapsListToStorage(list) {
+      try {
+        localStorage.setItem(MAPS_KEY, JSON.stringify(list));
+      } catch (e) {}
+    }
+
+    async function getMapsListFromGitHub() {
+      const { repo, token } = getGitHubConfig();
+      if (!repo) return null;
+      try {
+        const branch = 'main';
+        const url = 'https://raw.githubusercontent.com/' + repo + '/' + branch + '/' + GITHUB_MAPS_PATH;
+        const r = await fetch(url + '?t=' + Date.now());
+        if (r.ok) {
+          const data = await r.json();
+          return Array.isArray(data) ? data : null;
+        }
+      } catch (e) {}
+      return null;
+    }
+
+    async function saveMapsListToGitHub(list) {
+      const { repo, token } = getGitHubConfig();
+      if (!repo || !token) return false;
+      try {
+        const [owner, rep] = repo.split('/');
+        if (!owner || !rep) return false;
+        const getRes = await fetch('https://api.github.com/repos/' + repo + '/contents/' + GITHUB_MAPS_PATH, {
+          headers: { Authorization: 'token ' + token }
+        });
+        let sha = null;
+        if (getRes.ok) {
+          const f = await getRes.json();
+          sha = f.sha;
+        }
+        const content = JSON.stringify(list, null, 2);
+        const putRes = await fetch('https://api.github.com/repos/' + repo + '/contents/' + GITHUB_MAPS_PATH, {
+          method: 'PUT',
+          headers: {
+            'Authorization': 'token ' + token,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            message: 'Update maps from map editor',
+            content: btoa(unescape(encodeURIComponent(content))),
+            ...(sha && { sha })
+          })
+        });
+        return putRes.ok;
+      } catch (e) {}
+      return false;
+    }
+
     async function getMapsList() {
       try {
-        const r = await fetch(API_BASE + '/api/maps');
-        if (!r.ok) return [];
-        const data = await r.json();
-        return Array.isArray(data) ? data : [];
-      } catch (e) {
-        showSaveMsg('Could not load maps. Is the server running?', false);
-        return [];
-      }
+        const r = await fetch((API_BASE || '') + '/api/maps');
+        if (r.ok) {
+          const data = await r.json();
+          if (Array.isArray(data)) return data;
+        }
+      } catch (e) {}
+      const gh = await getMapsListFromGitHub();
+      if (gh && gh.length >= 0) return gh;
+      return getMapsListFromStorage();
     }
 
     async function saveMapToServer(id, name, gridCopy) {
-      const r = await fetch(API_BASE + '/api/maps', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: id || undefined, name, grid: gridCopy })
-      });
-      if (!r.ok) throw new Error('Save failed');
-      const d = await r.json();
-      return d.id;
+      try {
+        const r = await fetch((API_BASE || '') + '/api/maps', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: id || undefined, name, grid: gridCopy })
+        });
+        if (r.ok) {
+          const d = await r.json();
+          return d.id;
+        }
+      } catch (e) {}
+      const list = await getMapsList();
+      const newId = id || 'map_' + Date.now();
+      const entry = { id: newId, name, grid: gridCopy, createdAt: Date.now() };
+      const idx = list.findIndex(m => m.id === newId);
+      if (idx >= 0) list[idx] = entry;
+      else list.push(entry);
+      if (await saveMapsListToGitHub(list)) return newId;
+      saveMapsListToStorage(list);
+      return newId;
     }
 
     async function deleteMapFromServer(id) {
-      const r = await fetch(API_BASE + '/api/maps/' + encodeURIComponent(id), { method: 'DELETE' });
-      if (!r.ok) throw new Error('Delete failed');
+      try {
+        const r = await fetch((API_BASE || '') + '/api/maps/' + encodeURIComponent(id), { method: 'DELETE' });
+        if (r.ok) return;
+      } catch (e) {}
+      const list = (await getMapsList()).filter(m => m.id !== id);
+      if (await saveMapsListToGitHub(list)) return;
+      saveMapsListToStorage(list);
     }
 
     async function refreshOldMapsSelect() {
@@ -452,11 +564,14 @@
     document.getElementById('loadMap').onclick = async () => {
       const id = oldMapsEl.value;
       if (!id) return;
+      let m = null;
       try {
-        const r = await fetch(API_BASE + '/api/maps/' + encodeURIComponent(id));
-        if (!r.ok) { showSaveMsg('Map not found.', false); return; }
-        const m = await r.json();
-        if (!m || !m.grid) { showSaveMsg('Invalid map data.', false); return; }
+        const r = await fetch((API_BASE || '') + '/api/maps/' + encodeURIComponent(id));
+        if (r.ok) m = await r.json();
+      } catch (e) {}
+      if (!m) m = (await getMapsList()).find(x => x.id === id);
+      if (!m || !m.grid) { showSaveMsg('Map not found.', false); return; }
+      try {
         let loaded = m.grid.map(row => row.slice());
         if (loaded[0] && typeof loaded[0][0] === 'boolean') {
           loaded = loaded.map(row => row.map(c => c ? CELL.WALL : CELL.EMPTY));
@@ -477,7 +592,7 @@
         draw();
         showSaveMsg('Map loaded.', true);
       } catch (e) {
-        showSaveMsg('Could not load map. Is the server running?', false);
+        showSaveMsg('Could not load map.', false);
       }
     };
 
@@ -488,7 +603,7 @@
         const savedId = await saveMapToServer(currentMapId, name, gridCopy);
         currentMapId = savedId;
         await refreshOldMapsSelect();
-        showSaveMsg('Saved to server. Load this map later from Edit old map.', true);
+        showSaveMsg('Saved. Load this map later from Edit old map.', true);
       } catch (e) {
         showSaveMsg('Could not save. Is the server running?', false);
       }
@@ -508,7 +623,7 @@
           mapNameEl.value = '';
         }
         oldMapsEl.value = '';
-        showSaveMsg('Map deleted from server.', true);
+        showSaveMsg('Map deleted.', true);
       } catch (e) {
         showSaveMsg('Could not delete. Is the server running?', false);
       }
@@ -576,6 +691,17 @@
       URL.revokeObjectURL(a.href);
       showSaveMsg('Downloaded custom-map.json. Add it to your repo as data/custom-map.json and push.', true);
     };
+
+    const githubRepoEl = document.getElementById('githubRepo');
+    const githubTokenEl = document.getElementById('githubToken');
+    if (githubRepoEl) {
+      githubRepoEl.value = localStorage.getItem(GITHUB_REPO_KEY) || 'Thechomania0/florexe.io';
+      githubRepoEl.addEventListener('change', () => { localStorage.setItem(GITHUB_REPO_KEY, githubRepoEl.value.trim()); });
+    }
+    if (githubTokenEl) {
+      githubTokenEl.value = localStorage.getItem(GITHUB_TOKEN_KEY) || '';
+      githubTokenEl.addEventListener('change', () => { localStorage.setItem(GITHUB_TOKEN_KEY, githubTokenEl.value.trim()); });
+    }
 
     refreshOldMapsSelect().then(() => {}).catch(() => {});
     draw();
