@@ -3,8 +3,10 @@
  * MAP_SIZE from config (16000); half = 8000. Coordinates: x/y from -8000 to 8000.
  *
  * MANUAL MAP EDITING:
- * - Open map-editor.html: draw walls on the 80×80 grid, then use "Save and confirm implementation".
- *   The game loads your map from localStorage when you reload. You can also create multiple named maps and edit old ones.
+ * - Open map-editor.html: draw walls on the 400×400 grid, then use "Save and confirm implementation".
+ *   The game loads your map from localStorage when you reload. To keep the map across deploys and
+ *   devices, use "Export for repo" in the map editor and add the file as data/custom-map.json; the
+ *   game will load it when localStorage is empty.
  * - Or set CUSTOM_WALLS below to an array of { x1, y1, x2, y2 } to use custom walls in code.
  */
 

@@ -35,7 +35,7 @@ export class Game {
     this.scale = 1;
     this.spawnTimer = 0;
     this.running = true;
-    /** Floating chat messages above the local player: { text, expiresAt }. Max 4; 2s each. */
+    /** Floating chat messages above the local player: { text, expiresAt }. Max 5; 2s each. */
     this.floatingMessages = [];
   }
 
@@ -553,7 +553,7 @@ export class Game {
       this.player.draw(ctx, scale);
     }
 
-    // Floating chat messages above the player (newest just above, oldest higher; max 4, 2s each)
+    // Floating chat messages above the player (newest just above, oldest higher; max 5, 2s each)
     const now = Date.now();
     this.floatingMessages = this.floatingMessages.filter((m) => m.expiresAt > now);
     if (this.player && !this.player.dead && this.floatingMessages.length > 0) {

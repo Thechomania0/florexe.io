@@ -73,6 +73,8 @@
     <h3>Use this map in the game</h3>
     <button type="button" id="saveConfirm" class="primary">Save and confirm implementation</button>
     <p class="info" style="margin-top:8px;margin-bottom:0">Reload the game after saving. Only black walls appear in-game; zones control spawn and rarity %.</p>
+    <p class="info" style="margin-top:8px;margin-bottom:4px"><strong>Keep map across updates:</strong> Click &quot;Export for repo&quot; to download <code>custom-map.json</code>. Add it to your repo as <code>data/custom-map.json</code>, then push. The game will load this map whenever the browser has no saved map (e.g. new device or after clearing data).</p>
+    <button type="button" id="exportForRepo" class="primary">Export for repo</button>
     <div id="saveMsg" class="msg"></div>
   </div>
 
@@ -511,6 +513,19 @@
       refreshOldMapsSelect();
 
       showSaveMsg('Map saved. Reload the game to use it.', true);
+    };
+
+    document.getElementById('exportForRepo').onclick = () => {
+      const segments = buildSegmentsFromGrid();
+      const zoneGrid = buildZoneGridForGame();
+      const data = { walls: segments, zones: { grid: zoneGrid } };
+      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'custom-map.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showSaveMsg('Downloaded custom-map.json. Add it to your repo as data/custom-map.json and push.', true);
     };
 
     refreshOldMapsSelect();

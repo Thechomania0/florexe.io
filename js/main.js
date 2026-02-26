@@ -58,6 +58,20 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 
+/** Load custom map from data/custom-map.json when localStorage has no map. Keeps your drawn map across deploys and devices. */
+async function loadCustomMapFromRepo() {
+  try {
+    if (localStorage.getItem('florexe_custom_zones')) return;
+    const base = document.querySelector('base')?.getAttribute('href') || './';
+    const r = await fetch(base + 'data/custom-map.json');
+    if (!r.ok) return;
+    const data = await r.json();
+    if (!data || !Array.isArray(data.walls) || !data.zones || !Array.isArray(data.zones.grid) || data.zones.grid.length !== 400) return;
+    localStorage.setItem('florexe_custom_walls', JSON.stringify(data.walls));
+    localStorage.setItem('florexe_custom_zones', JSON.stringify(data.zones));
+  } catch (e) {}
+}
+
 function startGame(gamemode) {
   const loadingScreenEl = document.getElementById('loading-screen');
   if (loadingScreenEl) loadingScreenEl.classList.remove('hidden');
@@ -69,7 +83,8 @@ function startGame(gamemode) {
 
   // Yield so the browser paints the loading screen before we create the game
   requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
+    requestAnimationFrame(async () => {
+      await loadCustomMapFromRepo();
       game = new Game(gamemode);
       const chatEl = document.getElementById('chatMessages');
       game.onSuperSpawn = (mobType) => {
@@ -1505,8 +1520,10 @@ function setupChat() {
     }
     e.preventDefault();
     const raw = chatInput.value.trim();
-    if (raw) {
-      if (raw.toLowerCase() === '/kill all') {
+    if (!raw) return;
+    chatInput.value = '';
+    chatInput.blur();
+    if (raw.toLowerCase() === '/kill all') {
         const p = game?.player;
         if (!p) {
           appendMessage('[System] No player.');
@@ -1588,13 +1605,10 @@ function setupChat() {
       } else {
         appendMessage(raw);
         if (game?.player) {
-          if (game.floatingMessages.length >= 4) game.floatingMessages.shift();
+          if (game.floatingMessages.length >= 5) game.floatingMessages.shift();
           game.floatingMessages.push({ text: raw, expiresAt: Date.now() + 2000 });
         }
       }
-      chatInput.value = '';
-      chatInput.blur();
-    }
   });
 
   document.addEventListener('keydown', (e) => {
