@@ -73,14 +73,14 @@ export const CRAFT_CHANCES = {
 
 // Food/Shape definitions: shape name, sides, damage, HP, drop table. Weight 1–100 (0 = set manually). Higher weight displaces lower; spectrum (100 vs 1 = full push, 100 vs 99 = slight).
 export const FOOD_CONFIG = {
-  common: { shape: 'triangle', sides: 3, damage: 10, hp: 10, size: 12, weight: 0, drops: { common: 0.8, uncommon: 0.2 } },
-  uncommon: { shape: 'square', sides: 4, damage: 100, hp: 40, size: 18, weight: 0, drops: { common: 0.5, uncommon: 0.5 } },
-  rare: { shape: 'pentagon', sides: 5, damage: 500, hp: 150, size: 24, weight: 0, drops: { uncommon: 0.8, rare: 0.2 } },
-  epic: { shape: 'hexagon', sides: 6, damage: 700, hp: 1000, size: 30, weight: 0, drops: { uncommon: 0.06, rare: 0.8, epic: 0.14 } },
-  legendary: { shape: 'septagon', sides: 7, damage: 1000, hp: 8000, size: 42, weight: 0, drops: { rare: 0.1, epic: 0.8, legendary: 0.1 } },
-  mythic: { shape: 'octagon', sides: 8, damage: 2000, hp: 25000, size: 54, weight: 0, drops: { epic: 0.07, legendary: 0.9, mythic: 0.03 } },
-  ultra: { shape: 'nonagon', sides: 9, damage: 3000, hp: 300000, size: 68, weight: 0, drops: { legendary: 0.845, mythic: 0.15, ultra: 0.005 } },
-  super: { shape: 'decagon', sides: 10, damage: 7000, hp: 20000000, size: 90, weight: 0, drops: { mythic: 0.77, ultra: 0.23 }, stars: 5000 },
+  common: { shape: 'triangle', sides: 3, damage: 10, hp: 10, size: 12, weight: 1, drops: { common: 0.8, uncommon: 0.2 } },
+  uncommon: { shape: 'square', sides: 4, damage: 100, hp: 40, size: 18, weight: 9, drops: { common: 0.5, uncommon: 0.5 } },
+  rare: { shape: 'pentagon', sides: 5, damage: 500, hp: 150, size: 24, weight: 19, drops: { uncommon: 0.8, rare: 0.2 } },
+  epic: { shape: 'hexagon', sides: 6, damage: 700, hp: 1000, size: 30, weight: 29, drops: { uncommon: 0.06, rare: 0.8, epic: 0.14 } },
+  legendary: { shape: 'septagon', sides: 7, damage: 1000, hp: 8000, size: 42, weight: 39, drops: { rare: 0.1, epic: 0.8, legendary: 0.1 } },
+  mythic: { shape: 'octagon', sides: 8, damage: 2000, hp: 25000, size: 54, weight: 59, drops: { epic: 0.07, legendary: 0.9, mythic: 0.03 } },
+  ultra: { shape: 'nonagon', sides: 9, damage: 3000, hp: 300000, size: 68, weight: 79, drops: { legendary: 0.845, mythic: 0.15, ultra: 0.005 } },
+  super: { shape: 'decagon', sides: 10, damage: 7000, hp: 20000000, size: 90, weight: 90, drops: { mythic: 0.77, ultra: 0.23 }, stars: 5000 },
 };
 
 /** Beetle mob: same rarities and spawn logic as food (copy). Edit later for different stats. */
@@ -88,14 +88,14 @@ export const FOOD_CONFIG = {
 export const BEETLE_VISION = 1000;
 
 export const BEETLE_CONFIG = {
-  common: { damage: 10, hp: 10, size: 24, weight: 0, drops: { common: 0.8, uncommon: 0.2 } },
-  uncommon: { damage: 100, hp: 40, size: 36, weight: 0, drops: { common: 0.5, uncommon: 0.5 } },
-  rare: { damage: 500, hp: 150, size: 48, weight: 0, drops: { uncommon: 0.8, rare: 0.2 } },
-  epic: { damage: 700, hp: 1000, size: 60, weight: 0, drops: { uncommon: 0.06, rare: 0.8, epic: 0.14 } },
-  legendary: { damage: 1000, hp: 8000, size: 84, weight: 0, drops: { rare: 0.1, epic: 0.8, legendary: 0.1 } },
-  mythic: { damage: 2000, hp: 25000, size: 108, weight: 0, drops: { epic: 0.07, legendary: 0.9, mythic: 0.03 } },
-  ultra: { damage: 3000, hp: 300000, size: 136, weight: 0, drops: { legendary: 0.845, mythic: 0.15, ultra: 0.005 } },
-  super: { damage: 7000, hp: 20000000, size: 180, weight: 0, drops: { mythic: 0.77, ultra: 0.23 }, stars: 5000 },
+  common: { damage: 10, hp: 10, size: 24, weight: 1, drops: { common: 0.8, uncommon: 0.2 } },
+  uncommon: { damage: 100, hp: 40, size: 36, weight: 10, drops: { common: 0.5, uncommon: 0.5 } },
+  rare: { damage: 500, hp: 150, size: 48, weight: 20, drops: { uncommon: 0.8, rare: 0.2 } },
+  epic: { damage: 700, hp: 1000, size: 60, weight: 30, drops: { uncommon: 0.06, rare: 0.8, epic: 0.14 } },
+  legendary: { damage: 1000, hp: 8000, size: 84, weight: 40, drops: { rare: 0.1, epic: 0.8, legendary: 0.1 } },
+  mythic: { damage: 2000, hp: 25000, size: 108, weight: 60, drops: { epic: 0.07, legendary: 0.9, mythic: 0.03 } },
+  ultra: { damage: 3000, hp: 300000, size: 136, weight: 80, drops: { legendary: 0.845, mythic: 0.15, ultra: 0.005 } },
+  super: { damage: 7000, hp: 20000000, size: 180, weight: 99, drops: { mythic: 0.77, ultra: 0.23 }, stars: 5000 },
 };
 
 // Body upgrades
