@@ -125,12 +125,12 @@ export class Beetle {
     if (useSplitImages) {
       const pincerAngleDeg = 20 * Math.sin(this.pincerPhase);
       const pincerAngleRad = (pincerAngleDeg * Math.PI) / 180;
-      // Attachment at the other end of the body. Right by 15%: 0.231 + 0.15 = 0.381*s.
-      const hingeX = 0.381 * s;
+      // Attachment at the other end of the body. Forwards 25%: +0.25*s. Left 25%: -0.25*s on y for both.
+      const hingeX = 0.631 * s;
       const hingeLeftX = hingeX;
-      const hingeLeftY = -0.125 * s;
+      const hingeLeftY = -0.375 * s;
       const hingeRightX = hingeX;
-      const hingeRightY = 0.1875 * s;
+      const hingeRightY = -0.0625 * s;
       const pincerW = 0.84 * s;
       const pincerH = 0.4 * s;
       const pivotFracX = 3 / 21;
