@@ -727,8 +727,13 @@
     };
     document.getElementById('saveAsDefault').onclick = async () => {
       const gamemode = (document.getElementById('defaultGamemode')?.value || 'ffa').trim();
-      if (!getGitHubConfig().token) {
-        showSaveMsg('Add a GitHub token in "Store maps on GitHub" to save as default.', false);
+      const { token } = getGitHubConfig();
+      if (!token) {
+        showSaveMsg('Add a GitHub token in "Store maps on GitHub" below, then try again.', false);
+        const details = document.querySelector('.github-settings');
+        if (details) { details.open = true; }
+        const tokenInput = document.getElementById('githubToken');
+        if (tokenInput) { tokenInput.focus(); }
         return;
       }
       if (!confirm('Replace the default map with this map? New users will see this map when cache is cleared.')) return;
@@ -804,12 +809,14 @@
       const zoneGrid = buildZoneGridForGame();
       const data = { walls: segments, zones: { grid: zoneGrid } };
       const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+      const baseName = (mapNameEl.value || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_') || 'custom-map';
+      const filename = baseName + '.json';
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'custom-map.json';
+      a.download = filename;
       a.click();
       URL.revokeObjectURL(a.href);
-      showSaveMsg('Downloaded custom-map.json. Add it to your repo as data/custom-map.json and push.', true);
+      showSaveMsg('Downloaded ' + filename + '. Add it to your repo as data/' + filename + ' and push.', true);
     };
 
     const githubRepoEl = document.getElementById('githubRepo');
