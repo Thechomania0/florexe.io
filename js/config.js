@@ -94,8 +94,8 @@ export const BEETLE_CONFIG = {
   epic: { damage: 700, hp: 1000, size: 60, weight: 30, drops: { uncommon: 0.06, rare: 0.8, epic: 0.14 } },
   legendary: { damage: 1000, hp: 8000, size: 84, weight: 40, drops: { rare: 0.1, epic: 0.8, legendary: 0.1 } },
   mythic: { damage: 2000, hp: 25000, size: 108, weight: 60, drops: { epic: 0.07, legendary: 0.9, mythic: 0.03 } },
-  ultra: { damage: 3000, hp: 300000, size: 136, weight: 80, drops: { legendary: 0.845, mythic: 0.15, ultra: 0.005 } },
-  super: { damage: 7000, hp: 20000000, size: 180, weight: 99, drops: { mythic: 0.77, ultra: 0.23 }, stars: 5000 },
+  ultra: { damage: 3000, hp: 300000, size: 170, weight: 80, drops: { legendary: 0.845, mythic: 0.15, ultra: 0.005 } },
+  super: { damage: 7000, hp: 20000000, size: 270, weight: 99, drops: { mythic: 0.77, ultra: 0.23 }, stars: 5000 },
 };
 
 // Body upgrades
