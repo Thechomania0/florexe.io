@@ -239,6 +239,12 @@ function setupPlayerInput(player) {
         galleryModal.classList.add('hidden');
       }
       document.getElementById('chatInput')?.blur();
+    } else if (k === 'e') {
+      const p = game?.player;
+      if (p && !e.repeat) {
+        p.autoAttack = !p.autoAttack;
+        showAutoAttackToast(p.autoAttack);
+      }
     }
   };
   document.addEventListener('keydown', _keydownToggle);
@@ -288,16 +294,6 @@ function setupPlayerInput(player) {
     if (game.scale < 0.01) game.scale = 0.01;
   };
   canvas.addEventListener('wheel', _wheelZoom, { passive: false });
-
-  document.addEventListener('keydown', (e) => {
-    if (document.activeElement?.id === 'chatInput') return;
-    if (e.key.toLowerCase() !== 'e' || !game?.player) return;
-    const p = game.player;
-    if (!e.repeat) {
-      p.autoAttack = !p.autoAttack;
-      showAutoAttackToast(p.autoAttack);
-    }
-  });
 }
 
 const names = { base: 'Base', destroyer: 'Des', anchor: 'Anc', riot: 'Riot', overlord: 'Ovr', streamliner: 'Str', inferno: 'Inf', ziggurat: 'Zig', cutter: 'Cut', hive: 'Hive' };
@@ -1861,7 +1857,19 @@ function init() {
   if (respawnBtn) {
     respawnBtn.onclick = () => {
       document.getElementById('death-screen').classList.add('hidden');
-      if (game) game.start(null);
+      if (game) {
+        const p = game.player;
+        const savedState = p ? {
+          inventory: Array.isArray(p.inventory) ? p.inventory.slice() : [],
+          hand: Array.isArray(p.hand) ? p.hand.slice() : [],
+          equippedTank: p.equippedTank && typeof p.equippedTank === 'object' ? { ...p.equippedTank } : null,
+          equippedBody: p.equippedBody && typeof p.equippedBody === 'object' ? { ...p.equippedBody } : null,
+          level: typeof p.level === 'number' ? p.level : 1,
+          xp: typeof p.xp === 'number' ? p.xp : 0,
+          stars: typeof p.stars === 'number' ? p.stars : 0
+        } : null;
+        game.start(savedState);
+      }
       lastTime = performance.now();
       if (!animationId) loop(performance.now());
     };

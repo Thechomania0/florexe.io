@@ -393,9 +393,6 @@ body {
 }
 
 .save-exit-btn {
-  position: absolute;
-  top: 5%;
-  left: 5%;
   width: 28px;
   height: 28px;
   padding: 0;
@@ -410,7 +407,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  flex-shrink: 0;
 }
 .save-exit-btn:hover {
   background: #e00;
@@ -419,7 +416,7 @@ body {
 .hud-top {
   position: absolute;
   top: 0;
-  left: 36px;
+  left: 0.5rem;
   right: 1rem;
   display: flex;
   flex-direction: row;
@@ -435,10 +432,32 @@ body {
 
 .hud-top .shop-btn {
   margin: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  min-width: 28px;
+  border-radius: 4px;
+  background: #90ee90;
+  border: 2px solid rgba(0,0,0,0.2);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+.hud-top .shop-btn .shop-btn-star {
+  text-shadow: none;
+  filter: drop-shadow(0 0 0 #fff);
+}
+.hud-top .shop-btn:hover {
+  background: #98fb98;
 }
 
 .hud-top .stars {
   margin: 0;
+}
+.hud-top .stars.hidden {
+  display: none !important;
 }
 
 .hud-top-right {

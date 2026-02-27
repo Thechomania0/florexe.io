@@ -46,14 +46,13 @@
     <canvas id="gameCanvas"></canvas>
     <div id="hud">
 
-      <button id="saveExitBtn" class="save-exit-btn" type="button" title="Save &amp; exit to menu">×</button>
-
       <div id="autoAttackToast" class="auto-attack-toast hidden" aria-live="polite">Auto-Attack (E): Off</div>
 
       <div class="hud-top">
         <div class="hud-top-left">
-          <button id="shopBtn" class="shop-btn">Shop</button>
-          <span class="stars" id="stars">★ 0</span>
+          <button id="shopBtn" class="shop-btn" type="button" title="Shop"><span class="shop-btn-star" aria-hidden="true">★</span></button>
+          <button id="saveExitBtn" class="save-exit-btn" type="button" title="Save &amp; exit to menu">×</button>
+          <span class="stars hidden" id="stars" aria-hidden="true">★ 0</span>
         </div>
         <div class="hud-top-right">
           <span id="visionZoomLabel" class="vision-zoom-label" aria-live="polite">+0%</span>
