@@ -318,7 +318,7 @@ export class Player {
       }
       for (const beetle of game.beetles || []) {
         const d = distance(this.x, this.y, beetle.x, beetle.y);
-        const overlap = this.size + beetle.size - d;
+        const overlap = this.size + (beetle.collisionRadius ?? beetle.size) - d;
         if (overlap > 0) {
           this.takeDamage(beetle.damage * dt / 1000);
           const bodyDmg = (this.bodyDamage ?? BASE_BODY_DAMAGE) * dt / 1000;

@@ -155,7 +155,7 @@ export class Square {
       for (const beetle of game.beetles || []) {
         if (beetle.hp <= 0) continue;
         const d = distance(this.x, this.y, beetle.x, beetle.y);
-        const overlap = this.size + beetle.size - d;
+        const overlap = this.size + (beetle.collisionRadius ?? beetle.size) - d;
         if (overlap > 0) {
           const nx = d > 0 ? (this.x - beetle.x) / d : 1;
           const ny = d > 0 ? (this.y - beetle.y) / d : 0;

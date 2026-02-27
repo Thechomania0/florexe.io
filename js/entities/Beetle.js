@@ -15,6 +15,8 @@ export class Beetle {
     this.hp = config.hp;
     this.damage = config.damage;
     this.size = config.size;
+    /** Collision radius (hitbox) - smaller than draw size so it matches the visible purple body. */
+    this.collisionRadius = this.size * 0.55;
     this.weight = config.weight ?? 1;
     this.vision = BEETLE_VISION;
     this.vx = 0;
@@ -28,11 +30,12 @@ export class Beetle {
     const beetleSpeed = 0.175 * 0.65; // 65% of player base speed (units per second)
     const moveThisFrame = beetleSpeed * (dt / 1000); // units to move this frame
 
-    if (player && !player.dead && !player.adminMode && this.vision > 0) {
+    // Chase player when in vision; only skip when admin mode is explicitly on
+    if (player && !player.dead && player.adminMode !== true && this.vision > 0) {
       const dx = player.x - this.x;
       const dy = player.y - this.y;
       const dist = Math.hypot(dx, dy);
-      if (dist <= this.vision && dist > 0) {
+      if (dist <= this.vision && dist > 1e-6) {
         const nx = dx / dist;
         const ny = dy / dist;
         this.x += nx * moveThisFrame;
