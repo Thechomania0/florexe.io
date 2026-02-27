@@ -51,6 +51,9 @@
     .default-map-row { display: flex; gap: 8px; align-items: center; margin: 12px 0 4px 0; }
     .default-map-row label { color: #aaa; font-size: 0.9rem; }
     .default-map-row select { padding: 6px 10px; background: #252525; border: 1px solid #444; border-radius: 6px; color: #eee; flex: 1; }
+    .canvas-side-token { margin: 10px 0 4px 0; }
+    .canvas-side-token label { display: block; color: #aaa; font-size: 0.85rem; margin-bottom: 4px; }
+    .canvas-side-token input { width: 100%; padding: 6px 10px; background: #252525; border: 1px solid #444; border-radius: 6px; color: #eee; font-size: 0.9rem; box-sizing: border-box; }
     .github-settings { margin: 10px 0; }
     .github-settings summary { cursor: pointer; color: #aaa; }
     .github-settings-row { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
@@ -111,8 +114,12 @@
           <option value="heaven">Heaven</option>
         </select>
       </div>
+      <div class="canvas-side-token">
+        <label>GitHub token:</label>
+        <input type="password" id="githubTokenSide" placeholder="ghp_..." autocomplete="off" title="Get one at github.com/settings/tokens (repo scope)" />
+      </div>
       <button type="button" id="saveAsDefault" class="primary" title="Replace data/custom-map.json in your repo. This becomes the map new users see.">Save as default</button>
-      <p class="info" style="margin-top:8px;font-size:0.85rem">Default map = what new users see when cache is cleared. Requires GitHub token.</p>
+      <p class="info" style="margin-top:8px;font-size:0.85rem">Default map = what new users see when cache is cleared. Token needed for Save as default.</p>
     </div>
   </div>
 
@@ -319,8 +326,9 @@
     function getGitHubConfig() {
       const repoEl = document.getElementById('githubRepo');
       const tokenEl = document.getElementById('githubToken');
+      const tokenSideEl = document.getElementById('githubTokenSide');
       const repo = (repoEl?.value || localStorage.getItem(GITHUB_REPO_KEY) || 'Thechomania0/florexe.io').trim();
-      const token = (tokenEl?.value || localStorage.getItem(GITHUB_TOKEN_KEY) || '').trim();
+      const token = (tokenSideEl?.value || tokenEl?.value || localStorage.getItem(GITHUB_TOKEN_KEY) || '').trim();
       return { repo, token };
     }
 
@@ -729,10 +737,8 @@
       const gamemode = (document.getElementById('defaultGamemode')?.value || 'ffa').trim();
       const { token } = getGitHubConfig();
       if (!token) {
-        showSaveMsg('Add a GitHub token in "Store maps on GitHub" below, then try again.', false);
-        const details = document.querySelector('.github-settings');
-        if (details) { details.open = true; }
-        const tokenInput = document.getElementById('githubToken');
+        showSaveMsg('Enter your GitHub token above, then try again.', false);
+        const tokenInput = document.getElementById('githubTokenSide') || document.getElementById('githubToken');
         if (tokenInput) { tokenInput.focus(); }
         return;
       }
@@ -821,13 +827,23 @@
 
     const githubRepoEl = document.getElementById('githubRepo');
     const githubTokenEl = document.getElementById('githubToken');
+    const githubTokenSideEl = document.getElementById('githubTokenSide');
     if (githubRepoEl) {
       githubRepoEl.value = localStorage.getItem(GITHUB_REPO_KEY) || 'Thechomania0/florexe.io';
       githubRepoEl.addEventListener('change', () => { localStorage.setItem(GITHUB_REPO_KEY, githubRepoEl.value.trim()); });
     }
+    const syncToken = (val) => {
+      localStorage.setItem(GITHUB_TOKEN_KEY, val);
+      if (githubTokenEl) githubTokenEl.value = val;
+      if (githubTokenSideEl) githubTokenSideEl.value = val;
+    };
     if (githubTokenEl) {
       githubTokenEl.value = localStorage.getItem(GITHUB_TOKEN_KEY) || '';
-      githubTokenEl.addEventListener('change', () => { localStorage.setItem(GITHUB_TOKEN_KEY, githubTokenEl.value.trim()); });
+      githubTokenEl.addEventListener('change', () => { syncToken(githubTokenEl.value.trim()); });
+    }
+    if (githubTokenSideEl) {
+      githubTokenSideEl.value = localStorage.getItem(GITHUB_TOKEN_KEY) || '';
+      githubTokenSideEl.addEventListener('change', () => { syncToken(githubTokenSideEl.value.trim()); });
     }
 
     refreshOldMapsSelect().then(() => {}).catch(() => {});
