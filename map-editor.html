@@ -45,6 +45,12 @@
     .maps-row label { color: #aaa; }
     .bucket-label { color: #333; display: flex; align-items: center; gap: 6px; cursor: pointer; }
     .bucket-label input { cursor: pointer; }
+    .canvas-row { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+    .canvas-side { flex: 0 0 auto; padding: 12px; background: #252525; border-radius: 8px; border: 1px solid #444; min-width: 180px; }
+    .canvas-side button { width: 100%; margin-top: 8px; }
+    .default-map-row { display: flex; gap: 8px; align-items: center; margin: 12px 0 4px 0; }
+    .default-map-row label { color: #aaa; font-size: 0.9rem; }
+    .default-map-row select { padding: 6px 10px; background: #252525; border: 1px solid #444; border-radius: 6px; color: #eee; flex: 1; }
     .github-settings { margin: 10px 0; }
     .github-settings summary { cursor: pointer; color: #aaa; }
     .github-settings-row { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
@@ -90,7 +96,25 @@
     <label class="bucket-label"><input type="checkbox" id="bucketMode" title="Bucket fill: click to fill connected area with current color" /> Bucket</label>
   </div>
 
-  <canvas id="canvas"></canvas>
+  <div class="canvas-row">
+    <canvas id="canvas"></canvas>
+    <div class="canvas-side">
+      <input type="file" id="importMapInput" accept=".json,application/json" style="display:none" />
+      <button type="button" id="importMap" class="primary">Import map</button>
+      <p class="info" style="margin-top:8px">Import a <code>custom-map.json</code> file to edit it on the canvas.</p>
+      <div class="default-map-row">
+        <label>Default for:</label>
+        <select id="defaultGamemode">
+          <option value="ffa">FFA</option>
+          <option value="2tdm">2TDM</option>
+          <option value="4tdm">4TDM</option>
+          <option value="heaven">Heaven</option>
+        </select>
+      </div>
+      <button type="button" id="saveAsDefault" class="primary" title="Replace data/custom-map.json in your repo. This becomes the map new users see.">Save as default</button>
+      <p class="info" style="margin-top:8px;font-size:0.85rem">Default map = what new users see when cache is cleared. Requires GitHub token.</p>
+    </div>
+  </div>
 
   <div class="save-section">
     <h3>Use this map in the game</h3>
@@ -332,6 +356,40 @@
       return null;
     }
 
+    async function saveCustomMapAsDefaultToGitHub(gamemode) {
+      const { repo, token } = getGitHubConfig();
+      if (!repo || !token) return false;
+      try {
+        const segments = buildSegmentsFromGrid();
+        const zoneGrid = buildZoneGridForGame();
+        const data = { walls: segments, zones: { grid: zoneGrid } };
+        const path = gamemode === 'ffa' ? 'data/custom-map.json' : ('data/custom-map-' + gamemode + '.json');
+        const content = JSON.stringify(data, null, 2);
+        const getRes = await fetch('https://api.github.com/repos/' + repo + '/contents/' + path, {
+          headers: { Authorization: 'token ' + token }
+        });
+        let sha = null;
+        if (getRes.ok) {
+          const f = await getRes.json();
+          sha = f.sha;
+        }
+        const putRes = await fetch('https://api.github.com/repos/' + repo + '/contents/' + path, {
+          method: 'PUT',
+          headers: {
+            'Authorization': 'token ' + token,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            message: 'Set default map from map editor (' + gamemode + ')',
+            content: btoa(unescape(encodeURIComponent(content))),
+            ...(sha && { sha })
+          })
+        });
+        return putRes.ok;
+      } catch (e) {}
+      return false;
+    }
+
     async function saveMapsListToGitHub(list) {
       const { repo, token } = getGitHubConfig();
       if (!repo || !token) return false;
@@ -372,8 +430,11 @@
           if (Array.isArray(data)) return data;
         }
       } catch (e) {}
-      const gh = await getMapsListFromGitHub();
-      if (gh && gh.length >= 0) return gh;
+      const { token } = getGitHubConfig();
+      if (token) {
+        const gh = await getMapsListFromGitHub();
+        if (gh && gh.length >= 0) return gh;
+      }
       return getMapsListFromStorage();
     }
 
@@ -640,6 +701,64 @@
       grid = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(CELL.EMPTY));
       draw();
     };
+
+    function importCustomMapJson(data) {
+      if (!data || !data.zones || !Array.isArray(data.zones.grid)) return false;
+      const g = data.zones.grid;
+      if (g.length !== 400) return false;
+      const loaded = [];
+      for (let i = 0; i < 400; i++) {
+        const row = g[i];
+        if (!Array.isArray(row) || row.length !== 400) return false;
+        loaded.push(row.slice());
+      }
+      pushHistory();
+      for (let i = 0; i < 400; i++) {
+        for (let j = 0; j < 400; j++) {
+          const v = loaded[i][j];
+          grid[i][j] = (typeof v === 'number' && v >= 0 && v <= 6) ? v : CELL.EMPTY;
+        }
+      }
+      return true;
+    }
+
+    document.getElementById('importMap').onclick = () => {
+      document.getElementById('importMapInput').click();
+    };
+    document.getElementById('saveAsDefault').onclick = async () => {
+      const gamemode = (document.getElementById('defaultGamemode')?.value || 'ffa').trim();
+      if (!getGitHubConfig().token) {
+        showSaveMsg('Add a GitHub token in "Store maps on GitHub" to save as default.', false);
+        return;
+      }
+      const ok = await saveCustomMapAsDefaultToGitHub(gamemode);
+      if (ok) {
+        showSaveMsg('Saved as default map. New users will see this map when cache is cleared.', true);
+      } else {
+        showSaveMsg('Could not save as default. Check token and repo.', false);
+      }
+    };
+
+    document.getElementById('importMapInput').addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      e.target.value = '';
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          if (importCustomMapJson(data)) {
+            draw();
+            showSaveMsg('Map imported. You can now edit it.', true);
+          } else {
+            showSaveMsg('Invalid custom-map.json. Need zones.grid (400×400).', false);
+          }
+        } catch (err) {
+          showSaveMsg('Could not parse JSON: ' + (err.message || 'Invalid file'), false);
+        }
+      };
+      reader.readAsText(file);
+    });
 
     document.getElementById('rotate90').onclick = () => {
       pushHistory();

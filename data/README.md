@@ -1,13 +1,22 @@
 # Custom map storage
 
-To make your drawn map **permanent** across link changes, deploys, and devices:
+**Default map** = what new users see when cache is cleared / new device enters the game.
 
-1. Open **Map editor** (link from the game menu).
-2. Draw your map and click **Save and confirm implementation** (saves to this browser only).
-3. Click **Export for repo** to download `custom-map.json`.
-4. Put the downloaded file here as `data/custom-map.json` (this folder).
-5. Commit and push to GitHub.
+## Set your map as the default
 
-The game will load this map whenever the browser has no saved map (e.g. first visit, new device, or after clearing site data). To change the map later, edit in the map editor, export again, replace this file, and push.
+1. Open **Map editor** (admin only).
+2. Draw or import your map.
+3. Select the gamemode (FFA, 2TDM, etc.).
+4. Add your GitHub token in "Store maps on GitHub".
+5. Click **Save as default** – this updates `data/custom-map.json` in your repo via the GitHub API.
 
-Do not add `custom-map.json` to the repo if you want to use the default built-in map.
+Your map then becomes the default for new users.
+
+## Manual method (without GitHub token)
+
+1. Draw your map in the map editor.
+2. Click **Export for repo** to download `custom-map.json`.
+3. Replace `data/custom-map.json` (this folder) with the downloaded file.
+4. Commit and push to GitHub.
+
+The game loads `data/custom-map.json` when localStorage has no map.

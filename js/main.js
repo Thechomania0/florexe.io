@@ -58,15 +58,22 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 
-/** Load custom map from data/custom-map.json when localStorage has no map. Keeps your drawn map across deploys and devices. */
-async function loadCustomMapFromRepo() {
+/** Load custom map from data/custom-map*.json when localStorage has no map. Default map = what new users see when cache is cleared. */
+async function loadCustomMapFromRepo(gamemode) {
   try {
     if (localStorage.getItem('florexe_custom_zones')) return;
     const base = document.querySelector('base')?.getAttribute('href') || './';
-    const r = await fetch(base + 'data/custom-map.json');
-    if (!r.ok) return;
-    const data = await r.json();
-    if (!data || !Array.isArray(data.walls) || !data.zones || !Array.isArray(data.zones.grid) || data.zones.grid.length !== 400) return;
+    const paths = gamemode && gamemode !== 'ffa' ? [base + 'data/custom-map-' + gamemode + '.json', base + 'data/custom-map.json'] : [base + 'data/custom-map.json'];
+    let data = null;
+    for (const url of paths) {
+      const r = await fetch(url);
+      if (r.ok) {
+        data = await r.json();
+        if (data && Array.isArray(data.walls) && data.zones && Array.isArray(data.zones.grid) && data.zones.grid.length === 400) break;
+        data = null;
+      }
+    }
+    if (!data) return;
     localStorage.setItem('florexe_custom_walls', JSON.stringify(data.walls));
     localStorage.setItem('florexe_custom_zones', JSON.stringify(data.zones));
   } catch (e) {}
@@ -84,7 +91,7 @@ function startGame(gamemode) {
   // Yield so the browser paints the loading screen before we create the game
   requestAnimationFrame(() => {
     requestAnimationFrame(async () => {
-      await loadCustomMapFromRepo();
+      await loadCustomMapFromRepo(gamemode);
       game = new Game(gamemode);
       const chatEl = document.getElementById('chatMessages');
       game.onSuperSpawn = (mobType) => {
