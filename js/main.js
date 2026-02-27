@@ -407,7 +407,8 @@ function getItemTooltipContent(item) {
       stats.push({ label: 'Drone HP', value: String(damage), cls: 'stat-positive' });
     }
     const statsHtml = stats.map(s => `<div class="item-tooltip-stat ${s.cls}">${escapeHtml(s.label)}: ${escapeHtml(s.value)}</div>`).join('');
-    return `<div class="item-tooltip-name">${escapeHtml(name)}</div><div class="item-tooltip-rarity" style="color:${rarityColor}">${escapeHtml(rarityLabel)}</div><div class="item-tooltip-stats">${statsHtml}</div>`;
+    const descHtml = t.description ? `<div class="item-tooltip-desc">${escapeHtml(t.description)}</div>` : '';
+    return `<div class="item-tooltip-name">${escapeHtml(name)}</div><div class="item-tooltip-rarity" style="color:${rarityColor}">${escapeHtml(rarityLabel)}</div>${descHtml}<div class="item-tooltip-stats">${statsHtml}</div>`;
   }
 
   if (item.type === 'body') {
@@ -441,7 +442,8 @@ function getItemTooltipContent(item) {
       stats.push({ label: 'Spawn interval', value: (b.spawnInterval ?? 0) + 'ms', cls: 'stat-positive' });
     }
     const statsHtml = stats.map(s => `<div class="item-tooltip-stat ${s.cls}">${escapeHtml(s.label)}: ${escapeHtml(s.value)}</div>`).join('');
-    return `<div class="item-tooltip-name">${escapeHtml(name)}</div><div class="item-tooltip-rarity" style="color:${rarityColor}">${escapeHtml(rarityLabel)}</div><div class="item-tooltip-stats">${statsHtml}</div>`;
+    const descHtml = b.description ? `<div class="item-tooltip-desc">${escapeHtml(b.description)}</div>` : '';
+    return `<div class="item-tooltip-name">${escapeHtml(name)}</div><div class="item-tooltip-rarity" style="color:${rarityColor}">${escapeHtml(rarityLabel)}</div>${descHtml}<div class="item-tooltip-stats">${statsHtml}</div>`;
   }
   return '';
 }

@@ -55,9 +55,10 @@ export const BODY_UPGRADES = {
   },
   hive: {
     name: 'Hive',
+    description: 'Auto-aiming drones that take the shape of your equipped egg.',
     spawnersByRarity: { common: 4, uncommon: 8, rare: 16, epic: 16, legendary: 16, mythic: 16, ultra: 16, super: 16 },
     damageByRarity: { common: 10, uncommon: 25, rare: 40, epic: 80, legendary: 125, mythic: 200, ultra: 1000, super: 5000 },
-    spawnInterval: 5,
+    spawnInterval: 0.05,
     rangeMult: 2,
   },
 };
@@ -116,6 +117,7 @@ export const TANK_UPGRADES = {
   },
   overlord: {
     name: 'Overlord',
+    description: 'Controllable drones (follow mouse) that take the shape of your equipped egg.',
     damageByRarity: { common: 40, uncommon: 50, rare: 80, epic: 120, legendary: 250, mythic: 500, ultra: 1000, super: 5000 },
     droneCount: 8,
     droneCountUltra: 12,

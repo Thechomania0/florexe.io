@@ -1508,6 +1508,12 @@ body {
   margin-bottom: 6px;
 }
 
+.item-detail-tooltip .item-tooltip-desc {
+  font-size: 0.8rem;
+  color: #b0b0b0;
+  margin-bottom: 6px;
+}
+
 .item-detail-tooltip .item-tooltip-stats {
   margin-top: 4px;
 }
