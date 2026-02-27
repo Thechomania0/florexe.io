@@ -7,9 +7,8 @@ const MAX_SEPARATION_PER_FRAME = 2.5;
 const RIOT_NO_BOUNCE = true;
 const TRAP_FOOD_PUSH_SCALE = 0.12;
 const TRAP_NO_COLLISION_MS = 200; // Riot/Anchor: no collision for first 0.2s after spawn
-/** Weight 1–100: higher can displace lower. Spectrum factor = (pusher - pushed) / 99 (100 vs 1 = full, 100 vs 99 = slight). */
+/** Weight comparison: push factor = (higher/lower - 1) capped at 1 (100%). Heavier can push lighter by that %. */
 const WEIGHT_MAX = 100;
-const WEIGHT_SPAN = WEIGHT_MAX - 1; // 99
 
 function effectiveWeight(w) {
   const n = Math.max(0, Math.min(WEIGHT_MAX, typeof w === 'number' ? w : 1));
@@ -19,7 +18,10 @@ function displaceStrength(pusherWeight, pushedWeight) {
   const pw = effectiveWeight(pusherWeight);
   const pd = effectiveWeight(pushedWeight);
   if (pw <= pd) return 0;
-  return Math.min(1, (pw - pd) / WEIGHT_SPAN);
+  const higher = pw;
+  const lower = pd;
+  const decimal = higher / lower - 1;
+  return Math.min(1, decimal);
 }
 
 export class Square {

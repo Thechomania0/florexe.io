@@ -13,12 +13,13 @@ import { distance, getRarityColor } from './utils.js';
 import { Player } from './Player.js';
 import { loadTankAssets, getLoadedTankAssets, getBodyIconUrlByRarity, getGunIconUrlByRarity, getPetalIconUrlByRarity } from './TankAssets.js';
 
-// Weight 1–100 spectrum: push factor when bullet hits target (100 vs 1 = full, 100 vs 99 = slight)
+// Weight comparison: push factor = (higher/lower - 1) capped at 1 (100%). Heavier can push lighter by that %.
 function bulletDisplaceStrength(pusherWeight, pushedWeight) {
   const pw = Math.max(1, Math.min(100, pusherWeight || 0));
   const pd = Math.max(1, Math.min(100, pushedWeight || 0));
   if (pw <= pd) return 0;
-  return Math.min(1, (pw - pd) / 99) * 0.25;
+  const decimal = pw / pd - 1;
+  return Math.min(1, decimal) * 0.25;
 }
 
 // Despawn time (ms) for uncollected drops by rarity tier
