@@ -1,6 +1,5 @@
 import { getRarityColor, darkenColor } from '../utils.js';
 import { distance } from '../utils.js';
-import { RARITIES } from '../config.js';
 
 const BOUNCE_STRENGTH = 0.015;
 const BOUNCE_CONTACT_WINDOW = 100;
@@ -8,6 +7,20 @@ const MAX_SEPARATION_PER_FRAME = 2.5;
 const RIOT_NO_BOUNCE = true;
 const TRAP_FOOD_PUSH_SCALE = 0.12;
 const TRAP_NO_COLLISION_MS = 200; // Riot/Anchor: no collision for first 0.2s after spawn
+/** Weight 1–100: higher can displace lower. Spectrum factor = (pusher - pushed) / 99 (100 vs 1 = full, 100 vs 99 = slight). */
+const WEIGHT_MAX = 100;
+const WEIGHT_SPAN = WEIGHT_MAX - 1; // 99
+
+function effectiveWeight(w) {
+  const n = Math.max(0, Math.min(WEIGHT_MAX, typeof w === 'number' ? w : 1));
+  return n === 0 ? 1 : n;
+}
+function displaceStrength(pusherWeight, pushedWeight) {
+  const pw = effectiveWeight(pusherWeight);
+  const pd = effectiveWeight(pushedWeight);
+  if (pw <= pd) return 0;
+  return Math.min(1, (pw - pd) / WEIGHT_SPAN);
+}
 
 export class Square {
   constructor(x, y, damage, hp, size, duration, ownerId, rarity, vx = 0, vy = 0, bodyColor = null, bounceOnContact = false, launchDuration = 0, isRiotTrap = false, weight = 1, trapPushScale = 1) {
@@ -109,7 +122,7 @@ export class Square {
         }
       }
 
-      // Trap–food collision: separation and push (riot traps do not push foods)
+      // Trap–food collision: separation and push by weight spectrum (1–100)
       for (const food of game.foods) {
         if (food.hp <= 0) continue;
         const d = distance(this.x, this.y, food.x, food.y);
@@ -120,17 +133,20 @@ export class Square {
           const separation = Math.min(overlap / 2, MAX_SEPARATION_PER_FRAME);
           this.x += nx * separation;
           this.y += ny * separation;
-          if (!this.isRiotTrap && this.trapPushScale > 0) {
-            food.x -= nx * separation;
-            food.y -= ny * separation;
-            const totalWeight = this.weight + food.weight;
-            const scale = TRAP_FOOD_PUSH_SCALE * this.trapPushScale;
-            const trapPush = (food.weight / totalWeight) * scale;
-            const foodPush = (this.weight / totalWeight) * scale;
-            food.vx += nx * this.vx * foodPush;
-            food.vy += ny * this.vy * foodPush;
-            this.vx -= nx * trapPush * this.vx;
-            this.vy -= ny * trapPush * this.vy;
+          food.x -= nx * separation;
+          food.y -= ny * separation;
+          const trapPushes = displaceStrength(this.weight, food.weight);
+          const foodPushes = displaceStrength(food.weight, this.weight);
+          const scale = TRAP_FOOD_PUSH_SCALE * this.trapPushScale;
+          if (trapPushes > 0 && !this.isRiotTrap) {
+            food.vx += nx * this.vx * scale * trapPushes;
+            food.vy += ny * this.vy * scale * trapPushes;
+            this.vx -= nx * this.vx * scale * trapPushes * 0.5;
+            this.vy -= ny * this.vy * scale * trapPushes * 0.5;
+          }
+          if (foodPushes > 0) {
+            this.vx += nx * (food.vx || 0) * scale * foodPushes;
+            this.vy += ny * (food.vy || 0) * scale * foodPushes;
           }
           const tangent = -nx * this.vy + ny * this.vx;
           this.angularVelocity += tangent * 0.0005;
@@ -148,27 +164,20 @@ export class Square {
           this.y += ny * separation;
           beetle.x -= nx * separation;
           beetle.y -= ny * separation;
-          const squareRarityIndex = RARITIES.indexOf(this.rarity);
-          const beetleRarityIndex = RARITIES.indexOf(beetle.rarity);
-          const beetleCanPush = beetleRarityIndex >= squareRarityIndex;
-          if (beetleCanPush) {
-            const totalWeight = this.weight + beetle.weight;
-            const scale = TRAP_FOOD_PUSH_SCALE * this.trapPushScale;
-            const squarePush = (beetle.weight / totalWeight) * scale;
-            const beetlePush = (this.weight / totalWeight) * scale;
-            this.vx += nx * beetle.vx * squarePush;
-            this.vy += ny * beetle.vy * squarePush;
-            beetle.vx -= nx * beetlePush * beetle.vx;
-            beetle.vy -= ny * beetlePush * beetle.vy;
-          } else if (!this.isRiotTrap && this.trapPushScale > 0) {
-            const totalWeight = this.weight + beetle.weight;
-            const scale = TRAP_FOOD_PUSH_SCALE * this.trapPushScale;
-            const trapPush = (beetle.weight / totalWeight) * scale;
-            const beetlePush = (this.weight / totalWeight) * scale;
-            beetle.vx += nx * this.vx * beetlePush;
-            beetle.vy += ny * this.vy * beetlePush;
-            this.vx -= nx * trapPush * this.vx;
-            this.vy -= ny * trapPush * this.vy;
+          const trapPushes = displaceStrength(this.weight, beetle.weight);
+          const beetlePushes = displaceStrength(beetle.weight, this.weight);
+          const scale = TRAP_FOOD_PUSH_SCALE * this.trapPushScale;
+          if (trapPushes > 0 && !this.isRiotTrap && this.trapPushScale > 0) {
+            beetle.vx += nx * this.vx * scale * trapPushes;
+            beetle.vy += ny * this.vy * scale * trapPushes;
+            this.vx -= nx * this.vx * scale * trapPushes * 0.5;
+            this.vy -= ny * this.vy * scale * trapPushes * 0.5;
+          }
+          if (beetlePushes > 0) {
+            this.vx += nx * beetle.vx * scale * beetlePushes;
+            this.vy += ny * beetle.vy * scale * beetlePushes;
+            beetle.vx -= nx * beetle.vx * scale * beetlePushes * 0.5;
+            beetle.vy -= ny * beetle.vy * scale * beetlePushes * 0.5;
           }
           const tangent = -nx * this.vy + ny * this.vx;
           this.angularVelocity += tangent * 0.0005;

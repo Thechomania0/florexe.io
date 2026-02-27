@@ -468,8 +468,7 @@ function slotInnerHTML(item, showLabel = true, size = ICON_SIZE_INV) {
   if (item.type === 'petal') {
     const url = getPetalIconUrlByRarity(item.subtype, item.rarity);
     if (!url) return `<span class="slot-label">${label || '–'}</span>`;
-    const displayName = item.subtype === 'egg' ? 'Egg' : (item.subtype || '');
-    return `<img class="slot-icon-img" src="${url}" width="${size}" height="${size}" alt=""><span class="slot-label">${displayName}</span>`;
+    return `<div class="slot-cutter-fill"><img class="slot-icon-img slot-cutter-full" src="${url}" alt=""></div>`;
   }
   if (item.type === 'tank') {
     if (isRarityGunTank(item)) {
@@ -957,9 +956,9 @@ function setupHUD(player) {
         const count = getEffectiveInventoryCount(p, 'petal', item.subtype, item.rarity);
         const countStr = formatCount(count);
         const slot = document.createElement('div');
-        slot.className = 'inventory-slot';
-        slot.style.backgroundColor = getRarityColor(item.rarity);
-        slot.style.borderColor = getRarityColor(item.rarity);
+        slot.className = 'inventory-slot slot-cutter-as-box';
+        slot.style.backgroundColor = 'transparent';
+        slot.style.borderColor = 'transparent';
         slot.innerHTML = slotInnerHTML({ ...item, type: 'petal' }, true, ICON_SIZE_INV) + (count > 1 ? `<span class="stack-count">×${countStr}</span>` : '');
         slot.title = `${item.subtype} (${item.rarity})${count > 1 ? ` ×${countStr}` : ''}`;
         slot.onmouseenter = (e) => showItemTooltip({ type: 'petal', subtype: item.subtype, rarity: item.rarity }, e);
@@ -1491,13 +1490,14 @@ function setupCrafting(player) {
         const itemWithType = { type, subtype, rarity };
         const invCutter = isCutterBody(itemWithType);
         const invAnchor = isRarityGunTank(itemWithType);
-        const invFullBleed = invCutter || invAnchor;
+        const invPetal = type === 'petal';
+        const invFullBleed = invCutter || invAnchor || invPetal;
         el.className = 'craft-inv-slot' + (count <= 0 ? ' disabled' : (available <= 0 ? ' disabled' : '')) + (invFullBleed ? ' craft-inv-slot-cutter-as-box' : '');
         el.style.borderColor = invFullBleed ? 'transparent' : (count > 0 ? getRarityColor(rarity) : '#6E4F33');
-        el.style.backgroundColor = count > 0 ? getRarityColor(rarity) : '#A0744B';
+        el.style.backgroundColor = count > 0 && !invFullBleed ? getRarityColor(rarity) : (count > 0 && invFullBleed ? 'transparent' : '#A0744B');
         el.style.color = count > 0 ? (invFullBleed ? getRarityColor(rarity) : '#000') : '#000';
         const invIconUrl = getIconUrl(subtype, type, rarity);
-        const invFallback = type === 'body' ? getBodyIconUrl(subtype) : getGunIconUrl(subtype);
+        const invFallback = type === 'petal' ? getPetalIconUrlByRarity(subtype, rarity) : (type === 'body' ? getBodyIconUrl(subtype) : getGunIconUrl(subtype));
         const invPlaceholder = getPlaceholderIconDataUri(subtype);
         const invIconHtml = count > 0 && invIconUrl ? (invFullBleed ? `<div class="slot-cutter-fill"><img class="slot-icon-img slot-cutter-full craft-inv-icon" src="${invIconUrl}" onerror="if(this.dataset.fb!='1'){this.dataset.fb='1';this.src='${invFallback}'}else{this.src='${invPlaceholder}';this.onerror=null}" alt=""></div>` : (type === 'body' ? `<img class="slot-icon-img craft-inv-icon" src="${invIconUrl}" onerror="if(this.dataset.fb!='1'){this.dataset.fb='1';this.src='${invFallback}'}else{this.src='${invPlaceholder}';this.onerror=null}" width="24" height="24" alt="" style="object-fit:contain">` : `<div class="slot-icon-bg craft-inv-icon" style="width:24px;height:24px;background-image:url('${invIconUrl}')"></div>`)) : '';
         el.innerHTML = invIconHtml + (count > 0 ? (`<span class="craft-inv-count">×${formatCount(available)}</span><span class="craft-inv-name">${invFullBleed ? '' : (names[subtype] || subtype)}</span>`) : '');
@@ -1536,14 +1536,15 @@ function setupCrafting(player) {
       craftResultSlot.classList.add('craft-result-clickable');
       const recipeCutter = isCutterBody({ ...item, type: item.type });
       const recipeAnchor = isRarityGunTank({ ...item, type: item.type });
-      const recipeFullBleed = recipeCutter || recipeAnchor;
+      const recipePetal = item.type === 'petal';
+      const recipeFullBleed = recipeCutter || recipeAnchor || recipePetal;
       craftResultSlot.classList.toggle('craft-result-slot-cutter-as-box', recipeFullBleed);
       craftResultSlot.style.borderColor = recipeFullBleed ? 'transparent' : getRarityColor(item.rarity);
       craftResultSlot.style.backgroundColor = recipeFullBleed ? 'transparent' : '';
       const resIconUrl = getIconUrl(item.subtype, item.type, item.rarity);
-      const resFallback = item.type === 'body' ? getBodyIconUrl(item.subtype) : (item.type === 'tank' ? getGunIconUrl(item.subtype) : resIconUrl);
+      const resFallback = item.type === 'petal' ? getPetalIconUrlByRarity(item.subtype, item.rarity) : (item.type === 'body' ? getBodyIconUrl(item.subtype) : (item.type === 'tank' ? getGunIconUrl(item.subtype) : resIconUrl));
       const resPlaceholder = getPlaceholderIconDataUri(item.subtype);
-      const resIconHtml = resIconUrl ? (item.type === 'body' && recipeCutter ? `<div class="slot-cutter-fill"><img class="slot-icon-img slot-cutter-full" src="${resIconUrl}" onerror="if(this.dataset.fb!='1'){this.dataset.fb='1';this.src='${resFallback}'}else{this.src='${resPlaceholder}';this.onerror=null}" alt=""></div>` : (item.type === 'tank' && recipeAnchor ? `<div class="slot-cutter-fill"><img class="slot-icon-img slot-cutter-full" src="${resIconUrl}" onerror="if(this.dataset.fb!='1'){this.dataset.fb='1';this.src='${resFallback}'}else{this.src='${resPlaceholder}';this.onerror=null}" alt=""></div>` : (item.type === 'body' ? `<img class="slot-icon-img craft-result-icon-bg" src="${resIconUrl}" onerror="if(this.dataset.fb!='1'){this.dataset.fb='1';this.src='${resFallback}'}else{this.src='${resPlaceholder}';this.onerror=null}" width="46" height="46" alt="" style="object-fit:contain">` : `<div class="slot-icon-bg craft-result-icon-bg" style="width:46px;height:46px;background-image:url('${resIconUrl}')"></div>`))) : '?';
+      const resIconHtml = resIconUrl ? (recipeFullBleed ? `<div class="slot-cutter-fill"><img class="slot-icon-img slot-cutter-full" src="${resIconUrl}" onerror="if(this.dataset.fb!='1'){this.dataset.fb='1';this.src='${resFallback}'}else{this.src='${resPlaceholder}';this.onerror=null}" alt=""></div>` : (item.type === 'body' ? `<img class="slot-icon-img craft-result-icon-bg" src="${resIconUrl}" onerror="if(this.dataset.fb!='1'){this.dataset.fb='1';this.src='${resFallback}'}else{this.src='${resPlaceholder}';this.onerror=null}" width="46" height="46" alt="" style="object-fit:contain">` : `<div class="slot-icon-bg craft-result-icon-bg" style="width:46px;height:46px;background-image:url('${resIconUrl}')"></div>`)) : '?';
       craftResultIcon.innerHTML = resIconHtml;
       craftResultName.textContent = (n > 1) ? `×${formatCount(n)}` : '';
       craftResultSlot.classList.add('craft-result-visible');
@@ -1574,16 +1575,17 @@ function setupCrafting(player) {
         const selAsItem = filled ? { ...sel, type: sel.type } : null;
         const isCutter = selAsItem && isCutterBody(selAsItem);
         const isAnchor = selAsItem && isRarityGunTank(selAsItem);
-        const fullBleed = isCutter || isAnchor;
+        const isPetal = filled && sel.type === 'petal';
+        const fullBleed = isCutter || isAnchor || isPetal;
         slot.className = 'craft-slot craft-slot-leftover' + (filled ? ' filled' : '') + (fullBleed ? ' craft-slot-cutter-as-box' : '');
         slot.style.borderColor = filled && !fullBleed ? getRarityColor(sel.rarity) : (filled && fullBleed ? 'transparent' : '#444');
         slot.style.backgroundColor = fullBleed ? 'transparent' : '';
         slot.style.color = filled ? getRarityColor(sel.rarity) : '#666';
         const iconUrl = filled ? getIconUrl(sel.subtype, sel.type, sel.rarity) : null;
-        const slotFallback = filled && sel.type === 'body' ? getBodyIconUrl(sel.subtype) : (filled && sel.type === 'tank' ? getGunIconUrl(sel.subtype) : iconUrl);
+        const slotFallback = filled && sel.type === 'body' ? getBodyIconUrl(sel.subtype) : (filled && sel.type === 'tank' ? getGunIconUrl(sel.subtype) : (filled && sel.type === 'petal' ? getPetalIconUrlByRarity(sel.subtype, sel.rarity) : iconUrl));
         const slotPlaceholder = filled ? getPlaceholderIconDataUri(sel.subtype) : '';
-        const slotIconHtml = filled && iconUrl ? (fullBleed ? `<div class="slot-cutter-fill"><img class="slot-icon-img slot-cutter-full" src="${iconUrl}" onerror="if(this.dataset.fb!='1'){this.dataset.fb='1';this.src='${slotFallback}'}else{this.src='${slotPlaceholder}';this.onerror=null}" alt=""></div>` : (sel.type === 'body' ? `<img class="slot-icon-img" src="${iconUrl}" onerror="if(this.dataset.fb!='1'){this.dataset.fb='1';this.src='${slotFallback}'}else{this.src='${slotPlaceholder}';this.onerror=null}" width="24" height="24" alt="" style="object-fit:contain">` : `<div class="slot-icon-bg" style="width:24px;height:24px;background-image:url('${iconUrl}')"></div>`)) : '';
-        const slotName = filled && !fullBleed ? (names[sel.subtype] || sel.subtype?.slice(0,3)) : (filled && fullBleed ? '' : '');
+        const slotIconHtml = filled && iconUrl ? (fullBleed ? `<div class="slot-cutter-fill"><img class="slot-icon-img slot-cutter-full" src="${iconUrl}" onerror="if(this.dataset.fb!='1'){this.dataset.fb='1';this.src='${slotFallback}'}else{this.src='${slotPlaceholder}';this.onerror=null}" alt=""></div>` : (sel.type === 'body' ? `<img class="slot-icon-img" src="${iconUrl}" onerror="if(this.dataset.fb!='1'){this.dataset.fb='1';this.src='${slotFallback}'}else{this.src='${slotPlaceholder}';this.onerror=null}" width="24" height="24" alt="" style="object-fit:contain">` : (sel.type === 'petal' ? `<div class="slot-cutter-fill"><img class="slot-icon-img slot-cutter-full" src="${iconUrl}" alt=""></div>` : `<div class="slot-icon-bg" style="width:24px;height:24px;background-image:url('${iconUrl}')"></div>`))) : '';
+        const slotName = filled && !fullBleed ? (names[sel.subtype] || sel.subtype?.slice(0, 3)) : (filled && fullBleed ? '' : '');
         slot.innerHTML = filled ? slotIconHtml + (slotName ? `<span>${slotName}</span>` : '') + (sel.count > 1 ? `<span class="craft-slot-count">×${formatCount(sel.count)}</span>` : '') : '+';
         slot.onclick = () => returnLeftoversToInventory();
         slotsContainer.appendChild(slot);
@@ -1609,18 +1611,19 @@ function setupCrafting(player) {
       const filled = sel && sel.count > 0;
       const slot = document.createElement('div');
       const selAsItem = filled ? { ...sel, type: sel.type } : null;
-      const isCutter = selAsItem && isCutterBody(selAsItem);
-      const isAnchor = selAsItem && isRarityGunTank(selAsItem);
-      const fullBleed = isCutter || isAnchor;
-      slot.className = 'craft-slot' + (filled ? ' filled' : '') + (fullBleed ? ' craft-slot-cutter-as-box' : '');
-      slot.style.borderColor = filled && !fullBleed ? getRarityColor(sel.rarity) : (filled && fullBleed ? 'transparent' : '#444');
-      slot.style.backgroundColor = fullBleed ? 'transparent' : '';
-      slot.style.color = filled ? getRarityColor(sel.rarity) : '#666';
-      const iconUrl = filled ? getIconUrl(sel.subtype, sel.type, sel.rarity) : null;
-      const slotFallback = filled && sel.type === 'body' ? getBodyIconUrl(sel.subtype) : (filled && sel.type === 'tank' ? getGunIconUrl(sel.subtype) : iconUrl);
-      const slotPlaceholder = filled ? getPlaceholderIconDataUri(sel.subtype) : '';
-      const slotIconHtml = filled && iconUrl ? (fullBleed ? `<div class="slot-cutter-fill"><img class="slot-icon-img slot-cutter-full" src="${iconUrl}" onerror="if(this.dataset.fb!='1'){this.dataset.fb='1';this.src='${slotFallback}'}else{this.src='${slotPlaceholder}';this.onerror=null}" alt=""></div>` : (sel.type === 'body' ? `<img class="slot-icon-img" src="${iconUrl}" onerror="if(this.dataset.fb!='1'){this.dataset.fb='1';this.src='${slotFallback}'}else{this.src='${slotPlaceholder}';this.onerror=null}" width="24" height="24" alt="" style="object-fit:contain">` : `<div class="slot-icon-bg" style="width:24px;height:24px;background-image:url('${iconUrl}')"></div>`)) : '';
-      const slotName = filled && !fullBleed ? (names[sel.subtype] || sel.subtype?.slice(0,3)) : (filled && fullBleed ? '' : '');
+        const isCutter = selAsItem && isCutterBody(selAsItem);
+        const isAnchor = selAsItem && isRarityGunTank(selAsItem);
+        const isPetal = filled && sel.type === 'petal';
+        const fullBleed = isCutter || isAnchor || isPetal;
+        slot.className = 'craft-slot' + (filled ? ' filled' : '') + (fullBleed ? ' craft-slot-cutter-as-box' : '');
+        slot.style.borderColor = filled && !fullBleed ? getRarityColor(sel.rarity) : (filled && fullBleed ? 'transparent' : '#444');
+        slot.style.backgroundColor = fullBleed ? 'transparent' : '';
+        slot.style.color = filled ? getRarityColor(sel.rarity) : '#666';
+        const iconUrl = filled ? getIconUrl(sel.subtype, sel.type, sel.rarity) : null;
+        const slotFallback = filled && sel.type === 'body' ? getBodyIconUrl(sel.subtype) : (filled && sel.type === 'tank' ? getGunIconUrl(sel.subtype) : (filled && sel.type === 'petal' ? getPetalIconUrlByRarity(sel.subtype, sel.rarity) : iconUrl));
+        const slotPlaceholder = filled ? getPlaceholderIconDataUri(sel.subtype) : '';
+        const slotIconHtml = filled && iconUrl ? (fullBleed ? `<div class="slot-cutter-fill"><img class="slot-icon-img slot-cutter-full" src="${iconUrl}" onerror="if(this.dataset.fb!='1'){this.dataset.fb='1';this.src='${slotFallback}'}else{this.src='${slotPlaceholder}';this.onerror=null}" alt=""></div>` : (sel.type === 'body' ? `<img class="slot-icon-img" src="${iconUrl}" onerror="if(this.dataset.fb!='1'){this.dataset.fb='1';this.src='${slotFallback}'}else{this.src='${slotPlaceholder}';this.onerror=null}" width="24" height="24" alt="" style="object-fit:contain">` : (sel.type === 'petal' ? `<div class="slot-cutter-fill"><img class="slot-icon-img slot-cutter-full" src="${iconUrl}" alt=""></div>` : `<div class="slot-icon-bg" style="width:24px;height:24px;background-image:url('${iconUrl}')"></div>`))) : '';
+        const slotName = filled && !fullBleed ? (names[sel.subtype] || sel.subtype?.slice(0, 3)) : (filled && fullBleed ? '' : '');
       slot.innerHTML = filled ? slotIconHtml + (slotName ? `<span>${slotName}</span>` : '') + (sel.count > 1 ? `<span class="craft-slot-count">×${formatCount(sel.count)}</span>` : '') : '+';
       const slotIndex = i;
       slot.onclick = () => {

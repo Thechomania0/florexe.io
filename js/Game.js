@@ -13,6 +13,14 @@ import { distance, getRarityColor } from './utils.js';
 import { Player } from './Player.js';
 import { loadTankAssets, getLoadedTankAssets, getBodyIconUrlByRarity, getGunIconUrlByRarity, getPetalIconUrlByRarity } from './TankAssets.js';
 
+// Weight 1–100 spectrum: push factor when bullet hits target (100 vs 1 = full, 100 vs 99 = slight)
+function bulletDisplaceStrength(pusherWeight, pushedWeight) {
+  const pw = Math.max(1, Math.min(100, pusherWeight || 0));
+  const pd = Math.max(1, Math.min(100, pushedWeight || 0));
+  if (pw <= pd) return 0;
+  return Math.min(1, (pw - pd) / 99) * 0.25;
+}
+
 // Despawn time (ms) for uncollected drops by rarity tier
 const DROP_DESPAWN_MS = {
   common: 30 * 1000,
@@ -363,8 +371,7 @@ export class Game {
             bullet.hitTargets.add(food);
             food.hp -= bullet.damage;
             if (food.hp <= 0) this.player.onKill(food, this);
-            const totalWeight = bullet.weight + food.weight;
-            const pushFactor = (bullet.weight / totalWeight) * 0.25;
+            const pushFactor = bulletDisplaceStrength(bullet.weight, food.weight);
             food.vx += Math.cos(bullet.angle) * bullet.speed * pushFactor;
             food.vy += Math.sin(bullet.angle) * bullet.speed * pushFactor;
             if (bullet.hp != null) bullet.hp -= hpPerHit;
@@ -378,8 +385,7 @@ export class Game {
             bullet.hitTargets.add(beetle);
             beetle.hp -= bullet.damage;
             if (beetle.hp <= 0) this.player.onKill(beetle, this);
-            const totalWeight = bullet.weight + beetle.weight;
-            const pushFactor = (bullet.weight / totalWeight) * 0.25;
+            const pushFactor = bulletDisplaceStrength(bullet.weight, beetle.weight);
             beetle.vx += Math.cos(bullet.angle) * bullet.speed * pushFactor;
             beetle.vy += Math.sin(bullet.angle) * bullet.speed * pushFactor;
             if (bullet.hp != null) bullet.hp -= hpPerHit;
@@ -404,8 +410,7 @@ export class Game {
             if (distance(bullet.x, bullet.y, food.x, food.y) < bullet.size + food.size) {
               food.hp -= bullet.damage;
               if (food.hp <= 0) this.player.onKill(food, this);
-              const totalWeight = bullet.weight + food.weight;
-              const pushFactor = (bullet.weight / totalWeight) * 0.25;
+              const pushFactor = bulletDisplaceStrength(bullet.weight, food.weight);
               food.vx += Math.cos(bullet.angle) * bullet.speed * pushFactor;
               food.vy += Math.sin(bullet.angle) * bullet.speed * pushFactor;
               bulletsToRemove.add(bullet);
@@ -418,8 +423,7 @@ export class Game {
             if (distance(bullet.x, bullet.y, beetle.x, beetle.y) < bullet.size + beetle.size) {
               beetle.hp -= bullet.damage;
               if (beetle.hp <= 0) this.player.onKill(beetle, this);
-              const totalWeight = bullet.weight + beetle.weight;
-              const pushFactor = (bullet.weight / totalWeight) * 0.25;
+              const pushFactor = bulletDisplaceStrength(bullet.weight, beetle.weight);
               beetle.vx += Math.cos(bullet.angle) * bullet.speed * pushFactor;
               beetle.vy += Math.sin(bullet.angle) * bullet.speed * pushFactor;
               bulletsToRemove.add(bullet);

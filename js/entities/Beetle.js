@@ -28,7 +28,7 @@ export class Beetle {
     const beetleSpeed = 0.175 * 0.65; // 65% of player base speed (units per second)
     const moveThisFrame = beetleSpeed * (dt / 1000); // units to move this frame
 
-    if (player && !player.dead && this.vision > 0) {
+    if (player && !player.dead && !player.adminMode && this.vision > 0) {
       const dx = player.x - this.x;
       const dy = player.y - this.y;
       const dist = Math.hypot(dx, dy);
