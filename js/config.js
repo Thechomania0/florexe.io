@@ -155,7 +155,7 @@ export const TANK_UPGRADES = {
   anchor: {
     name: 'Anchor',
     damageByRarity: { common: 50, uncommon: 75, rare: 100, epic: 125, legendary: 250, mythic: 500, ultra: 1500, super: 5000},
-    weightByRarity: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0, mythic: 0, ultra: 0, super: 0 },
+    weightByRarity: { common: 50, uncommon: 55, rare: 60, epic: 65, legendary: 70, mythic: 75, ultra: 80, super: 90 },
     squareHp: 5000,
     squareDuration: 6000,
     squareDurationSuper: 12000,
@@ -168,7 +168,7 @@ export const TANK_UPGRADES = {
   riot: {
     name: 'Riot',
     damageByRarity: { common: 10, uncommon: 20, rare: 30, epic: 50, legendary: 75, mythic: 100, ultra: 200, super: 1000 },
-    weightByRarity: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0, mythic: 0, ultra: 0, super: 0 },
+    weightByRarity: { common: 1, uncommon: 2, rare: 5, epic: 10, legendary: 20, mythic: 30, ultra: 45, super: 65 },
     squareHp: 800,
     squareDuration: 10000,
     squareDurationSuper: 14000,
