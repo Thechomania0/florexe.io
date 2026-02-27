@@ -2,7 +2,7 @@ import { Game } from './Game.js';
 import { RARITY_COLORS, CRAFT_CHANCES, RARITIES, TANK_UPGRADES, BODY_UPGRADES, MAP_SIZE, FOOD_CONFIG, INFERNO_BASE_RADIUS, SHOP_ITEM_PRICES } from './config.js';
 import { WALL_HALF_WIDTH, getWalls, getMergedWallFills, getPlayableBounds } from './mapData.js';
 import { getRarityColor, darkenColor } from './utils.js';
-import { getIconUrl as getTankAssetIconUrl, getGunIconUrl, getBodyIconUrl, getBodyIconUrlByRarity, getGunIconUrlByRarity, loadTankAssets, GUN_SUBTYPES, BODY_SUBTYPES } from './TankAssets.js';
+import { getIconUrl as getTankAssetIconUrl, getGunIconUrl, getBodyIconUrl, getBodyIconUrlByRarity, getGunIconUrlByRarity, getPetalIconUrlByRarity, loadTankAssets, GUN_SUBTYPES, BODY_SUBTYPES } from './TankAssets.js';
 
 function getEquippedTankName(player) {
   const tankName = player?.equippedTank && TANK_UPGRADES[player.equippedTank.subtype]?.name;
@@ -428,10 +428,11 @@ function getEffectiveInventoryCount(p, type, subtype, rarity) {
 function slotLabel(item) {
   if (item && isRarityGunTank(item)) return '';
   if (item && item.type === 'body' && isCutterBody(item)) return '';
+  if (item && item.type === 'petal') return item.subtype === 'egg' ? 'Egg' : (item.subtype || '');
   return names[item?.subtype] || '?';
 }
 
-const ICON_SUBTYPES = { tank: GUN_SUBTYPES, body: BODY_SUBTYPES };
+const ICON_SUBTYPES = { tank: GUN_SUBTYPES, body: BODY_SUBTYPES, petal: ['egg'] };
 
 /** Body subtypes that use full-bleed rarity icon in slots (cutter, hive, inferno, ziggurat). */
 function isCutterBody(item) {
@@ -445,6 +446,7 @@ function isRarityGunTank(item) {
 
 function getIconUrl(subtype, type, rarity = null) {
   if (!subtype) return null;
+  if (type === 'petal') return getPetalIconUrlByRarity(subtype, rarity);
   const valid = ICON_SUBTYPES[type === 'tank' ? 'tank' : 'body'] || [];
   if (!valid.includes(subtype)) return null;
   return getTankAssetIconUrl(subtype, type, rarity);
@@ -463,6 +465,12 @@ const ICON_SIZE_INV = 24;
 function slotInnerHTML(item, showLabel = true, size = ICON_SIZE_INV) {
   const label = showLabel && item ? slotLabel(item) : '';
   if (!item) return `<span class="slot-label">${label || '–'}</span>`;
+  if (item.type === 'petal') {
+    const url = getPetalIconUrlByRarity(item.subtype, item.rarity);
+    if (!url) return `<span class="slot-label">${label || '–'}</span>`;
+    const displayName = item.subtype === 'egg' ? 'Egg' : (item.subtype || '');
+    return `<img class="slot-icon-img" src="${url}" width="${size}" height="${size}" alt=""><span class="slot-label">${displayName}</span>`;
+  }
   if (item.type === 'tank') {
     if (isRarityGunTank(item)) {
       const rarityUrl = getIconUrl(item.subtype, 'tank', item.rarity);
@@ -564,6 +572,11 @@ function getItemTooltipContent(item) {
     const descHtml = b.description ? `<div class="item-tooltip-desc">${escapeHtml(b.description)}</div>` : '';
     return `<div class="item-tooltip-name">${escapeHtml(name)}</div><div class="item-tooltip-rarity" style="color:${rarityColor}">${escapeHtml(rarityLabel)}</div>${descHtml}<div class="item-tooltip-stats">${statsHtml}</div>`;
   }
+
+  if (item.type === 'petal') {
+    const name = item.subtype === 'egg' ? 'Egg' : (item.subtype || 'Petal');
+    return `<div class="item-tooltip-name">${escapeHtml(name)}</div><div class="item-tooltip-rarity" style="color:${rarityColor}">${escapeHtml(rarityLabel)}</div>`;
+  }
   return '';
 }
 
@@ -572,6 +585,7 @@ function setupHUD(player) {
   const handBody = document.getElementById('handBody');
   const gunSlots = document.getElementById('gunSlots');
   const bodySlots = document.getElementById('bodySlots');
+  const petalSlots = document.getElementById('petalSlots');
   const itemTooltip = document.getElementById('itemDetailTooltip');
   const TOOLTIP_OFFSET = 14;
 
@@ -933,6 +947,26 @@ function setupHUD(player) {
       slot.ondragend = () => { slot.classList.remove('dragging'); };
       bodySlots.appendChild(slot);
     });
+
+    const petalGroups = groupByTypeSubtypeRarity(p.inventory, 'petal');
+    const sortedPetalEntries = sortInventoryEntries([...petalGroups.entries()]);
+    if (petalSlots) {
+      petalSlots.innerHTML = '';
+      sortedPetalEntries.forEach(([key, items]) => {
+        const item = items[0];
+        const count = getEffectiveInventoryCount(p, 'petal', item.subtype, item.rarity);
+        const countStr = formatCount(count);
+        const slot = document.createElement('div');
+        slot.className = 'inventory-slot';
+        slot.style.backgroundColor = getRarityColor(item.rarity);
+        slot.style.borderColor = getRarityColor(item.rarity);
+        slot.innerHTML = slotInnerHTML({ ...item, type: 'petal' }, true, ICON_SIZE_INV) + (count > 1 ? `<span class="stack-count">×${countStr}</span>` : '');
+        slot.title = `${item.subtype} (${item.rarity})${count > 1 ? ` ×${countStr}` : ''}`;
+        slot.onmouseenter = (e) => showItemTooltip({ type: 'petal', subtype: item.subtype, rarity: item.rarity }, e);
+        slot.onmouseleave = hideItemTooltip;
+        petalSlots.appendChild(slot);
+      });
+    }
   };
 
   setInterval(updateHUD, 100);
@@ -941,7 +975,7 @@ function setupHUD(player) {
 /** Mob categories: "food" always first row, rest alphabetized. Add more later for other mob types. */
 const MOB_CATEGORIES = [
   { id: 'food', label: 'Food' },
-  // Add more categories here later; they will appear alphabetically after Food.
+  { id: 'beetle', label: 'Beetle' },
 ];
 
 function renderMobGallery() {
@@ -977,6 +1011,16 @@ function renderMobGallery() {
           const strokeColor = darkenColor(fillColor, 50);
           const shapeSrc = getMobShapeSvgDataUrl(sides, fillColor, strokeColor);
           slot.innerHTML = `<span class="mob-gallery-xcount">x${formatCount(count)}</span><img class="mob-gallery-shape-img" src="${shapeSrc}" alt="" />`;
+        }
+      } else if (category.id === 'beetle') {
+        const count = (p.mobKills && p.mobKills[rarity]) ?? 0;
+        if (count > 0) {
+          slot.classList.add('filled');
+          slot.dataset.rarity = rarity;
+          slot.dataset.category = 'beetle';
+          slot.style.background = getRarityColor(rarity);
+          slot.style.borderColor = darkenColor(getRarityColor(rarity), 40);
+          slot.innerHTML = `<span class="mob-gallery-xcount">x${formatCount(count)}</span><img class="mob-gallery-shape-img" src="assets/icons/mobs/beetle.svg" alt="" />`;
         }
       }
       grid.appendChild(slot);
@@ -1649,7 +1693,8 @@ function setupChat() {
   const VALID_RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic', 'ultra', 'super'];
   const TANK_SUBTYPES = ['base', 'destroyer', 'anchor', 'riot', 'overlord', 'streamliner'];
   const BODY_SUBTYPES = ['inferno', 'ziggurat', 'cutter', 'hive'];
-  const GIVE_ITEM_SUBTYPES = [...TANK_SUBTYPES, ...BODY_SUBTYPES];
+  const PETAL_SUBTYPES_GIVE = ['egg'];
+  const GIVE_ITEM_SUBTYPES = [...TANK_SUBTYPES, ...BODY_SUBTYPES, ...PETAL_SUBTYPES_GIVE];
 
   function updateCommandListVisibility() {
     const v = chatInput.value;
@@ -1774,15 +1819,18 @@ function setupChat() {
         if (!p) {
           appendMessage('[System] No player.');
         } else if (parts.length < 2) {
-          appendMessage('[System] Use: /spawn [rarity] [mob] — e.g. /spawn super food');
+          appendMessage('[System] Use: /spawn [rarity] [mob] — e.g. /spawn super food or /spawn super beetle');
         } else {
           const [rarity, mob] = parts;
           if (!VALID_RARITIES.includes(rarity)) {
             appendMessage(`[System] Invalid rarity. Use one of: ${VALID_RARITIES.join(', ')}`);
-          } else if (mob !== 'food') {
-            appendMessage('[System] Unknown mob type. Use "food" for now.');
-          } else {
+          } else if (mob !== 'food' && mob !== 'beetle') {
+            appendMessage('[System] Unknown mob type. Use "food" or "beetle".');
+          } else if (mob === 'food') {
             game.spawnFoodAt(p.x, p.y, rarity);
+            appendMessage(`[System] Spawned ${rarity} ${mob} at your location.`);
+          } else {
+            game.spawnBeetleAt(p.x, p.y, rarity);
             appendMessage(`[System] Spawned ${rarity} ${mob} at your location.`);
           }
         }
@@ -1824,7 +1872,7 @@ function setupChat() {
           } else if (!GIVE_ITEM_SUBTYPES.includes(itemSubtype)) {
             appendMessage(`[System] Invalid item. Use one of: ${GIVE_ITEM_SUBTYPES.join(', ')}`);
           } else {
-            const type = BODY_SUBTYPES.includes(itemSubtype) ? 'body' : 'tank';
+            const type = PETAL_SUBTYPES_GIVE.includes(itemSubtype) ? 'petal' : (BODY_SUBTYPES.includes(itemSubtype) ? 'body' : 'tank');
             target.addLoot(type, itemSubtype, rarity);
             appendMessage(`[System] Added ${rarity} ${itemSubtype} to ${userArg === 'me' ? 'your' : 'their'} inventory.`);
           }

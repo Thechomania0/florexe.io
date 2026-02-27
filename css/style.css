@@ -822,6 +822,12 @@ body {
   align-content: flex-start;
   scrollbar-width: none;
 }
+#inventoryBoxContent .inventory-slots.inventory-slots-petals {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+  align-content: start;
+}
 #inventoryBoxContent .inventory-slots::-webkit-scrollbar {
   display: none;
 }

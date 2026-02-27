@@ -1,5 +1,5 @@
 import { distance, angleBetween, drawPolygon, getRarityColor, pickRandomWeighted, drawRoundedHealthBar } from './utils.js';
-import { INFERNO_BASE_RADIUS, BODY_UPGRADES, TANK_UPGRADES, FOOD_CONFIG, getXpForLevel, MAP_SIZE, RARITIES, RECOIL_MOVE_PERCENT, RECOIL_SPEED_SCALE, ICE_FRICTION_PER_SECOND, MOVEMENT_ACCELERATION, RECOIL_IMPULSE_MS, BOUNCE_IMPULSE_FACTOR } from './config.js';
+import { INFERNO_BASE_RADIUS, BODY_UPGRADES, TANK_UPGRADES, FOOD_CONFIG, BEETLE_CONFIG, getXpForLevel, MAP_SIZE, RARITIES, RECOIL_MOVE_PERCENT, RECOIL_SPEED_SCALE, ICE_FRICTION_PER_SECOND, MOVEMENT_ACCELERATION, RECOIL_IMPULSE_MS, BOUNCE_IMPULSE_FACTOR } from './config.js';
 import { Bullet } from './entities/Bullet.js';
 import { Square } from './entities/Square.js';
 import { Drone } from './entities/Drone.js';
@@ -316,6 +316,23 @@ export class Player {
           this.y += ny * overlap * bounce;
         }
       }
+      for (const beetle of game.beetles || []) {
+        const d = distance(this.x, this.y, beetle.x, beetle.y);
+        const overlap = this.size + beetle.size - d;
+        if (overlap > 0) {
+          this.takeDamage(beetle.damage * dt / 1000);
+          const bodyDmg = (this.bodyDamage ?? BASE_BODY_DAMAGE) * dt / 1000;
+          beetle.hp -= bodyDmg;
+          if (beetle.hp <= 0) this.onKill(beetle, game);
+          const bounce = 0.3;
+          const nx = d > 0 ? (this.x - beetle.x) / d : 1;
+          const ny = d > 0 ? (this.y - beetle.y) / d : 0;
+          this.vx += nx * overlap * bounce * BOUNCE_IMPULSE_FACTOR;
+          this.vy += ny * overlap * bounce * BOUNCE_IMPULSE_FACTOR;
+          this.x += nx * overlap * bounce;
+          this.y += ny * overlap * bounce;
+        }
+      }
     }
 
     // Inferno damage
@@ -339,6 +356,12 @@ export class Player {
         if (distance(this.x, this.y, food.x, food.y) < radius) {
           food.hp -= dmg;
           if (food.hp <= 0) this.onKill(food, game);
+        }
+      }
+      for (const beetle of game.beetles || []) {
+        if (distance(this.x, this.y, beetle.x, beetle.y) < radius) {
+          beetle.hp -= dmg;
+          if (beetle.hp <= 0) this.onKill(beetle, game);
         }
       }
     }
@@ -618,7 +641,7 @@ export class Player {
       const odTargetX = this.autoAttack ? null : worldMouseX;
       const odTargetY = this.autoAttack ? null : worldMouseY;
       for (const od of this.overlordDrones) {
-        od.update(dt, odTargetX, odTargetY, game.foods, game, this.overlordDrones, visionRadius);
+        od.update(dt, odTargetX, odTargetY, [...(game.foods || []), ...(game.beetles || [])], game, this.overlordDrones, visionRadius);
       }
       const overlordCountBefore = this.overlordDrones.length;
       this.overlordDrones = this.overlordDrones.filter(od => od.hp > 0);
@@ -642,27 +665,33 @@ export class Player {
     this.y = Math.max(-half, Math.min(half, this.y));
   }
 
-  onKill(food, game) {
+  onKill(mob, game) {
     if (!this.mobKills) this.mobKills = Object.fromEntries(RARITIES.map((r) => [r, 0]));
-    this.mobKills[food.rarity] = (this.mobKills[food.rarity] || 0) + 1;
-    this.addXp(food.maxHp * 0.5);
-    this.score += food.maxHp;
+    this.mobKills[mob.rarity] = (this.mobKills[mob.rarity] || 0) + 1;
+    this.addXp(mob.maxHp * 0.5);
+    this.score += mob.maxHp;
 
-    const cfg = FOOD_CONFIG[food.rarity];
+    const isBeetle = game.beetles && game.beetles.includes(mob);
+    const cfg = isBeetle ? BEETLE_CONFIG[mob.rarity] : FOOD_CONFIG[mob.rarity];
     if (cfg.stars) {
       this.stars += cfg.stars;
     }
     if (cfg.drops && Object.keys(cfg.drops).length > 0) {
       const dropRarity = pickRandomWeighted(cfg.drops);
-      const bodySubtypes = ['inferno', 'ziggurat', 'cutter', 'hive'];
-      const tankSubtypes = ['destroyer', 'anchor', 'riot', 'overlord', 'streamliner'];
-      const allSubtypes = [...bodySubtypes, ...tankSubtypes];
-      const subtype = allSubtypes[Math.floor(Math.random() * allSubtypes.length)];
-      const type = bodySubtypes.includes(subtype) ? 'body' : 'tank';
-      game.addDrop(food.x, food.y, { type, subtype, rarity: dropRarity }, this.id);
+      if (isBeetle) {
+        game.addDrop(mob.x, mob.y, { type: 'petal', subtype: 'egg', rarity: dropRarity }, this.id);
+      } else {
+        const bodySubtypes = ['inferno', 'ziggurat', 'cutter', 'hive'];
+        const tankSubtypes = ['destroyer', 'anchor', 'riot', 'overlord', 'streamliner'];
+        const allSubtypes = [...bodySubtypes, ...tankSubtypes];
+        const subtype = allSubtypes[Math.floor(Math.random() * allSubtypes.length)];
+        const type = bodySubtypes.includes(subtype) ? 'body' : 'tank';
+        game.addDrop(mob.x, mob.y, { type, subtype, rarity: dropRarity }, this.id);
+      }
     }
 
-    game.removeFood(food);
+    if (isBeetle) game.removeBeetle(mob);
+    else game.removeFood(mob);
   }
 
 

@@ -1,14 +1,17 @@
 import { MAP_SIZE, FOOD_SPAWN_HALF, INFERNO_BASE_RADIUS, BODY_UPGRADES } from './config.js';
 import { getSpawnPoint, getRandomPointAndWeights, getWalls, getMergedWallFills, getPlayableBounds, WALL_HALF_WIDTH, getWallHalfWidth, resolveWallCollision, resolveWallCollisionRects, isPointInWall, wallsNear } from './mapData.js';
 
-const FOOD_TARGET_COUNT = 1600;   // 60% lower than previous 4000 (reduce spawn density by 60%)
-const FOOD_SPAWN_BATCH = 280;    // 60% lower than previous 700
-const FOOD_SPAWN_INTERVAL_MS = 4333; // 60% slower spawn rate (was 1733)
+const FOOD_TARGET_COUNT = 800;    // 50% of previous 1600 (reduce spawn rate by 50%)
+const FOOD_SPAWN_BATCH = 140;    // 50% of previous 280
+const FOOD_SPAWN_INTERVAL_MS = 8666; // 2× previous 4333 (spawn half as often)
+const BEETLE_TARGET_COUNT = 800;   // same as food
+const BEETLE_SPAWN_BATCH = 140;    // same as food
 import { Food } from './entities/Food.js';
+import { Beetle } from './entities/Beetle.js';
 import { Bullet } from './entities/Bullet.js';
 import { distance, getRarityColor } from './utils.js';
 import { Player } from './Player.js';
-import { loadTankAssets, getLoadedTankAssets, getBodyIconUrlByRarity, getGunIconUrlByRarity } from './TankAssets.js';
+import { loadTankAssets, getLoadedTankAssets, getBodyIconUrlByRarity, getGunIconUrlByRarity, getPetalIconUrlByRarity } from './TankAssets.js';
 
 // Despawn time (ms) for uncollected drops by rarity tier
 const DROP_DESPAWN_MS = {
@@ -27,6 +30,7 @@ export class Game {
   constructor(gamemode = 'ffa') {
     this.gamemode = gamemode;
     this.foods = [];
+    this.beetles = [];
     this.bullets = [];
     this.squares = [];
     this.drops = [];
@@ -35,6 +39,7 @@ export class Game {
     this.scale = 1;
     this.spawnTimer = 0;
     this.running = true;
+    this.beetleImage = null;
     /** Floating chat messages above the local player: { text, expiresAt }. Max 5; 2s each. */
     this.floatingMessages = [];
   }
@@ -69,7 +74,10 @@ export class Game {
     const loadPromise = loadTankAssets().then(() => {
       this.player.tankAssets = getLoadedTankAssets();
     });
+    this.beetleImage = new Image();
+    this.beetleImage.src = 'assets/icons/mobs/beetle.svg';
     while (this.foods.length < FOOD_TARGET_COUNT) this.spawnFood();
+    while (this.beetles.length < BEETLE_TARGET_COUNT) this.spawnBeetle();
     return loadPromise;
   }
 
@@ -116,15 +124,59 @@ export class Game {
     }
   }
 
+  spawnBeetle() {
+    const walls = getWalls();
+    const maxRetries = 20;
+    let x, y, rarityWeights;
+    for (let k = 0; k < maxRetries; k++) {
+      const pt = getRandomPointAndWeights();
+      x = pt.x;
+      y = pt.y;
+      rarityWeights = pt.rarityWeights;
+      if (!isPointInWall(x, y, walls)) break;
+      if (k === maxRetries - 1) return;
+    }
+    const total = Object.values(rarityWeights).reduce((a, b) => a + b, 0);
+    let r = Math.random() * total;
+    let rarity = 'common';
+    for (const [rq, w] of Object.entries(rarityWeights)) {
+      r -= w;
+      if (r <= 0) {
+        rarity = rq;
+        break;
+      }
+    }
+    const hasNaturalSuper = this.beetles.some((b) => b.rarity === 'super' && b.natural);
+    if (rarity === 'super' && hasNaturalSuper) rarity = 'ultra';
+    const beetle = new Beetle(x, y, rarity, true);
+    this.beetles.push(beetle);
+    if (rarity === 'super' && this.onSuperSpawn) {
+      this.onSuperSpawn('Beetle');
+    }
+  }
+
+  spawnBeetleAt(x, y, rarity) {
+    const beetle = new Beetle(x, y, rarity);
+    this.beetles.push(beetle);
+    if (rarity === 'super' && this.onSuperSpawn) {
+      this.onSuperSpawn('Beetle');
+    }
+  }
+
+  removeBeetle(beetle) {
+    this.beetles = this.beetles.filter(b => b !== beetle);
+  }
+
   removeFood(food) {
     this.foods = this.foods.filter(f => f !== food);
   }
 
-  /** Add a loot drop at (x, y) visible and pickable only by ownerId. Uses bodies-rarity / guns-rarity SVG icons. */
+  /** Add a loot drop at (x, y) visible and pickable only by ownerId. Uses bodies-rarity / guns-rarity / petal-rarity SVG icons. */
   addDrop(x, y, item, ownerId) {
-    const url = item.type === 'body'
-      ? getBodyIconUrlByRarity(item.subtype, item.rarity)
-      : getGunIconUrlByRarity(item.subtype, item.rarity);
+    let url;
+    if (item.type === 'petal') url = getPetalIconUrlByRarity(item.subtype, item.rarity);
+    else if (item.type === 'body') url = getBodyIconUrlByRarity(item.subtype, item.rarity);
+    else url = getGunIconUrlByRarity(item.subtype, item.rarity);
     if (!url) return;
     const img = new Image();
     img.src = url;
@@ -206,9 +258,13 @@ export class Game {
     for (const food of this.foods) {
       food.update(dt);
     }
+    for (const beetle of this.beetles) {
+      beetle.update(dt, this);
+    }
 
     // Wall collision for food/shapes: keep them inside playable area
     const wallFillsForFood = getMergedWallFills();
+    let allWallsForFood, wallHalfFood;
     if (wallFillsForFood.length > 0) {
       for (const food of this.foods) {
         const margin = (food.size ?? 20) + 50;
@@ -226,8 +282,8 @@ export class Game {
         }
       }
     } else {
-      const allWallsForFood = getWalls();
-      const wallHalfFood = getWallHalfWidth();
+      allWallsForFood = getWalls();
+      wallHalfFood = getWallHalfWidth();
       for (const food of this.foods) {
         const radius = food.size ?? 20;
         const margin = radius + wallHalfFood + 100;
@@ -239,6 +295,38 @@ export class Game {
             food.y = resolved.y;
             food.vx *= 0.7;
             food.vy *= 0.7;
+          } else break;
+        }
+      }
+    }
+    if (wallFillsForFood.length > 0) {
+      for (const beetle of this.beetles) {
+        const margin = (beetle.size ?? 20) + 50;
+        const minX = beetle.x - margin, maxX = beetle.x + margin;
+        const minY = beetle.y - margin, maxY = beetle.y + margin;
+        const nearbyRects = wallFillsForFood.filter(r => r.x2 >= minX && r.x1 <= maxX && r.y2 >= minY && r.y1 <= maxY);
+        for (let pass = 0; pass < 3; pass++) {
+          const resolved = resolveWallCollisionRects(beetle.x, beetle.y, beetle.size ?? 20, nearbyRects);
+          if (resolved) {
+            beetle.x = resolved.x;
+            beetle.y = resolved.y;
+            beetle.vx *= 0.7;
+            beetle.vy *= 0.7;
+          } else break;
+        }
+      }
+    } else {
+      for (const beetle of this.beetles) {
+        const radius = beetle.size ?? 20;
+        const margin = radius + wallHalfFood + 100;
+        const nearbyWalls = wallsNear(allWallsForFood, beetle.x, beetle.y, margin);
+        for (let pass = 0; pass < 3; pass++) {
+          const resolved = resolveWallCollision(beetle.x, beetle.y, radius, nearbyWalls);
+          if (resolved) {
+            beetle.x = resolved.x;
+            beetle.y = resolved.y;
+            beetle.vx *= 0.7;
+            beetle.vy *= 0.7;
           } else break;
         }
       }
@@ -283,6 +371,21 @@ export class Game {
             if (bullet.hp != null && bullet.hp <= 0) bulletsToRemove.add(bullet);
           }
         }
+        for (const beetle of this.beetles) {
+          if (bullet.hp != null && bullet.hp <= 0) break;
+          if (bullet.hitTargets.has(beetle)) continue;
+          if (distance(bullet.x, bullet.y, beetle.x, beetle.y) < bullet.size + beetle.size) {
+            bullet.hitTargets.add(beetle);
+            beetle.hp -= bullet.damage;
+            if (beetle.hp <= 0) this.player.onKill(beetle, this);
+            const totalWeight = bullet.weight + beetle.weight;
+            const pushFactor = (bullet.weight / totalWeight) * 0.25;
+            beetle.vx += Math.cos(bullet.angle) * bullet.speed * pushFactor;
+            beetle.vy += Math.sin(bullet.angle) * bullet.speed * pushFactor;
+            if (bullet.hp != null) bullet.hp -= hpPerHit;
+            if (bullet.hp != null && bullet.hp <= 0) bulletsToRemove.add(bullet);
+          }
+        }
       } else {
         for (const sq of this.squares) {
           if (distance(bullet.x, bullet.y, sq.x, sq.y) < bullet.size + sq.size) {
@@ -310,6 +413,20 @@ export class Game {
             }
           }
         }
+        if (!bulletsToRemove.has(bullet)) {
+          for (const beetle of this.beetles) {
+            if (distance(bullet.x, bullet.y, beetle.x, beetle.y) < bullet.size + beetle.size) {
+              beetle.hp -= bullet.damage;
+              if (beetle.hp <= 0) this.player.onKill(beetle, this);
+              const totalWeight = bullet.weight + beetle.weight;
+              const pushFactor = (bullet.weight / totalWeight) * 0.25;
+              beetle.vx += Math.cos(bullet.angle) * bullet.speed * pushFactor;
+              beetle.vy += Math.sin(bullet.angle) * bullet.speed * pushFactor;
+              bulletsToRemove.add(bullet);
+              break;
+            }
+          }
+        }
       }
     }
     this.bullets = this.bullets.filter(b => !bulletsToRemove.has(b));
@@ -321,6 +438,13 @@ export class Game {
         if (d < sq.size + food.size) {
           food.hp -= sq.damage * dt / 1000;
           if (food.hp <= 0) this.player.onKill(food, this);
+        }
+      }
+      for (const beetle of this.beetles) {
+        const d = distance(sq.x, sq.y, beetle.x, beetle.y);
+        if (d < sq.size + beetle.size) {
+          beetle.hp -= sq.damage * dt / 1000;
+          if (beetle.hp <= 0) this.player.onKill(beetle, this);
         }
       }
     }
@@ -362,9 +486,14 @@ export class Game {
     this.squares = this.squares.filter(s => !s.isExpired());
 
     this.spawnTimer += dt;
-    if (this.spawnTimer >= FOOD_SPAWN_INTERVAL_MS && this.foods.length < FOOD_TARGET_COUNT) {
+    if (this.spawnTimer >= FOOD_SPAWN_INTERVAL_MS) {
       this.spawnTimer = 0;
-      for (let i = 0; i < FOOD_SPAWN_BATCH && this.foods.length < FOOD_TARGET_COUNT; i++) this.spawnFood();
+      if (this.foods.length < FOOD_TARGET_COUNT) {
+        for (let i = 0; i < FOOD_SPAWN_BATCH && this.foods.length < FOOD_TARGET_COUNT; i++) this.spawnFood();
+      }
+      if (this.beetles.length < BEETLE_TARGET_COUNT) {
+        for (let i = 0; i < BEETLE_SPAWN_BATCH && this.beetles.length < BEETLE_TARGET_COUNT; i++) this.spawnBeetle();
+      }
     }
 
     // Pickup drops: only owner can see/pick up; body contact by default; Inferno body uses inferno fire radius as pickup range
@@ -547,6 +676,9 @@ export class Game {
 
     for (const food of this.foods) {
       food.draw(ctx, scale, this.camera, playerLevel);
+    }
+    for (const beetle of this.beetles) {
+      beetle.draw(ctx, scale, this.camera, playerLevel, this.beetleImage);
     }
 
     // Draw drops (only visible to owner; use bodies-rarity / guns-rarity SVG icons)

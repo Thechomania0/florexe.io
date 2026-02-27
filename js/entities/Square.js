@@ -1,5 +1,6 @@
 import { getRarityColor, darkenColor } from '../utils.js';
 import { distance } from '../utils.js';
+import { RARITIES } from '../config.js';
 
 const BOUNCE_STRENGTH = 0.015;
 const BOUNCE_CONTACT_WINDOW = 100;
@@ -128,6 +129,44 @@ export class Square {
             const foodPush = (this.weight / totalWeight) * scale;
             food.vx += nx * this.vx * foodPush;
             food.vy += ny * this.vy * foodPush;
+            this.vx -= nx * trapPush * this.vx;
+            this.vy -= ny * trapPush * this.vy;
+          }
+          const tangent = -nx * this.vy + ny * this.vx;
+          this.angularVelocity += tangent * 0.0005;
+        }
+      }
+      for (const beetle of game.beetles || []) {
+        if (beetle.hp <= 0) continue;
+        const d = distance(this.x, this.y, beetle.x, beetle.y);
+        const overlap = this.size + beetle.size - d;
+        if (overlap > 0) {
+          const nx = d > 0 ? (this.x - beetle.x) / d : 1;
+          const ny = d > 0 ? (this.y - beetle.y) / d : 0;
+          const separation = Math.min(overlap / 2, MAX_SEPARATION_PER_FRAME);
+          this.x += nx * separation;
+          this.y += ny * separation;
+          beetle.x -= nx * separation;
+          beetle.y -= ny * separation;
+          const squareRarityIndex = RARITIES.indexOf(this.rarity);
+          const beetleRarityIndex = RARITIES.indexOf(beetle.rarity);
+          const beetleCanPush = beetleRarityIndex >= squareRarityIndex;
+          if (beetleCanPush) {
+            const totalWeight = this.weight + beetle.weight;
+            const scale = TRAP_FOOD_PUSH_SCALE * this.trapPushScale;
+            const squarePush = (beetle.weight / totalWeight) * scale;
+            const beetlePush = (this.weight / totalWeight) * scale;
+            this.vx += nx * beetle.vx * squarePush;
+            this.vy += ny * beetle.vy * squarePush;
+            beetle.vx -= nx * beetlePush * beetle.vx;
+            beetle.vy -= ny * beetlePush * beetle.vy;
+          } else if (!this.isRiotTrap && this.trapPushScale > 0) {
+            const totalWeight = this.weight + beetle.weight;
+            const scale = TRAP_FOOD_PUSH_SCALE * this.trapPushScale;
+            const trapPush = (beetle.weight / totalWeight) * scale;
+            const beetlePush = (this.weight / totalWeight) * scale;
+            beetle.vx += nx * this.vx * beetlePush;
+            beetle.vy += ny * this.vy * beetlePush;
             this.vx -= nx * trapPush * this.vx;
             this.vy -= ny * trapPush * this.vy;
           }

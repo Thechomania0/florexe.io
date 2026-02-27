@@ -61,6 +61,14 @@ export function getGunIconUrlByRarity(subtype, rarity) {
   return getGunIconUrl(subtype);
 }
 
+/** Petal icon by subtype and rarity. Use for drops and inventory petals section. */
+const PETAL_SUBTYPES = ['egg'];
+export function getPetalIconUrlByRarity(subtype, rarity) {
+  if (!subtype || !rarity || !PETAL_SUBTYPES.includes(subtype)) return null;
+  const base = getBaseUrl();
+  return `${base}rarities/petal-rarity/${subtype}-rarity/${rarity}_${subtype}.svg`;
+}
+
 /** For UI: get icon URL by type and subtype; pass rarity for body (Cutter/Hive) or tank (Anchor, Destroyer). */
 export function getIconUrl(subtype, type, rarity = null) {
   if (type === 'body') {

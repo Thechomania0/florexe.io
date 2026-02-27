@@ -18,7 +18,7 @@ export class Drone {
   }
 
   update(dt, game, targetX, targetY, visionRadius) {
-    const entities = game.foods;
+    const entities = [...(game.foods || []), ...(game.beetles || [])];
     const ownerDist = distance(this.x, this.y, this.owner.x, this.owner.y);
     const maxRange = typeof visionRadius === 'number' ? visionRadius : this.range;
     if (ownerDist > maxRange) {
