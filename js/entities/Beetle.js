@@ -125,29 +125,24 @@ export class Beetle {
     if (useSplitImages) {
       const pincerAngleDeg = 20 * Math.sin(this.pincerPhase);
       const pincerAngleRad = (pincerAngleDeg * Math.PI) / 180;
-      // Attachment points from body.svg: red dot (top-right) = left pincer, blue dot (bottom-right) = right pincer.
-      // Body rect right edge; after two rotate(90 32 32): (44.75,26)->(19.25,28), (44.75,36)->(19.25,38). So red at (19.25,28), blue at (19.25,38).
-      // Local: center (32,32); (19.25,28)->(-0.398s,-0.125s), (19.25,38)->(-0.398s,0.1875s).
-      const hingeLeftX = -0.398 * s;
+      // Attachment at the OTHER end of the body (right side in body.svg final image). Body rect left edge (19.25,*) after two rotate(90 32 32) -> (44.75,*). Then move backwards 10% (undo the earlier forward 10%): 0.398 - 0.03 = 0.368.
+      const hingeX = 0.368 * s;
+      const hingeLeftX = hingeX;
       const hingeLeftY = -0.125 * s;
-      const hingeRightX = -0.398 * s;
+      const hingeRightX = hingeX;
       const hingeRightY = 0.1875 * s;
       const pincerW = 0.84 * s;
       const pincerH = 0.4 * s;
-      // Pincer viewBox origin (red-dot pivot) must land at hinge. Left viewBox "-3 -5 18 10" => (0,0) at (3/21, 5/10) of size. Right "-3 -2 18 10" => (0,0) at (3/21, 2/10).
       const pivotFracX = 3 / 21;
       const pivotLeftFracY = 5 / 10;
       const pivotRightFracY = 2 / 10;
-      // Scale -1 on x so pincers extend forward (negative x) from body.
       ctx.save();
       ctx.translate(hingeLeftX, hingeLeftY);
-      ctx.scale(-1, 1);
       ctx.rotate(pincerAngleRad);
       ctx.drawImage(beetlePincerLeftImage, -pivotFracX * pincerW, -pivotLeftFracY * pincerH, pincerW, pincerH);
       ctx.restore();
       ctx.save();
       ctx.translate(hingeRightX, hingeRightY);
-      ctx.scale(-1, 1);
       ctx.rotate(-pincerAngleRad);
       ctx.drawImage(beetlePincerRightImage, -pivotFracX * pincerW, -pivotRightFracY * pincerH, pincerW, pincerH);
       ctx.restore();
