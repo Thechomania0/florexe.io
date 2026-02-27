@@ -349,6 +349,45 @@ export class Game {
       }
     }
 
+    // Beetle–beetle collision: push overlapping beetles apart (ellipse approximated by semiMajor circle for pairwise distance)
+    const BEETLE_SEPARATION_MAX = 2.5;
+    for (let i = 0; i < this.beetles.length; i++) {
+      const a = this.beetles[i];
+      if (a.hp <= 0) continue;
+      for (let j = i + 1; j < this.beetles.length; j++) {
+        const b = this.beetles[j];
+        if (b.hp <= 0) continue;
+        const d = distance(a.x, a.y, b.x, b.y);
+        const minDist = a.semiMajor + b.semiMajor;
+        const overlap = minDist - d;
+        if (overlap > 0) {
+          const nx = d > 0 ? (a.x - b.x) / d : 1;
+          const ny = d > 0 ? (a.y - b.y) / d : 0;
+          const separation = Math.min(overlap / 2, BEETLE_SEPARATION_MAX);
+          a.x += nx * separation;
+          a.y += ny * separation;
+          b.x -= nx * separation;
+          b.y -= ny * separation;
+        }
+      }
+    }
+
+    // Beetle–shape (square) collision: push beetles out of overlapping squares (square position still adjusted in Square.update)
+    for (const beetle of this.beetles) {
+      if (beetle.hp <= 0) continue;
+      for (const sq of this.squares) {
+        const overlap = beetle.getEllipseOverlap(sq.x, sq.y, sq.size);
+        if (overlap > 0) {
+          const d = distance(beetle.x, beetle.y, sq.x, sq.y);
+          const nx = d > 0 ? (beetle.x - sq.x) / d : 1;
+          const ny = d > 0 ? (beetle.y - sq.y) / d : 0;
+          const separation = Math.min(overlap / 2, BEETLE_SEPARATION_MAX);
+          beetle.x += nx * separation;
+          beetle.y += ny * separation;
+        }
+      }
+    }
+
     const bulletsToRemove = new Set();
     for (const bullet of this.bullets) {
       bullet.update(dt);
