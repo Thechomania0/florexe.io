@@ -325,7 +325,7 @@ function formatCount(n) {
 }
 
 const SHOP_DAY_MS = 24 * 60 * 60 * 1000;
-const SHOP_RARITIES = ['legendary', 'legendary', 'mythic', 'mythic', 'mythic', 'ultra', 'ultra', 'ultra', 'super', 'super'];
+const SHOP_RARITIES = ['legendary', 'legendary', 'mythic', 'mythic', 'mythic', 'ultra', 'ultra', 'super', 'super'];
 
 function seededRandom(seed) {
   return function () {
@@ -337,9 +337,10 @@ function seededRandom(seed) {
 function getShopOffers() {
   const day = Math.floor(Date.now() / SHOP_DAY_MS);
   const rng = seededRandom(day);
-  // Pool: 10 unique (type, subtype) so no duplicate item (same subtype) in shop
+  // Pool: 9 unique items (Base gun excluded). No duplicate subtype.
+  const gunSubtypes = GUN_SUBTYPES.filter((s) => s !== 'base');
   const pool = [
-    ...GUN_SUBTYPES.map((subtype) => ({ type: 'tank', subtype })),
+    ...gunSubtypes.map((subtype) => ({ type: 'tank', subtype })),
     ...BODY_SUBTYPES.map((subtype) => ({ type: 'body', subtype }))
   ];
   // Shuffle pool (Fisher–Yates)
@@ -371,7 +372,7 @@ function openShop() {
   if (starsEl) starsEl.textContent = formatStars(p?.stars ?? 0);
   grid.innerHTML = '';
   offers.forEach((item) => {
-    const price = Number(SHOP_ITEM_PRICES[`${item.type}_${item.subtype}`]) || 0;
+    const price = Number(SHOP_ITEM_PRICES[`${item.rarity}_${item.subtype}`]) || 0;
     const iconUrl = item.type === 'tank' ? getGunIconUrlByRarity(item.subtype, item.rarity) : getBodyIconUrlByRarity(item.subtype, item.rarity);
     const slot = document.createElement('div');
     slot.className = 'shop-slot';

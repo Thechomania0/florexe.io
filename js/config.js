@@ -11,18 +11,53 @@ export const RARITY_COLORS = {
   super: '#2bffa3',
 };
 
-/** Shop: price in stars per item. Key = "tank_base" | "body_inferno" etc. Edit these to set shop prices. */
+/** Shop: price in stars per item. Key = "legendary_destroyer" | "mythic_inferno" etc. (rarity_subtype). Edit to set shop prices. */
 export const SHOP_ITEM_PRICES = {
-  tank_base: 50000,
-  tank_destroyer: 50000,
-  tank_anchor: 150000,
-  tank_riot: 2000000,
-  tank_overlord: 500000,
-  tank_streamliner: 150000,
-  body_inferno: 500000,
-  body_ziggurat: 150000,
-  body_cutter: 2000000,
-  body_hive: 500000,
+  // Guns: Destroyer
+  legendary_destroyer: 50,
+  mythic_destroyer: 1000,
+  ultra_destroyer: 25000,
+  super_destroyer: 500000,
+  // Guns: Anchor
+  legendary_anchor: 75,
+  mythic_anchor: 1500,
+  ultra_anchor: 50000,
+  super_anchor: 750000,
+  // Guns: Riot
+  legendary_riot: 150,
+  mythic_riot: 3000,
+  ultra_riot: 100000,
+  super_riot: 1500000,
+  // Guns: Overlord
+  legendary_overlord: 75,
+  mythic_overlord: 1500,
+  ultra_overlord: 75000,
+  super_overlord: 1500000,
+  // Guns: Streamliner
+  legendary_streamliner: 50,
+  mythic_streamliner: 1000,
+  ultra_streamliner: 50000,
+  super_streamliner: 500000,
+  // Bodies: Inferno
+  legendary_inferno: 150,
+  mythic_inferno: 3000,
+  ultra_inferno: 75000,
+  super_inferno: 1000000,
+  // Bodies: Ziggurat
+  legendary_ziggurat: 50,
+  mythic_ziggurat: 1000,
+  ultra_ziggurat: 25000,
+  super_ziggurat: 500000,
+  // Bodies: Cutter
+  legendary_cutter: 50,
+  mythic_cutter: 1000,
+  ultra_cutter: 25000,
+  super_cutter: 500000,
+  // Bodies: Hive
+  legendary_hive: 25,
+  mythic_hive: 1000,
+  ultra_hive: 25000,
+  super_hive: 100000,
 };
 
 // Craft success rates (current -> next)
