@@ -12,7 +12,7 @@ A tank-based .io game combining elements of **Diep.io**, **Scenexe.io**, and **F
 
 ## Rarities (Common → Super)
 
-- Common (gray) → Uncommon (green) → Rare (blue) → Epic (purple) → Legendary (orange) → Mythic (red) → Ultra (cyan) → Super (yellow)
+- Common (green) → Uncommon (yellow) → Rare (blue) → Epic (purple) → Legendary (red) → Mythic (blue cyan) → Ultra (fuchsia) → Super (green cyan)
 
 ## Body Upgrades
 
