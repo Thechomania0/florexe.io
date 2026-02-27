@@ -1755,6 +1755,14 @@ function setupChat() {
         } else if (arg === 'off') {
           p.adminMode = false;
           p.ghost = false;
+          if (p.equippedTank && p.equippedTank.subtype !== 'base') {
+            const hasTank = p.inventory.some(i => i.type === 'tank' && i.subtype === p.equippedTank.subtype && i.rarity === p.equippedTank.rarity);
+            if (!hasTank) p.inventory.push({ type: 'tank', subtype: p.equippedTank.subtype, rarity: p.equippedTank.rarity });
+          }
+          if (p.equippedBody) {
+            const hasBody = p.inventory.some(i => i.type === 'body' && i.subtype === p.equippedBody.subtype && i.rarity === p.equippedBody.rarity);
+            if (!hasBody) p.inventory.push({ type: 'body', subtype: p.equippedBody.subtype, rarity: p.equippedBody.rarity });
+          }
           appendMessage('[System] Admin mode OFF.');
         } else {
           appendMessage('[System] Use: /adminmode on or /adminmode off');
