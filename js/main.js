@@ -576,27 +576,36 @@ function setupHUD(player) {
   const TOOLTIP_OFFSET = 14;
 
   const saveExitBtn = document.getElementById('saveExitBtn');
+  function saveProgressToStorage() {
+    if (!game?.player) return;
+    const p = game.player;
+    const savedState = {
+      inventory: Array.isArray(p.inventory) ? p.inventory.slice() : [],
+      hand: Array.isArray(p.hand) ? p.hand.slice() : [],
+      equippedTank: p.equippedTank && typeof p.equippedTank === 'object' ? { ...p.equippedTank } : null,
+      equippedBody: p.equippedBody && typeof p.equippedBody === 'object' ? { ...p.equippedBody } : null,
+      level: typeof p.level === 'number' ? p.level : 1,
+      xp: typeof p.xp === 'number' ? p.xp : 0,
+      stars: typeof p.stars === 'number' ? p.stars : 0
+    };
+    try {
+      localStorage.setItem('florexe_saved_progress_' + game.gamemode, JSON.stringify(savedState));
+    } catch (e) {}
+  }
   if (saveExitBtn) {
     saveExitBtn.onclick = () => {
-      if (!game?.player) return;
-      const p = game.player;
-      const savedState = {
-        inventory: Array.isArray(p.inventory) ? p.inventory.slice() : [],
-        hand: Array.isArray(p.hand) ? p.hand.slice() : [],
-        equippedTank: p.equippedTank && typeof p.equippedTank === 'object' ? { ...p.equippedTank } : null,
-        equippedBody: p.equippedBody && typeof p.equippedBody === 'object' ? { ...p.equippedBody } : null,
-        level: typeof p.level === 'number' ? p.level : 1,
-        xp: typeof p.xp === 'number' ? p.xp : 0,
-        stars: typeof p.stars === 'number' ? p.stars : 0
-      };
-      try {
-        localStorage.setItem('florexe_saved_progress_' + game.gamemode, JSON.stringify(savedState));
-      } catch (e) {}
+      saveProgressToStorage();
       game.running = false;
       mainMenu.classList.remove('hidden');
       gameContainer.classList.add('hidden');
     };
   }
+  window.addEventListener('beforeunload', () => {
+    if (gameContainer && !gameContainer.classList.contains('hidden')) saveProgressToStorage();
+  });
+  window.addEventListener('pagehide', () => {
+    if (gameContainer && !gameContainer.classList.contains('hidden')) saveProgressToStorage();
+  });
 
   function showItemTooltip(item, e) {
     if (!itemTooltip || !item || !item.subtype) return;
