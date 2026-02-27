@@ -178,6 +178,7 @@ export const TANK_UPGRADES = {
   },
   streamliner: {
     name: 'Streamliner',
+    description: 'Machine gun with no control',
     damageByRarity: { common: 5, uncommon: 10, rare: 15, epic: 20, legendary: 50, mythic: 100, ultra: 250, super: 1000 },
     bulletSize: 12,
     bulletSpeed: 0.5,

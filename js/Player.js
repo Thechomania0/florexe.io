@@ -180,6 +180,7 @@ export class Player {
 
   removeDrone(drone) {
     this.drones = this.drones.filter(d => d !== drone);
+    if (this.equippedBody?.subtype === 'hive') this.lastHiveDroneDeathTime = Date.now();
   }
 
   autoEquipFromHand() {
@@ -223,6 +224,9 @@ export class Player {
     const my = this.mouseY;
     const cam = game.camera;
     const scale = game.scale;
+    const cw = game.canvasWidth ?? 720;
+    const ch = game.canvasHeight ?? 720;
+    const visionRadius = Math.min(cw, ch) / (2 * scale);
     const worldMouseX = cam.x + mx / scale;
     const worldMouseY = cam.y + my / scale;
     this.angle = angleBetween(this.x, this.y, worldMouseX, worldMouseY);
@@ -358,7 +362,7 @@ export class Player {
           const angle = this.angle + (-60 + slot * 60) * (Math.PI / 180);
           const gx = this.x + Math.cos(angle) * hexMidDist;
           const gy = this.y + Math.sin(angle) * hexMidDist;
-          this.drones.push(new Drone(this, gx, gy, dmg, HIVE_RANGE, this.bodyColor));
+          this.drones.push(new Drone(this, gx, gy, dmg, visionRadius, this.bodyColor));
         }
       }
     } else {
@@ -368,7 +372,7 @@ export class Player {
     for (const drone of [...this.drones]) {
       const tx = this.autoAttack ? null : worldMouseX;
       const ty = this.autoAttack ? null : worldMouseY;
-      drone.update(dt, game, tx, ty);
+      drone.update(dt, game, tx, ty, visionRadius);
     }
     const hiveCountBefore = this.drones.length;
     this.drones = this.drones.filter(d => d.hp > 0);
@@ -614,7 +618,7 @@ export class Player {
       const odTargetX = this.autoAttack ? null : worldMouseX;
       const odTargetY = this.autoAttack ? null : worldMouseY;
       for (const od of this.overlordDrones) {
-        od.update(dt, odTargetX, odTargetY, game.foods, game, this.overlordDrones);
+        od.update(dt, odTargetX, odTargetY, game.foods, game, this.overlordDrones, visionRadius);
       }
       const overlordCountBefore = this.overlordDrones.length;
       this.overlordDrones = this.overlordDrones.filter(od => od.hp > 0);

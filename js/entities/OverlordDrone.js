@@ -27,9 +27,15 @@ export class OverlordDrone {
     this.rechargeUntil = 0;
   }
 
-  update(dt, targetX, targetY, foods, game, otherDrones = []) {
+  update(dt, targetX, targetY, foods, game, otherDrones = [], visionRadius) {
     const now = Date.now();
     const distToOwner = distance(this.x, this.y, this.owner.x, this.owner.y);
+
+    const maxRange = typeof visionRadius === 'number' ? visionRadius : OVERLORD_MAX_RANGE;
+    if (distToOwner > maxRange) {
+      this.hp = 0;
+      return;
+    }
 
     if (this.rechargeUntil > 0) {
       this.target = null; // clear lock when returning to recharge
@@ -44,16 +50,6 @@ export class OverlordDrone {
           this.y = this.owner.y + Math.sin(orbitAngle) * 35;
         }
       }
-      this._resolveOverlapWithOtherOverlordDrones(otherDrones);
-      this._resolveOverlapWithHiveDrones(game.player?.drones ?? []);
-      return;
-    }
-
-    if (distToOwner > OVERLORD_MAX_RANGE) {
-      this.target = null;
-      const backAngle = angleBetween(this.x, this.y, this.owner.x, this.owner.y);
-      this.x += Math.cos(backAngle) * this.speed * (dt / 1000);
-      this.y += Math.sin(backAngle) * this.speed * (dt / 1000);
       this._resolveOverlapWithOtherOverlordDrones(otherDrones);
       this._resolveOverlapWithHiveDrones(game.player?.drones ?? []);
       return;

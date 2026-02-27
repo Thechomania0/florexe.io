@@ -498,9 +498,9 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: #d8d8d8;
+  background: transparent;
   padding: 0.5rem;
-  border: 2px solid #000000;
+  border: 2px solid rgba(0,0,0,0.25);
   border-radius: 12px;
 }
 
@@ -510,7 +510,7 @@ body {
   gap: 0.25rem;
   min-width: 260px;
   padding: 0;
-  background: #d8d8d8;
+  background: transparent;
   border: none;
   border-radius: 0;
 }
@@ -519,7 +519,7 @@ body {
   display: flex;
   align-items: center;
   padding: 0.4rem 1rem;
-  background: #d8d8d8;
+  background: transparent;
   border: none;
   border-radius: 8px;
   color: #FFFFFF;
@@ -538,7 +538,7 @@ body {
   justify-content: center;
   gap: 0.75rem;
   padding: 0.35rem 1rem;
-  background: #d8d8d8;
+  background: transparent;
   border-radius: 8px;
 }
 

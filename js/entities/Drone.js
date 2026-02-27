@@ -17,10 +17,11 @@ export class Drone {
     this.hp = HIVE_DRONE_HP;
   }
 
-  update(dt, game, targetX, targetY) {
+  update(dt, game, targetX, targetY, visionRadius) {
     const entities = game.foods;
     const ownerDist = distance(this.x, this.y, this.owner.x, this.owner.y);
-    if (ownerDist > this.range) {
+    const maxRange = typeof visionRadius === 'number' ? visionRadius : this.range;
+    if (ownerDist > maxRange) {
       if (this.owner.removeDrone) this.owner.removeDrone(this);
       return;
     }

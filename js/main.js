@@ -286,6 +286,16 @@ function setupPlayerInput(player) {
     }
   };
 
+  function updateMouseFromEvent(e) {
+    const rect = canvas.getBoundingClientRect();
+    const p = game?.player;
+    if (p) {
+      p.mouseX = e.clientX - rect.left - canvas.width / 2;
+      p.mouseY = e.clientY - rect.top - canvas.height / 2;
+    }
+  }
+  document.addEventListener('mousemove', updateMouseFromEvent);
+
   canvas.addEventListener('mousedown', (e) => {
     if (e.button === 0 && game?.player) game.player.mouseRightDown = true;
   });
@@ -497,7 +507,7 @@ function getItemTooltipContent(item) {
       const reloadSec = (t.reloadByRarity && t.reloadByRarity[r] != null) ? t.reloadByRarity[r] : t.reload;
       stats.push({ label: 'Reload', value: (reloadSec / 1000).toFixed(2) + 's', cls: 'stat-positive' });
     }
-    if (item.subtype === 'destroyer' || item.subtype === 'streamliner') {
+    if (item.subtype === 'destroyer') {
       const bulletSize = (t.bulletSizeByRarity && t.bulletSizeByRarity[r] != null) ? t.bulletSizeByRarity[r] : t.bulletSize;
       stats.push({ label: 'Bullet size', value: String(bulletSize), cls: 'stat-positive' });
       stats.push({ label: 'Bullet HP', value: String(t.bulletHp ?? 0), cls: 'stat-positive' });
@@ -538,8 +548,10 @@ function getItemTooltipContent(item) {
     if (item.subtype === 'cutter') {
       const speed = (b.speedByRarity && b.speedByRarity[r]) ?? 0;
       const attack = (b.attackByRarity && b.attackByRarity[r]) ?? 0;
-      stats.push({ label: 'Speed', value: String(speed), cls: 'stat-positive' });
-      stats.push({ label: 'Attack', value: String(attack), cls: 'stat-positive' });
+      const speedPct = Math.round(speed * 100);
+      const attackPct = Math.round(attack * 100);
+      stats.push({ label: 'Movement speed', value: (speedPct >= 0 ? '+' : '') + speedPct + '%', cls: 'stat-positive' });
+      stats.push({ label: 'Body damage', value: attackPct + '%', cls: 'stat-positive' });
     }
     if (item.subtype === 'hive') {
       const dmg = (b.damageByRarity && b.damageByRarity[r]) ?? 0;
@@ -645,7 +657,8 @@ function setupHUD(player) {
     p.applyStats();
   }
 
-  handTank.onclick = () => {
+  handTank.onclick = (e) => {
+    e.stopPropagation();
     const p = game?.player;
     if (p?.equippedTank) unequip(p, 'tank');
   };
@@ -664,7 +677,8 @@ function setupHUD(player) {
     }
   };
 
-  handBody.onclick = () => {
+  handBody.onclick = (e) => {
+    e.stopPropagation();
     const p = game?.player;
     if (p?.equippedBody) unequip(p, 'body');
   };
@@ -845,15 +859,29 @@ function setupHUD(player) {
       slot.draggable = true;
       slot.onmouseenter = (e) => showItemTooltip({ type: 'tank', subtype: item.subtype, rarity: item.rarity }, e);
       slot.onmouseleave = hideItemTooltip;
-      slot.onclick = () => equipItem(p, 'tank', item);
+      slot.onclick = (ev) => { ev.stopPropagation(); equipItem(p, 'tank', item); };
       slot.ondragstart = (e) => {
         const json = JSON.stringify({ type: 'tank', subtype: item.subtype, rarity: item.rarity });
         e.dataTransfer.setData('application/json', json);
         e.dataTransfer.setData('text/plain', json);
         e.dataTransfer.effectAllowed = 'move';
+        const count = getEffectiveInventoryCount(p, 'tank', item.subtype, item.rarity);
+        if (count > 1) {
+          const showCount = count - 1;
+          slot.innerHTML = slotInnerHTML({ ...item, type: 'tank' }, true, ICON_SIZE_INV) + (showCount > 1 ? `<span class="stack-count">×${formatCount(showCount)}</span>` : '');
+        }
+        const dragImg = document.createElement('div');
+        dragImg.className = slot.className + ' inventory-slot-drag-image';
+        dragImg.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:' + slot.offsetWidth + 'px;height:' + slot.offsetHeight + 'px;pointer-events:none;opacity:0.9;';
+        dragImg.style.backgroundColor = slot.style.backgroundColor;
+        dragImg.style.borderColor = slot.style.borderColor;
+        dragImg.innerHTML = slotInnerHTML({ ...item, type: 'tank' }, true, ICON_SIZE_INV);
+        document.body.appendChild(dragImg);
+        e.dataTransfer.setDragImage(dragImg, e.offsetX, e.offsetY);
+        setTimeout(() => dragImg.remove(), 0);
         slot.classList.add('dragging');
       };
-      slot.ondragend = () => slot.classList.remove('dragging');
+      slot.ondragend = () => { slot.classList.remove('dragging'); };
       gunSlots.appendChild(slot);
     });
 
@@ -871,15 +899,29 @@ function setupHUD(player) {
       slot.draggable = true;
       slot.onmouseenter = (e) => showItemTooltip({ type: 'body', subtype: item.subtype, rarity: item.rarity }, e);
       slot.onmouseleave = hideItemTooltip;
-      slot.onclick = () => equipItem(p, 'body', item);
+      slot.onclick = (ev) => { ev.stopPropagation(); equipItem(p, 'body', item); };
       slot.ondragstart = (e) => {
         const json = JSON.stringify({ type: 'body', subtype: item.subtype, rarity: item.rarity });
         e.dataTransfer.setData('application/json', json);
         e.dataTransfer.setData('text/plain', json);
         e.dataTransfer.effectAllowed = 'move';
+        const count = getEffectiveInventoryCount(p, 'body', item.subtype, item.rarity);
+        if (count > 1) {
+          const showCount = count - 1;
+          slot.innerHTML = slotInnerHTML({ ...item, type: 'body' }, true, ICON_SIZE_INV) + (showCount > 1 ? `<span class="stack-count">×${formatCount(showCount)}</span>` : '');
+        }
+        const dragImg = document.createElement('div');
+        dragImg.className = slot.className + ' inventory-slot-drag-image';
+        dragImg.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:' + slot.offsetWidth + 'px;height:' + slot.offsetHeight + 'px;pointer-events:none;opacity:0.9;';
+        dragImg.style.backgroundColor = slot.style.backgroundColor;
+        dragImg.style.borderColor = slot.style.borderColor;
+        dragImg.innerHTML = slotInnerHTML({ ...item, type: 'body' }, true, ICON_SIZE_INV);
+        document.body.appendChild(dragImg);
+        e.dataTransfer.setDragImage(dragImg, e.offsetX, e.offsetY);
+        setTimeout(() => dragImg.remove(), 0);
         slot.classList.add('dragging');
       };
-      slot.ondragend = () => slot.classList.remove('dragging');
+      slot.ondragend = () => { slot.classList.remove('dragging'); };
       bodySlots.appendChild(slot);
     });
   };
@@ -2021,6 +2063,10 @@ function loop(now) {
     return;
   }
 
+  if (game && ctx?.canvas) {
+    game.canvasWidth = ctx.canvas.width;
+    game.canvasHeight = ctx.canvas.height;
+  }
   game?.update(dt);
   game?.draw(ctx);
 
