@@ -2,7 +2,7 @@ import { BEETLE_CONFIG, BEETLE_VISION } from '../config.js';
 import { drawPolygon, getRarityColor, drawRoundedHealthBar } from '../utils.js';
 import { darkenColor } from '../utils.js';
 
-/** Beetle mob: same rarities and spawn logic as food; uses BEETLE_CONFIG for stats. */
+/** Beetle mob: hostile enemy that chases the player when in vision. Uses BEETLE_CONFIG for stats. */
 export class Beetle {
   constructor(x, y, rarity, natural = false) {
     const config = BEETLE_CONFIG[rarity];
@@ -21,29 +21,37 @@ export class Beetle {
     this.vision = BEETLE_VISION;
     this.vx = 0;
     this.vy = 0;
-    this.rotation = Math.random() * Math.PI * 2;
-    this.rotationSpeed = (Math.random() - 0.5) * 0.005;
+    /** Facing direction (radians) for drawing; updated when chasing so beetle faces the player. */
+    this.facingAngle = 0;
   }
 
+  /**
+   * Beetle-only update: chase the player when in vision. No spinning or food-like behavior.
+   * Applies velocity from bullet impacts, then moves toward player if in range.
+   */
   update(dt, game) {
+    const dtSec = dt / 1000;
+    const friction = 0.992;
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    this.vx *= Math.pow(friction, dt);
+    this.vy *= Math.pow(friction, dt);
+
     const player = game?.player;
-    const beetleSpeed = 0.175 * 0.65; // 65% of player base speed (units per second)
-    const moveThisFrame = beetleSpeed * (dt / 1000); // units to move this frame
+    if (!player || player.dead || player.adminMode === true || this.vision <= 0) return;
 
-    // Chase player when in vision; only skip when admin mode is explicitly on
-    if (player && !player.dead && player.adminMode !== true && this.vision > 0) {
-      const dx = player.x - this.x;
-      const dy = player.y - this.y;
-      const dist = Math.hypot(dx, dy);
-      if (dist <= this.vision && dist > 1e-6) {
-        const nx = dx / dist;
-        const ny = dy / dist;
-        this.x += nx * moveThisFrame;
-        this.y += ny * moveThisFrame;
-      }
-    }
+    const dx = player.x - this.x;
+    const dy = player.y - this.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist > this.vision || dist < 1e-6) return;
 
-    this.rotation += this.rotationSpeed * dt;
+    const speed = 120; // world units per second
+    const move = speed * dtSec;
+    const nx = dx / dist;
+    const ny = dy / dist;
+    this.x += nx * move;
+    this.y += ny * move;
+    this.facingAngle = Math.atan2(ny, nx);
   }
 
   draw(ctx, scale, cam, playerLevel, beetleImage) {
@@ -60,7 +68,7 @@ export class Beetle {
 
     ctx.save();
     ctx.translate(this.x, this.y);
-    ctx.rotate(this.rotation);
+    ctx.rotate(this.facingAngle);
 
     const color = getRarityColor(this.rarity);
     if (beetleImage && beetleImage.complete && beetleImage.naturalWidth > 0) {
