@@ -123,15 +123,14 @@ export class Beetle {
       beetlePincerRightImage?.complete && beetlePincerRightImage?.naturalWidth > 0;
 
     if (useSplitImages) {
-      ctx.drawImage(beetleBodyImage, -s, -s, s * 2, s * 2);
       const pincerAngleDeg = 20 * Math.sin(this.pincerPhase);
       const pincerAngleRad = (pincerAngleDeg * Math.PI) / 180;
       const hingeLeftX = 0.29 * s;
       const hingeLeftY = -0.2 * s;
       const hingeRightX = 0.29 * s;
       const hingeRightY = 0.2 * s;
-      const pincerW = 0.42 * s;
-      const pincerH = 0.2 * s;
+      const pincerW = 0.84 * s;
+      const pincerH = 0.4 * s;
       ctx.save();
       ctx.translate(hingeLeftX, hingeLeftY);
       ctx.rotate(pincerAngleRad);
@@ -142,6 +141,7 @@ export class Beetle {
       ctx.rotate(-pincerAngleRad);
       ctx.drawImage(beetlePincerRightImage, -pincerW / 2, -pincerH / 2, pincerW, pincerH);
       ctx.restore();
+      ctx.drawImage(beetleBodyImage, -s, -s, s * 2, s * 2);
     } else if (beetleImage && beetleImage.complete && beetleImage.naturalWidth > 0) {
       ctx.drawImage(beetleImage, -s, -s, s * 2, s * 2);
     } else {
