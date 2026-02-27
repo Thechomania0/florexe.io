@@ -394,8 +394,8 @@ body {
 
 .save-exit-btn {
   position: absolute;
-  top: 0.5rem;
-  left: 0.5rem;
+  top: 0;
+  left: 0;
   width: 28px;
   height: 28px;
   padding: 0;
@@ -418,8 +418,8 @@ body {
 
 .hud-top {
   position: absolute;
-  top: 1rem;
-  left: 1rem;
+  top: 0;
+  left: 36px;
   right: 1rem;
   display: flex;
   flex-direction: row;
@@ -681,10 +681,15 @@ body {
   max-width: min(420px, 90vw);
   width: min(420px, 90vw);
   max-height: 70vh;
-  overflow-y: scroll;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  scrollbar-width: none;
+}
+#inventoryBoxContent::-webkit-scrollbar {
+  display: none;
 }
 
 .inventory-box .toggle-box-content {
@@ -792,9 +797,14 @@ body {
 
 #inventoryBoxContent .inventory-slots {
   flex: 1;
-  overflow-y: scroll;
+  overflow-y: auto;
+  overflow-x: hidden;
   min-height: 120px;
   align-content: flex-start;
+  scrollbar-width: none;
+}
+#inventoryBoxContent .inventory-slots::-webkit-scrollbar {
+  display: none;
 }
 
 .inventory-split .controls-hint {
