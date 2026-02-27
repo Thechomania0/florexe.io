@@ -1019,7 +1019,7 @@ function renderMobGallery() {
           slot.dataset.category = 'beetle';
           slot.style.background = getRarityColor(rarity);
           slot.style.borderColor = darkenColor(getRarityColor(rarity), 40);
-          slot.innerHTML = `<span class="mob-gallery-xcount">x${formatCount(count)}</span><img class="mob-gallery-shape-img" src="assets/icons/mobs/beetle.svg" alt="" />`;
+          slot.innerHTML = `<span class="mob-gallery-xcount">x${formatCount(count)}</span><img class="mob-gallery-shape-img" src="assets/icons/mobs/beetle/beetle.svg" alt="" />`;
         }
       }
       grid.appendChild(slot);

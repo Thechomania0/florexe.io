@@ -86,13 +86,13 @@ export class Game {
       this.player.tankAssets = getLoadedTankAssets();
     });
     this.beetleImage = new Image();
-    this.beetleImage.src = 'assets/icons/mobs/beetle.svg';
+    this.beetleImage.src = 'assets/icons/mobs/beetle/beetle.svg';
     this.beetleBodyImage = new Image();
-    this.beetleBodyImage.src = 'assets/icons/mobs/beetle_body.svg';
+    this.beetleBodyImage.src = 'assets/icons/mobs/beetle/body.svg';
     this.beetlePincerLeftImage = new Image();
-    this.beetlePincerLeftImage.src = 'assets/icons/mobs/beetle_pincer_left.svg';
+    this.beetlePincerLeftImage.src = 'assets/icons/mobs/beetle/pincer_left.svg';
     this.beetlePincerRightImage = new Image();
-    this.beetlePincerRightImage.src = 'assets/icons/mobs/beetle_pincer_right.svg';
+    this.beetlePincerRightImage.src = 'assets/icons/mobs/beetle/pincer_right.svg';
     while (this.foods.length < FOOD_TARGET_COUNT) this.spawnFood();
     while (this.beetles.length < BEETLE_TARGET_COUNT) this.spawnBeetle();
     return loadPromise;
@@ -390,7 +390,7 @@ export class Game {
         for (const beetle of this.beetles) {
           if (bullet.hp != null && bullet.hp <= 0) break;
           if (bullet.hitTargets.has(beetle)) continue;
-          if (distance(bullet.x, bullet.y, beetle.x, beetle.y) < bullet.size + (beetle.collisionRadius ?? beetle.size)) {
+          if (beetle.ellipseOverlapsCircle(bullet.x, bullet.y, bullet.size)) {
             bullet.hitTargets.add(beetle);
             beetle.hp -= bullet.damage;
             if (beetle.hp <= 0) this.player.onKill(beetle, this);
@@ -429,7 +429,7 @@ export class Game {
         }
         if (!bulletsToRemove.has(bullet)) {
           for (const beetle of this.beetles) {
-            if (distance(bullet.x, bullet.y, beetle.x, beetle.y) < bullet.size + (beetle.collisionRadius ?? beetle.size)) {
+            if (beetle.ellipseOverlapsCircle(bullet.x, bullet.y, bullet.size)) {
               beetle.hp -= bullet.damage;
               if (beetle.hp <= 0) this.player.onKill(beetle, this);
               const pushFactor = bulletDisplaceStrength(bullet.weight, beetle.weight);
@@ -454,8 +454,7 @@ export class Game {
         }
       }
       for (const beetle of this.beetles) {
-        const d = distance(sq.x, sq.y, beetle.x, beetle.y);
-        if (d < sq.size + (beetle.collisionRadius ?? beetle.size)) {
+        if (beetle.ellipseOverlapsCircle(sq.x, sq.y, sq.size)) {
           beetle.hp -= sq.damage * dt / 1000;
           if (beetle.hp <= 0) this.player.onKill(beetle, this);
         }

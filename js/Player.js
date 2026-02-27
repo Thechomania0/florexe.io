@@ -317,14 +317,14 @@ export class Player {
         }
       }
       for (const beetle of game.beetles || []) {
-        const d = distance(this.x, this.y, beetle.x, beetle.y);
-        const overlap = this.size + (beetle.collisionRadius ?? beetle.size) - d;
+        const overlap = beetle.getEllipseOverlap(this.x, this.y, this.size);
         if (overlap > 0) {
           this.takeDamage(beetle.damage * dt / 1000);
           const bodyDmg = (this.bodyDamage ?? BASE_BODY_DAMAGE) * dt / 1000;
           beetle.hp -= bodyDmg;
           if (beetle.hp <= 0) this.onKill(beetle, game);
           const bounce = 0.3;
+          const d = distance(this.x, this.y, beetle.x, beetle.y);
           const nx = d > 0 ? (this.x - beetle.x) / d : 1;
           const ny = d > 0 ? (this.y - beetle.y) / d : 0;
           this.vx += nx * overlap * bounce * BOUNCE_IMPULSE_FACTOR;
@@ -359,7 +359,7 @@ export class Player {
         }
       }
       for (const beetle of game.beetles || []) {
-        if (distance(this.x, this.y, beetle.x, beetle.y) < radius) {
+        if (beetle.ellipseOverlapsCircle(this.x, this.y, radius)) {
           beetle.hp -= dmg;
           if (beetle.hp <= 0) this.onKill(beetle, game);
         }

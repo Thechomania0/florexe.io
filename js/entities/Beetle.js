@@ -15,8 +15,11 @@ export class Beetle {
     this.hp = config.hp;
     this.damage = config.damage;
     this.size = config.size;
-    /** Collision radius (hitbox) - smaller than draw size so it matches the visible purple body. */
-    this.collisionRadius = this.size * 0.55;
+    /** Oval hitbox matching body: semi-axes in world units (from body rect 25.5×19.5 in 64 viewBox). */
+    this.semiMajor = this.size * (25.5 / 64);
+    this.semiMinor = this.size * (19.5 / 64);
+    /** @deprecated Use ellipse overlap methods instead. Kept for wall collision margin. */
+    this.collisionRadius = Math.max(this.semiMajor, this.semiMinor);
     this.weight = config.weight ?? 1;
     this.vision = BEETLE_VISION;
     this.vx = 0;
@@ -27,6 +30,37 @@ export class Beetle {
     this.playerInVision = false;
     /** Phase for pincer open/close animation (radians), advances when playerInVision. */
     this.pincerPhase = 0;
+  }
+
+  /** Radius of the oval hitbox in a given direction (angle in radians, in beetle-local space: 0 = along semiMajor). */
+  ellipseRadiusInDirection(localAngle) {
+    const a = this.semiMajor;
+    const b = this.semiMinor;
+    const c = Math.cos(localAngle);
+    const s = Math.sin(localAngle);
+    return (a * b) / Math.sqrt((b * c) * (b * c) + (a * s) * (a * s));
+  }
+
+  /** True if a circle at (ox, oy) with radius r overlaps this beetle's oval hitbox. */
+  ellipseOverlapsCircle(ox, oy, r) {
+    const dx = ox - this.x;
+    const dy = oy - this.y;
+    const cos = Math.cos(-this.facingAngle);
+    const sin = Math.sin(-this.facingAngle);
+    const localX = dx * cos - dy * sin;
+    const localY = dx * sin + dy * cos;
+    const a = this.semiMajor + r;
+    const b = this.semiMinor + r;
+    return (localX / a) * (localX / a) + (localY / b) * (localY / b) <= 1;
+  }
+
+  /** Overlap amount for push resolution: other circle at (ox, oy) with radius otherRadius. Returns 0 if no overlap. */
+  getEllipseOverlap(ox, oy, otherRadius) {
+    const d = Math.hypot(ox - this.x, oy - this.y);
+    const localAngle = Math.atan2(oy - this.y, ox - this.x) - this.facingAngle;
+    const rBeetle = this.ellipseRadiusInDirection(localAngle);
+    const overlap = otherRadius + rBeetle - d;
+    return overlap > 0 ? overlap : 0;
   }
 
   /**
