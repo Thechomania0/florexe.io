@@ -265,6 +265,7 @@ function setupPlayerInput(player) {
   if (typeof _wheelZoom === 'function') canvas.removeEventListener('wheel', _wheelZoom);
   _wheelZoom = (e) => {
     if (!game?.player) return;
+    if (!isAdmin()) return; // Only admins can change view range by scrolling
     e.preventDefault();
     const factor = 1 - e.deltaY * 0.002;
     game.scale *= factor;
