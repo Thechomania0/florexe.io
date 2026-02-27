@@ -1592,6 +1592,7 @@ function setupChat() {
     { cmd: '/adminmode on | off', desc: 'Toggle admin mode (ghost, 0 damage, 99999 of each gun and body)' },
     { cmd: '/spawn [rarity] [mob]', desc: 'Spawn mob at your location (e.g. /spawn super food)' },
     { cmd: '/give [user] [rarity] [item]', desc: 'Add item to user inventory (e.g. /give me super overlord)' },
+    { cmd: '/addstars [user] [amount]', desc: 'Add stars to account (e.g. /addstars me 100000). "me" = your admin account.' },
   ];
 
   const VALID_RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic', 'ultra', 'super'];
@@ -1724,6 +1725,28 @@ function setupChat() {
           } else {
             game.spawnFoodAt(p.x, p.y, rarity);
             appendMessage(`[System] Spawned ${rarity} ${mob} at your location.`);
+          }
+        }
+      } else if (raw.toLowerCase().startsWith('/addstars ')) {
+        if (!isAdmin()) return;
+        const parts = raw.slice(10).trim().split(/\s+/);
+        if (parts.length < 2) {
+          appendMessage('[System] Use: /addstars [user] [amount] — e.g. /addstars me 100000');
+        } else {
+          const [userArg, amountStr] = parts;
+          const target = (userArg.toLowerCase() === 'me' || (game?.player?.displayName && game.player.displayName.toLowerCase() === userArg.toLowerCase()))
+            ? game?.player
+            : null;
+          if (!target) {
+            appendMessage('[System] Unknown user. Use "me" to add stars to your own account.');
+          } else {
+            const amount = Math.floor(Number(amountStr));
+            if (!Number.isFinite(amount) || amount < 0) {
+              appendMessage('[System] Invalid amount. Use a non-negative number (e.g. /addstars me 100000).');
+            } else {
+              target.stars = (target.stars || 0) + amount;
+              appendMessage(`[System] Added ${amount.toLocaleString()} stars to ${userArg.toLowerCase() === 'me' ? 'your' : 'their'} account. Total: ${Math.round(target.stars).toLocaleString()}.`);
+            }
           }
         }
       } else if (raw.toLowerCase().startsWith('/give ')) {
