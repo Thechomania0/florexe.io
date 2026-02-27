@@ -21,7 +21,7 @@ A tank-based .io game combining elements of **Diep.io**, **Scenexe.io**, and **F
 | **Inferno** | Damaging ring around you, heals teammates |
 | **Ziggurat** | +HP, damage reduction, -10% speed |
 | **Cutter** | +Speed, +Attack, -20% HP |
-| **Hive** | Auto-aiming drones |
+| **Hive** | Auto-aiming drones that take the shape of your equipped egg |
 
 ## Tank Upgrades
 
@@ -30,7 +30,7 @@ A tank-based .io game combining elements of **Diep.io**, **Scenexe.io**, and **F
 | **Destroyer** | Big slow bullet |
 | **Anchor** | Throws square turrets |
 | **Riot** | 3 stacked square turrets |
-| **Overlord** | Controllable drones (follow mouse) |
+| **Overlord** | Controllable drones (follow mouse) that take the shape of your equipped egg |
 
 ## Food Shapes
 
