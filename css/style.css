@@ -5,10 +5,10 @@
   --uncommon: #fff176;
   --rare: #3c78d8;
   --epic: #9900ff;
-  --legendary: #ff0000;
-  --mythic: #00ffff;
-  --ultra: #c82dd1;
-  --super: #45f9ba;
+  --legendary: #de1f1f;
+  --mythic: #1fdbde;
+  --ultra: #ff2b75;
+  --super: #2bffa3;
   --bg-dark: #0a0e14;
   --bg-game: #0d1117;
 }
@@ -1403,7 +1403,7 @@ body {
 
 /* Shop */
 .shop-panel {
-  background: #90ee90;
+  background: #7eef6d;
   border: 3px solid #2e7d32;
   border-radius: 12px;
   font-family: 'Rajdhani', sans-serif;
@@ -1430,7 +1430,7 @@ body {
   font-family: 'Rajdhani', sans-serif;
   font-size: 1.5rem;
   font-weight: 700;
-  color: #1b5e20;
+  color: #fff;
   margin: 0;
   -webkit-text-stroke: 1px #000;
   paint-order: stroke fill;
@@ -1467,14 +1467,14 @@ body {
 .shop-offers-label {
   font-weight: 700;
   font-size: 1rem;
-  color: #1b5e20;
+  color: #fff;
   -webkit-text-stroke: 0.75px #000;
   paint-order: stroke fill;
 }
 
 .shop-timer {
   font-size: 0.85rem;
-  color: #2e7d32;
+  color: #fff;
   font-weight: 700;
   -webkit-text-stroke: 0.6px #000;
   paint-order: stroke fill;
@@ -1496,7 +1496,7 @@ body {
   align-items: center;
   padding: 0.5rem;
   border-radius: 8px;
-  background: rgba(255,255,255,0.5);
+  background: #66c258;
   border: 2px solid rgba(0,0,0,0.15);
 }
 
@@ -1522,10 +1522,10 @@ body {
 .shop-slot-price-btn {
   width: 100%;
   padding: 0.4rem 0.5rem;
-  border: none;
+  border: 2px solid #c9a900;
   border-radius: 6px;
-  background: #f9a825;
-  color: #1b5e20;
+  background: #fcdf03;
+  color: #fff;
   font-family: 'Rajdhani', sans-serif;
   font-size: 0.9rem;
   font-weight: 700;
@@ -1539,7 +1539,8 @@ body {
 }
 
 .shop-slot-price-btn:hover:not(:disabled) {
-  background: #ffb74d;
+  background: #fce844;
+  border-color: #b89600;
 }
 
 .shop-slot-price-btn:disabled {
@@ -1560,7 +1561,7 @@ body {
 
 .shop-footer-text {
   font-size: 0.8rem;
-  color: #1b5e20;
+  color: #fff;
   margin: 0;
   flex: 1;
   min-width: 200px;
@@ -1578,7 +1579,7 @@ body {
   border-radius: 8px;
   font-weight: 700;
   font-size: 1.1rem;
-  color: #1b5e20;
+  color: #fff;
   -webkit-text-stroke: 0.6px #000;
   paint-order: stroke fill;
 }

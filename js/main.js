@@ -1,5 +1,5 @@
 import { Game } from './Game.js';
-import { RARITY_COLORS, CRAFT_CHANCES, RARITIES, TANK_UPGRADES, BODY_UPGRADES, MAP_SIZE, FOOD_CONFIG, INFERNO_BASE_RADIUS } from './config.js';
+import { RARITY_COLORS, CRAFT_CHANCES, RARITIES, TANK_UPGRADES, BODY_UPGRADES, MAP_SIZE, FOOD_CONFIG, INFERNO_BASE_RADIUS, SHOP_ITEM_PRICES } from './config.js';
 import { WALL_HALF_WIDTH, getWalls, getMergedWallFills, getPlayableBounds } from './mapData.js';
 import { getRarityColor, darkenColor } from './utils.js';
 import { getIconUrl as getTankAssetIconUrl, getGunIconUrl, getBodyIconUrl, getBodyIconUrlByRarity, getGunIconUrlByRarity, loadTankAssets, GUN_SUBTYPES, BODY_SUBTYPES } from './TankAssets.js';
@@ -325,7 +325,6 @@ function formatCount(n) {
 }
 
 const SHOP_DAY_MS = 24 * 60 * 60 * 1000;
-const SHOP_PRICES = { legendary: 50000, mythic: 150000, ultra: 500000, super: 2000000 };
 const SHOP_RARITIES = ['legendary', 'legendary', 'mythic', 'mythic', 'mythic', 'ultra', 'ultra', 'ultra', 'super', 'super'];
 
 function seededRandom(seed) {
@@ -372,7 +371,7 @@ function openShop() {
   if (starsEl) starsEl.textContent = formatStars(p?.stars ?? 0);
   grid.innerHTML = '';
   offers.forEach((item) => {
-    const price = SHOP_PRICES[item.rarity] ?? 0;
+    const price = Number(SHOP_ITEM_PRICES[`${item.type}_${item.subtype}`]) || 0;
     const iconUrl = item.type === 'tank' ? getGunIconUrlByRarity(item.subtype, item.rarity) : getBodyIconUrlByRarity(item.subtype, item.rarity);
     const slot = document.createElement('div');
     slot.className = 'shop-slot';

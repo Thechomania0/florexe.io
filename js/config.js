@@ -5,10 +5,24 @@ export const RARITY_COLORS = {
   uncommon: '#fff176',
   rare: '#3c78d8',
   epic: '#9900ff',
-  legendary: '#ff0000',
-  mythic: '#00ffff',
-  ultra: '#c82dd1',
-  super: '#45f9ba',
+  legendary: '#de1f1f',
+  mythic: '#1fdbde',
+  ultra: '#ff2b75',
+  super: '#2bffa3',
+};
+
+/** Shop: price in stars per item. Key = "tank_base" | "body_inferno" etc. Edit these to set shop prices. */
+export const SHOP_ITEM_PRICES = {
+  tank_base: 50000,
+  tank_destroyer: 50000,
+  tank_anchor: 150000,
+  tank_riot: 2000000,
+  tank_overlord: 500000,
+  tank_streamliner: 150000,
+  body_inferno: 500000,
+  body_ziggurat: 150000,
+  body_cutter: 2000000,
+  body_hive: 500000,
 };
 
 // Craft success rates (current -> next)
