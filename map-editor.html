@@ -731,6 +731,7 @@
         showSaveMsg('Add a GitHub token in "Store maps on GitHub" to save as default.', false);
         return;
       }
+      if (!confirm('Replace the default map with this map? New users will see this map when cache is cleared.')) return;
       const ok = await saveCustomMapAsDefaultToGitHub(gamemode);
       if (ok) {
         showSaveMsg('Saved as default map. New users will see this map when cache is cleared.', true);
