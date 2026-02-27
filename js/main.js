@@ -325,7 +325,7 @@ function formatCount(n) {
 }
 
 const SHOP_DAY_MS = 24 * 60 * 60 * 1000;
-const SHOP_RARITIES = ['legendary', 'legendary', 'mythic', 'mythic', 'mythic', 'ultra', 'ultra', 'super', 'super'];
+const SHOP_RARITIES = ['legendary', 'legendary', 'mythic', 'mythic', 'mythic', 'ultra', 'ultra', 'ultra', 'super', 'super'];
 
 function seededRandom(seed) {
   return function () {
@@ -337,24 +337,25 @@ function seededRandom(seed) {
 function getShopOffers() {
   const day = Math.floor(Date.now() / SHOP_DAY_MS);
   const rng = seededRandom(day);
-  // Pool: 9 unique items (Base gun excluded). No duplicate subtype.
+  // Pool: 9 unique items (Base gun excluded). Duplicate one at random to get 10 slots.
   const gunSubtypes = GUN_SUBTYPES.filter((s) => s !== 'base');
   const pool = [
     ...gunSubtypes.map((subtype) => ({ type: 'tank', subtype })),
     ...BODY_SUBTYPES.map((subtype) => ({ type: 'body', subtype }))
   ];
-  // Shuffle pool (Fisher–Yates)
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
+  // Add 10th slot: copy of a random item (one subtype can appear twice with different rarities)
+  pool.push({ ...pool[Math.floor(rng() * pool.length)] });
   return SHOP_RARITIES.map((rarity, i) => ({ ...pool[i], rarity }));
 }
 
 function formatStars(n) {
   const s = Math.round(n);
-  if (s >= 1e6) return (s / 1e6).toFixed(1) + 'm';
-  if (s >= 1e3) return (s / 1e3).toFixed(1) + 'k';
+  if (s >= 1e6) return Math.round(s / 1e6) + 'm';
+  if (s >= 1e3) return Math.round(s / 1e3) + 'k';
   return String(s);
 }
 
