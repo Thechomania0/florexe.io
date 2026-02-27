@@ -155,7 +155,7 @@ function startGame(gamemode) {
   });
 }
 
-let _keyDown, _keyUp, _wheelZoom, _keydownToggle;
+let _keyDown, _keyUp, _wheelZoom, _keydownToggle, _onDragstartClearKeys;
 let _autoAttackToastHideTimeout = null;
 
 function showAutoAttackToast(isOn) {
@@ -174,6 +174,7 @@ function setupPlayerInput(player) {
   if (_keyDown) document.removeEventListener('keydown', _keyDown);
   if (_keyUp) document.removeEventListener('keyup', _keyUp);
   if (_keydownToggle) document.removeEventListener('keydown', _keydownToggle);
+  if (_onDragstartClearKeys) document.removeEventListener('dragstart', _onDragstartClearKeys);
 
   const keyHandler = (e, down) => {
     if (document.activeElement?.id === 'chatInput') return;
@@ -248,6 +249,17 @@ function setupPlayerInput(player) {
     }
   };
   document.addEventListener('keydown', _keydownToggle);
+
+  _onDragstartClearKeys = () => {
+    const p = game?.player;
+    if (p && p.keys) {
+      p.keys.w = false;
+      p.keys.a = false;
+      p.keys.s = false;
+      p.keys.d = false;
+    }
+  };
+  document.addEventListener('dragstart', _onDragstartClearKeys);
 
   const inventoryBoxTab = document.getElementById('inventoryBoxTab');
   if (inventoryBoxTab) {
