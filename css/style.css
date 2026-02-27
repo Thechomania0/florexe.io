@@ -1432,6 +1432,8 @@ body {
   font-weight: 700;
   color: #1b5e20;
   margin: 0;
+  -webkit-text-stroke: 1px #000;
+  paint-order: stroke fill;
 }
 
 .shop-close {
@@ -1439,7 +1441,7 @@ body {
   height: 36px;
   border: none;
   border-radius: 8px;
-  background: #2e7d32;
+  background: #b71c1c;
   color: #fff;
   font-size: 2rem;
   line-height: 1;
@@ -1451,7 +1453,7 @@ body {
 }
 
 .shop-close:hover {
-  background: #1b5e20;
+  background: #8b0000;
 }
 
 .shop-offers-bar {
@@ -1466,11 +1468,16 @@ body {
   font-weight: 700;
   font-size: 1rem;
   color: #1b5e20;
+  -webkit-text-stroke: 0.75px #000;
+  paint-order: stroke fill;
 }
 
 .shop-timer {
   font-size: 0.85rem;
   color: #2e7d32;
+  font-weight: 700;
+  -webkit-text-stroke: 0.6px #000;
+  paint-order: stroke fill;
 }
 
 .shop-grid {
@@ -1499,7 +1506,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.5rem;
 }
 
 .shop-slot-icon-wrap img {
@@ -1509,12 +1516,7 @@ body {
 }
 
 .shop-slot-name {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #1b5e20;
-  text-align: center;
-  margin-bottom: 0.5rem;
-  text-transform: capitalize;
+  display: none;
 }
 
 .shop-slot-price-btn {
@@ -1527,6 +1529,8 @@ body {
   font-family: 'Rajdhani', sans-serif;
   font-size: 0.9rem;
   font-weight: 700;
+  -webkit-text-stroke: 0.6px #000;
+  paint-order: stroke fill;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1560,6 +1564,9 @@ body {
   margin: 0;
   flex: 1;
   min-width: 200px;
+  font-weight: 700;
+  -webkit-text-stroke: 0.5px #000;
+  paint-order: stroke fill;
 }
 
 .shop-stars-display {
@@ -1572,6 +1579,8 @@ body {
   font-weight: 700;
   font-size: 1.1rem;
   color: #1b5e20;
+  -webkit-text-stroke: 0.6px #000;
+  paint-order: stroke fill;
 }
 
 .shop-star-icon {

@@ -338,15 +338,17 @@ function seededRandom(seed) {
 function getShopOffers() {
   const day = Math.floor(Date.now() / SHOP_DAY_MS);
   const rng = seededRandom(day);
-  const offers = [];
-  for (let i = 0; i < 10; i++) {
-    const rarity = SHOP_RARITIES[i];
-    const type = rng() < 0.5 ? 'tank' : 'body';
-    const subtypes = type === 'tank' ? GUN_SUBTYPES : BODY_SUBTYPES;
-    const subtype = subtypes[Math.floor(rng() * subtypes.length)];
-    offers.push({ type, subtype, rarity });
+  // Pool: 10 unique (type, subtype) so no duplicate item (same subtype) in shop
+  const pool = [
+    ...GUN_SUBTYPES.map((subtype) => ({ type: 'tank', subtype })),
+    ...BODY_SUBTYPES.map((subtype) => ({ type: 'body', subtype }))
+  ];
+  // Shuffle pool (Fisher–Yates)
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
   }
-  return offers;
+  return SHOP_RARITIES.map((rarity, i) => ({ ...pool[i], rarity }));
 }
 
 function formatStars(n) {
@@ -369,16 +371,13 @@ function openShop() {
   if (timerEl) timerEl.textContent = `Store will change in ${Math.round(hoursLeft)} hours`;
   if (starsEl) starsEl.textContent = formatStars(p?.stars ?? 0);
   grid.innerHTML = '';
-  const displayNames = { base: 'Base', destroyer: 'Destroyer', anchor: 'Anchor', riot: 'Riot', overlord: 'Overlord', streamliner: 'Streamliner', inferno: 'Inferno', ziggurat: 'Ziggurat', cutter: 'Cutter', hive: 'Hive' };
   offers.forEach((item) => {
     const price = SHOP_PRICES[item.rarity] ?? 0;
     const iconUrl = item.type === 'tank' ? getGunIconUrlByRarity(item.subtype, item.rarity) : getBodyIconUrlByRarity(item.subtype, item.rarity);
-    const name = displayNames[item.subtype] || item.subtype;
     const slot = document.createElement('div');
     slot.className = 'shop-slot';
     slot.innerHTML = `
       <div class="shop-slot-icon-wrap"><img src="${iconUrl || ''}" alt="" onerror="this.style.display='none'"></div>
-      <span class="shop-slot-name">${name}</span>
       <button type="button" class="shop-slot-price-btn" data-price="${price}" data-type="${item.type}" data-subtype="${item.subtype}" data-rarity="${item.rarity}">★ ${formatStars(price)}</button>
     `;
     const btn = slot.querySelector('.shop-slot-price-btn');
