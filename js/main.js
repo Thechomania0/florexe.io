@@ -2,7 +2,7 @@ import { Game } from './Game.js';
 import { RARITY_COLORS, CRAFT_CHANCES, RARITIES, TANK_UPGRADES, BODY_UPGRADES, MAP_SIZE, FOOD_CONFIG, INFERNO_BASE_RADIUS } from './config.js';
 import { WALL_HALF_WIDTH, getWalls, getMergedWallFills, getPlayableBounds } from './mapData.js';
 import { getRarityColor, darkenColor } from './utils.js';
-import { getIconUrl as getTankAssetIconUrl, getGunIconUrl, getBodyIconUrl, getBodyIconUrlByRarity, loadTankAssets, GUN_SUBTYPES, BODY_SUBTYPES } from './TankAssets.js';
+import { getIconUrl as getTankAssetIconUrl, getGunIconUrl, getBodyIconUrl, getBodyIconUrlByRarity, getGunIconUrlByRarity, loadTankAssets, GUN_SUBTYPES, BODY_SUBTYPES } from './TankAssets.js';
 
 function getEquippedTankName(player) {
   const tankName = player?.equippedTank && TANK_UPGRADES[player.equippedTank.subtype]?.name;
@@ -322,6 +322,89 @@ function getPlaceholderIconDataUri(subtype) {
 function formatCount(n) {
   if (n > 999) return (Math.round(n / 100) / 10) + 'k';
   return String(n);
+}
+
+const SHOP_DAY_MS = 24 * 60 * 60 * 1000;
+const SHOP_PRICES = { legendary: 50000, mythic: 150000, ultra: 500000, super: 2000000 };
+const SHOP_RARITIES = ['legendary', 'legendary', 'mythic', 'mythic', 'mythic', 'ultra', 'ultra', 'ultra', 'super', 'super'];
+
+function seededRandom(seed) {
+  return function () {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return seed / 0x7fffffff;
+  };
+}
+
+function getShopOffers() {
+  const day = Math.floor(Date.now() / SHOP_DAY_MS);
+  const rng = seededRandom(day);
+  const offers = [];
+  for (let i = 0; i < 10; i++) {
+    const rarity = SHOP_RARITIES[i];
+    const type = rng() < 0.5 ? 'tank' : 'body';
+    const subtypes = type === 'tank' ? GUN_SUBTYPES : BODY_SUBTYPES;
+    const subtype = subtypes[Math.floor(rng() * subtypes.length)];
+    offers.push({ type, subtype, rarity });
+  }
+  return offers;
+}
+
+function formatStars(n) {
+  const s = Math.round(n);
+  if (s >= 1e6) return (s / 1e6).toFixed(1) + 'm';
+  if (s >= 1e3) return (s / 1e3).toFixed(1) + 'k';
+  return String(s);
+}
+
+function openShop() {
+  const modal = document.getElementById('shop-modal');
+  const grid = document.getElementById('shopGrid');
+  const timerEl = document.getElementById('shopTimer');
+  const starsEl = document.getElementById('shopStarsCount');
+  if (!modal || !grid) return;
+  const p = game?.player;
+  const offers = getShopOffers();
+  const nextChange = (Math.floor(Date.now() / SHOP_DAY_MS) + 1) * SHOP_DAY_MS;
+  const hoursLeft = Math.max(0, (nextChange - Date.now()) / 3600000);
+  if (timerEl) timerEl.textContent = `Store will change in ${Math.round(hoursLeft)} hours`;
+  if (starsEl) starsEl.textContent = formatStars(p?.stars ?? 0);
+  grid.innerHTML = '';
+  const displayNames = { base: 'Base', destroyer: 'Destroyer', anchor: 'Anchor', riot: 'Riot', overlord: 'Overlord', streamliner: 'Streamliner', inferno: 'Inferno', ziggurat: 'Ziggurat', cutter: 'Cutter', hive: 'Hive' };
+  offers.forEach((item) => {
+    const price = SHOP_PRICES[item.rarity] ?? 0;
+    const iconUrl = item.type === 'tank' ? getGunIconUrlByRarity(item.subtype, item.rarity) : getBodyIconUrlByRarity(item.subtype, item.rarity);
+    const name = displayNames[item.subtype] || item.subtype;
+    const slot = document.createElement('div');
+    slot.className = 'shop-slot';
+    slot.innerHTML = `
+      <div class="shop-slot-icon-wrap"><img src="${iconUrl || ''}" alt="" onerror="this.style.display='none'"></div>
+      <span class="shop-slot-name">${name}</span>
+      <button type="button" class="shop-slot-price-btn" data-price="${price}" data-type="${item.type}" data-subtype="${item.subtype}" data-rarity="${item.rarity}">★ ${formatStars(price)}</button>
+    `;
+    const btn = slot.querySelector('.shop-slot-price-btn');
+    const canAfford = p && typeof p.stars === 'number' && p.stars >= price;
+    btn.disabled = !canAfford;
+    btn.onclick = () => {
+      const pl = game?.player;
+      if (!pl || pl.stars < price) return;
+      pl.stars -= price;
+      pl.inventory.push({ type: item.type, subtype: item.subtype, rarity: item.rarity });
+      const starsDisplay = document.getElementById('stars');
+      if (starsDisplay) starsDisplay.textContent = `★ ${formatStars(pl.stars)}`;
+      if (document.getElementById('shopStarsCount')) document.getElementById('shopStarsCount').textContent = formatStars(pl.stars);
+      btn.disabled = pl.stars < price;
+      document.querySelectorAll('.shop-slot-price-btn').forEach(b => {
+        const pr = Number(b.dataset.price);
+        b.disabled = !Number.isFinite(pr) || pl.stars < pr;
+      });
+    };
+    grid.appendChild(slot);
+  });
+  modal.classList.remove('hidden');
+}
+
+function closeShop() {
+  document.getElementById('shop-modal')?.classList.add('hidden');
 }
 
 /** Effective count for display/craft: adminMode gives 99999 of each gun and each body. */
@@ -1886,6 +1969,11 @@ function init() {
       if (!animationId) loop(performance.now());
     };
   }
+
+  const shopBtn = document.getElementById('shopBtn');
+  if (shopBtn) shopBtn.onclick = () => openShop();
+  const shopClose = document.getElementById('shopClose');
+  if (shopClose) shopClose.onclick = () => closeShop();
 }
 
 if (document.readyState === 'loading') {
