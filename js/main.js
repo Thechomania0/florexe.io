@@ -155,7 +155,7 @@ function startGame(gamemode) {
   });
 }
 
-let _keyDown, _keyUp, _wheelZoom;
+let _keyDown, _keyUp, _wheelZoom, _keydownToggle;
 let _autoAttackToastHideTimeout = null;
 
 function showAutoAttackToast(isOn) {
@@ -173,6 +173,7 @@ function showAutoAttackToast(isOn) {
 function setupPlayerInput(player) {
   if (_keyDown) document.removeEventListener('keydown', _keyDown);
   if (_keyUp) document.removeEventListener('keyup', _keyUp);
+  if (_keydownToggle) document.removeEventListener('keydown', _keydownToggle);
 
   const keyHandler = (e, down) => {
     if (document.activeElement?.id === 'chatInput') return;
@@ -191,7 +192,7 @@ function setupPlayerInput(player) {
   document.addEventListener('keydown', _keyDown);
   document.addEventListener('keyup', _keyUp);
 
-  document.addEventListener('keydown', (e) => {
+  _keydownToggle = (e) => {
     if (document.activeElement?.id === 'chatInput') return;
     const k = e.key.toLowerCase();
     const inventoryContent = document.getElementById('inventoryBox')?.querySelector('.toggle-box-content');
@@ -239,9 +240,12 @@ function setupPlayerInput(player) {
       }
       document.getElementById('chatInput')?.blur();
     }
-  });
+  };
+  document.addEventListener('keydown', _keydownToggle);
 
-  document.getElementById('inventoryBoxTab')?.addEventListener('click', () => {
+  const inventoryBoxTab = document.getElementById('inventoryBoxTab');
+  if (inventoryBoxTab) {
+    inventoryBoxTab.onclick = () => {
     const craftingModal = document.getElementById('crafting-modal');
     const galleryModal = document.getElementById('mob-gallery-modal');
     if (craftingModal && !craftingModal.classList.contains('hidden')) {
@@ -252,7 +256,8 @@ function setupPlayerInput(player) {
     }
     document.getElementById('inventoryBox')?.querySelector('.toggle-box-content').classList.toggle('hidden');
     document.getElementById('chatInput')?.blur();
-  });
+    };
+  }
 
   canvas.onmousemove = (e) => {
     const rect = canvas.getBoundingClientRect();
