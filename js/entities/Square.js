@@ -88,12 +88,17 @@ export class Square {
           const nx = d > 0 ? (this.x - other.x) / d : 1;
           const ny = d > 0 ? (this.y - other.y) / d : 0;
           const bothRiot = RIOT_NO_BOUNCE && this.isRiotTrap && other.isRiotTrap;
-          // All traps (including riot) get collision/separation so they don't stack
+          // Weight-based separation: heavier shape pushes lighter (riot weight 0 → effective 1 so it gets pushed, doesn't push)
+          const pw = effectiveWeight(this.weight);
+          const po = effectiveWeight(other.weight);
+          const totalWeight = pw + po;
           const separation = Math.min(overlap / 2, MAX_SEPARATION_PER_FRAME);
-          this.x += nx * separation;
-          this.y += ny * separation;
-          other.x -= nx * separation;
-          other.y -= ny * separation;
+          const moveThis = separation * (po / totalWeight);
+          const moveOther = separation * (pw / totalWeight);
+          this.x += nx * moveThis;
+          this.y += ny * moveThis;
+          other.x -= nx * moveOther;
+          other.y -= ny * moveOther;
 
           const bounce = !bothRiot && (this.bounceOnContact || other.bounceOnContact);
           if (bounce) {
@@ -104,10 +109,16 @@ export class Square {
               if (other.contactStart) other.contactStart.set(this, start);
             }
             if (now - start < BOUNCE_CONTACT_WINDOW) {
-              this.vx += nx * BOUNCE_STRENGTH;
-              this.vy += ny * BOUNCE_STRENGTH;
-              other.vx -= nx * BOUNCE_STRENGTH;
-              other.vy -= ny * BOUNCE_STRENGTH;
+              const strThis = displaceStrength(this.weight, other.weight);
+              const strOther = displaceStrength(other.weight, this.weight);
+              if (strThis > 0) {
+                other.vx -= nx * BOUNCE_STRENGTH;
+                other.vy -= ny * BOUNCE_STRENGTH;
+              }
+              if (strOther > 0) {
+                this.vx += nx * BOUNCE_STRENGTH;
+                this.vy += ny * BOUNCE_STRENGTH;
+              }
             }
           }
           const relVx = this.vx - other.vx;
