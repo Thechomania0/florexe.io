@@ -125,9 +125,10 @@ export class Beetle {
     if (useSplitImages) {
       const pincerAngleDeg = 20 * Math.sin(this.pincerPhase);
       const pincerAngleRad = (pincerAngleDeg * Math.PI) / 180;
-      const hingeLeftX = 0.29 * s;
+      const hingeX = 0.32 * s;
+      const hingeLeftX = hingeX;
       const hingeLeftY = -0.2 * s;
-      const hingeRightX = 0.29 * s;
+      const hingeRightX = hingeX;
       const hingeRightY = 0.2 * s;
       const pincerW = 0.84 * s;
       const pincerH = 0.4 * s;
