@@ -1,4 +1,4 @@
-import { BEETLE_CONFIG } from '../config.js';
+import { BEETLE_CONFIG, BEETLE_VISION } from '../config.js';
 import { drawPolygon, getRarityColor, drawRoundedHealthBar } from '../utils.js';
 import { darkenColor } from '../utils.js';
 
@@ -14,9 +14,9 @@ export class Beetle {
     this.maxHp = config.hp;
     this.hp = config.hp;
     this.damage = config.damage;
-    this.sides = config.sides;
     this.size = config.size;
     this.weight = config.weight ?? 1;
+    this.vision = BEETLE_VISION;
     this.vx = 0;
     this.vy = 0;
     this.rotation = Math.random() * Math.PI * 2;
@@ -25,22 +25,22 @@ export class Beetle {
 
   update(dt, game) {
     const player = game?.player;
-    if (player && !player.dead) {
+    const beetleSpeed = 0.175 * 0.65; // 65% of player base speed (units per second)
+    const moveThisFrame = beetleSpeed * (dt / 1000); // units to move this frame
+
+    if (player && !player.dead && this.vision > 0) {
       const dx = player.x - this.x;
       const dy = player.y - this.y;
       const dist = Math.hypot(dx, dy);
-      const beetleSpeed = 0.175 * 0.65; // 65% of player base speed (units per second)
-      if (dist > 0) {
-        this.vx = (dx / dist) * (beetleSpeed / 1000);
-        this.vy = (dy / dist) * (beetleSpeed / 1000);
+      if (dist <= this.vision && dist > 0) {
+        const nx = dx / dist;
+        const ny = dy / dist;
+        this.x += nx * moveThisFrame;
+        this.y += ny * moveThisFrame;
       }
     }
+
     this.rotation += this.rotationSpeed * dt;
-    this.x += this.vx * dt;
-    this.y += this.vy * dt;
-    const friction = 0.992;
-    this.vx *= Math.pow(friction, dt);
-    this.vy *= Math.pow(friction, dt);
   }
 
   draw(ctx, scale, cam, playerLevel, beetleImage) {
@@ -66,7 +66,7 @@ export class Beetle {
       ctx.fillStyle = color;
       ctx.strokeStyle = darkenColor(color, 60);
       ctx.lineWidth = 2.5 / scale;
-      drawPolygon(ctx, 0, 0, this.sides, s, 0);
+      drawPolygon(ctx, 0, 0, 8, s, 0);
       ctx.fill();
       ctx.stroke();
     }
