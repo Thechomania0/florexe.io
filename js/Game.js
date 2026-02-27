@@ -48,6 +48,9 @@ export class Game {
     this.spawnTimer = 0;
     this.running = true;
     this.beetleImage = null;
+    this.beetleBodyImage = null;
+    this.beetlePincerLeftImage = null;
+    this.beetlePincerRightImage = null;
     /** Floating chat messages above the local player: { text, expiresAt }. Max 5; 2s each. */
     this.floatingMessages = [];
   }
@@ -84,6 +87,12 @@ export class Game {
     });
     this.beetleImage = new Image();
     this.beetleImage.src = 'assets/icons/mobs/beetle.svg';
+    this.beetleBodyImage = new Image();
+    this.beetleBodyImage.src = 'assets/icons/mobs/beetle_body.svg';
+    this.beetlePincerLeftImage = new Image();
+    this.beetlePincerLeftImage.src = 'assets/icons/mobs/beetle_pincer_left.svg';
+    this.beetlePincerRightImage = new Image();
+    this.beetlePincerRightImage.src = 'assets/icons/mobs/beetle_pincer_right.svg';
     while (this.foods.length < FOOD_TARGET_COUNT) this.spawnFood();
     while (this.beetles.length < BEETLE_TARGET_COUNT) this.spawnBeetle();
     return loadPromise;
@@ -682,7 +691,7 @@ export class Game {
       food.draw(ctx, scale, this.camera, playerLevel);
     }
     for (const beetle of this.beetles) {
-      beetle.draw(ctx, scale, this.camera, playerLevel, this.beetleImage);
+      beetle.draw(ctx, scale, this.camera, playerLevel, this.beetleImage, this.beetleBodyImage, this.beetlePincerLeftImage, this.beetlePincerRightImage);
     }
 
     // Draw drops (only visible to owner; use bodies-rarity / guns-rarity SVG icons)

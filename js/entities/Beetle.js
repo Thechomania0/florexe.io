@@ -23,6 +23,10 @@ export class Beetle {
     this.vy = 0;
     /** Facing direction (radians) for drawing; updated when chasing so beetle faces the player. */
     this.facingAngle = 0;
+    /** True when player is in vision (used for pincer animation). */
+    this.playerInVision = false;
+    /** Phase for pincer open/close animation (radians), advances when playerInVision. */
+    this.pincerPhase = 0;
   }
 
   /**
@@ -38,12 +42,21 @@ export class Beetle {
     this.vy *= Math.pow(friction, dt);
 
     const player = game?.player;
-    if (!player || player.dead || player.adminMode === true || this.vision <= 0) return;
+    if (!player || player.dead || player.adminMode === true || this.vision <= 0) {
+      this.playerInVision = false;
+      return;
+    }
 
     const dx = player.x - this.x;
     const dy = player.y - this.y;
     const dist = Math.hypot(dx, dy);
-    if (dist > this.vision || dist < 1e-6) return;
+    if (dist > this.vision || dist < 1e-6) {
+      this.playerInVision = false;
+      return;
+    }
+
+    this.playerInVision = true;
+    this.pincerPhase += dt * 0.003; // animate pincers when player in vision
 
     const speed = 120; // world units per second
     const move = speed * dtSec;
@@ -54,7 +67,7 @@ export class Beetle {
     this.facingAngle = Math.atan2(ny, nx);
   }
 
-  draw(ctx, scale, cam, playerLevel, beetleImage) {
+  draw(ctx, scale, cam, playerLevel, beetleImage, beetleBodyImage, beetlePincerLeftImage, beetlePincerRightImage) {
     const s = this.size;
     const cw = ctx.canvas.width;
     const ch = ctx.canvas.height;
@@ -71,7 +84,31 @@ export class Beetle {
     ctx.rotate(this.facingAngle);
 
     const color = getRarityColor(this.rarity);
-    if (beetleImage && beetleImage.complete && beetleImage.naturalWidth > 0) {
+    const useSplitImages = beetleBodyImage?.complete && beetleBodyImage?.naturalWidth > 0 &&
+      beetlePincerLeftImage?.complete && beetlePincerLeftImage?.naturalWidth > 0 &&
+      beetlePincerRightImage?.complete && beetlePincerRightImage?.naturalWidth > 0;
+
+    if (useSplitImages) {
+      ctx.drawImage(beetleBodyImage, -s, -s, s * 2, s * 2);
+      const pincerAngleDeg = 20 * Math.sin(this.pincerPhase);
+      const pincerAngleRad = (pincerAngleDeg * Math.PI) / 180;
+      const hingeLeftX = 0.29 * s;
+      const hingeLeftY = -0.2 * s;
+      const hingeRightX = 0.29 * s;
+      const hingeRightY = 0.2 * s;
+      const pincerW = 0.42 * s;
+      const pincerH = 0.2 * s;
+      ctx.save();
+      ctx.translate(hingeLeftX, hingeLeftY);
+      ctx.rotate(pincerAngleRad);
+      ctx.drawImage(beetlePincerLeftImage, -pincerW / 2, -pincerH / 2, pincerW, pincerH);
+      ctx.restore();
+      ctx.save();
+      ctx.translate(hingeRightX, hingeRightY);
+      ctx.rotate(-pincerAngleRad);
+      ctx.drawImage(beetlePincerRightImage, -pincerW / 2, -pincerH / 2, pincerW, pincerH);
+      ctx.restore();
+    } else if (beetleImage && beetleImage.complete && beetleImage.naturalWidth > 0) {
       ctx.drawImage(beetleImage, -s, -s, s * 2, s * 2);
     } else {
       ctx.fillStyle = color;

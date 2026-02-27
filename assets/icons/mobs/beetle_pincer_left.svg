@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-3 -5 18 10" width="21" height="10">
+  <!-- Left pincer: hinge at (0,0), extends toward +x. Rotated from original so hinge is at origin. -->
+  <path d="M 0 2.06 L 0 -2.06 Q 7.66 -3.93 15.46 1.26 Q 13 2.06 12.66 2.06 Q 8 -0.24 0 2.06 Z" fill="#333333"/>
+</svg>
