@@ -103,7 +103,18 @@ function startGame(gamemode) {
         chatEl.appendChild(line);
         chatEl.scrollTop = chatEl.scrollHeight;
       };
-      game.start(null).then(() => {
+      const savedState = (() => {
+        try {
+          const key = 'florexe_saved_progress_' + gamemode;
+          const s = localStorage.getItem(key);
+          if (s) {
+            const o = JSON.parse(s);
+            if (o && typeof o === 'object') return o;
+          }
+        } catch (e) {}
+        return null;
+      })();
+      game.start(savedState).then(() => {
         requestAnimationFrame(() => {
           const elapsed = Date.now() - loadingShownAt;
           const minDisplay = 1200;
@@ -455,6 +466,29 @@ function setupHUD(player) {
   const bodySlots = document.getElementById('bodySlots');
   const itemTooltip = document.getElementById('itemDetailTooltip');
   const TOOLTIP_OFFSET = 14;
+
+  const saveExitBtn = document.getElementById('saveExitBtn');
+  if (saveExitBtn) {
+    saveExitBtn.onclick = () => {
+      if (!game?.player) return;
+      const p = game.player;
+      const savedState = {
+        inventory: Array.isArray(p.inventory) ? p.inventory.slice() : [],
+        hand: Array.isArray(p.hand) ? p.hand.slice() : [],
+        equippedTank: p.equippedTank && typeof p.equippedTank === 'object' ? { ...p.equippedTank } : null,
+        equippedBody: p.equippedBody && typeof p.equippedBody === 'object' ? { ...p.equippedBody } : null,
+        level: typeof p.level === 'number' ? p.level : 1,
+        xp: typeof p.xp === 'number' ? p.xp : 0,
+        stars: typeof p.stars === 'number' ? p.stars : 0
+      };
+      try {
+        localStorage.setItem('florexe_saved_progress_' + game.gamemode, JSON.stringify(savedState));
+      } catch (e) {}
+      game.running = false;
+      mainMenu.classList.remove('hidden');
+      gameContainer.classList.add('hidden');
+    };
+  }
 
   function showItemTooltip(item, e) {
     if (!itemTooltip || !item || !item.subtype) return;
@@ -1838,6 +1872,11 @@ if (document.readyState === 'loading') {
 function loop(now) {
   const dt = Math.min(now - lastTime, 50);
   lastTime = now;
+
+  if (gameContainer?.classList?.contains('hidden')) {
+    animationId = requestAnimationFrame(loop);
+    return;
+  }
 
   if (game?.player?.dead) {
     document.getElementById('death-screen').classList.remove('hidden');

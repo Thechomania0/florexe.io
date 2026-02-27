@@ -392,6 +392,30 @@ body {
   pointer-events: auto;
 }
 
+.save-exit-btn {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 4px;
+  background: #c00;
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.save-exit-btn:hover {
+  background: #e00;
+}
+
 .hud-top {
   position: absolute;
   top: 1rem;
