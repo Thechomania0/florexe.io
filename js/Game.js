@@ -13,7 +13,7 @@ import { distance, getRarityColor } from './utils.js';
 import { Player } from './Player.js';
 import { loadTankAssets, getLoadedTankAssets, getBodyIconUrlByRarity, getGunIconUrlByRarity, getPetalIconUrlByRarity } from './TankAssets.js';
 
-// Weight comparison: push factor = (higher/lower - 1) capped at 1 (100%). Heavier can push lighter by that %. push factor = (higher/lower - 1) capped at 1 (100%). Heavier can push lighter by that %.
+// Weight comparison: push factor = (higher/lower - 1) capped at 1 (100%). Heavier can push lighter by that %.
 function bulletDisplaceStrength(pusherWeight, pushedWeight) {
   const pw = Math.max(1, Math.min(100, pusherWeight || 0));
   const pd = Math.max(1, Math.min(100, pushedWeight || 0));
@@ -61,6 +61,8 @@ export class Game {
     /** Server-authoritative bullets and squares (when multiplayer). Replaced from server each tick. */
     this.serverBullets = [];
     this.serverSquares = [];
+    /** Optimistic squares (multiplayer): shown immediately when firing; expired when server snapshot arrives. */
+    this.pendingSquares = [];
     /** Map data from server when multiplayer (walls, zones). Client uses this instead of mapData.js. */
     this.serverWalls = null;
     this.serverZones = null;
@@ -87,7 +89,7 @@ export class Game {
     if (bullet) this.bullets.push(bullet);
   }
 
-  /** When multiplayer: emit to server. Otherwise add to game.squares. */
+  /** When multiplayer: emit to server and add to pendingSquares so trap shows immediately. Otherwise add to game.squares. */
   addSquare(sq) {
     if (this.multiplayerSocket && sq) {
       this.multiplayerSocket.emit('square', {
@@ -104,6 +106,7 @@ export class Game {
         isRiotTrap: sq.isRiotTrap,
         bodyColor: sq.bodyColor,
       });
+      this.pendingSquares.push({ sq, addedAt: Date.now() });
       return;
     }
     if (sq) this.squares.push(sq);
@@ -115,6 +118,9 @@ export class Game {
 
   setSquaresFromServer(list) {
     this.serverSquares = Array.isArray(list) ? list : [];
+    const now = Date.now();
+    const PENDING_MAX_MS = 250;
+    this.pendingSquares = this.pendingSquares.filter((e) => now - e.addedAt < PENDING_MAX_MS);
   }
 
   setMultiplayerSocket(socket) {
@@ -265,6 +271,7 @@ export class Game {
   start(savedState = null) {
     this.bullets = [];
     this.squares = [];
+    this.pendingSquares = [];
     this.drops = [];
     const { x: spawnX, y: spawnY } = getSpawnPoint();
     this.player = new Player('player1', spawnX, spawnY, this.gamemode);
@@ -310,6 +317,7 @@ export class Game {
     const { x: spawnX, y: spawnY } = spawnPoint || getSpawnPoint();
     this.bullets = [];
     this.squares = [];
+    this.pendingSquares = [];
     this.drops = [];
     this.foods = [];
     this.beetles = [];
@@ -529,6 +537,11 @@ export class Game {
             beetle.y += dy * LERP;
           }
         }
+      }
+      const dtSec = dt / 1000;
+      for (const { sq } of this.pendingSquares) {
+        sq.x += (sq.vx || 0) * dtSec;
+        sq.y += (sq.vy || 0) * dtSec;
       }
     }
 
@@ -1151,6 +1164,18 @@ export class Game {
         sq.x >= cam.x - viewW && sq.x <= cam.x + viewW && sq.y >= cam.y - viewH && sq.y <= cam.y + viewH
       ).slice(0, 200);
       for (const sq of squareList) {
+        ctx.save();
+        ctx.translate(sq.x, sq.y);
+        const fillColor = (sq.bodyColor && typeof sq.bodyColor === 'string') ? sq.bodyColor : getRarityColor(sq.rarity || 'common');
+        ctx.fillStyle = fillColor;
+        ctx.strokeStyle = '#4a4a4a';
+        ctx.lineWidth = 2 / scale;
+        ctx.fillRect(-sq.size, -sq.size, sq.size * 2, sq.size * 2);
+        ctx.strokeRect(-sq.size, -sq.size, sq.size * 2, sq.size * 2);
+        ctx.restore();
+      }
+      for (const { sq } of this.pendingSquares) {
+        if (sq.x < cam.x - viewW || sq.x > cam.x + viewW || sq.y < cam.y - viewH || sq.y > cam.y + viewH) continue;
         ctx.save();
         ctx.translate(sq.x, sq.y);
         const fillColor = (sq.bodyColor && typeof sq.bodyColor === 'string') ? sq.bodyColor : getRarityColor(sq.rarity || 'common');
