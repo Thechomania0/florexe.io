@@ -103,16 +103,66 @@ function startGame(gamemode) {
         chatEl.appendChild(line);
         chatEl.scrollTop = chatEl.scrollHeight;
       };
-      const savedState = (() => {
+      const savedState = await (async () => {
+        const apiBase = window.FLOREXE_API_URL || '';
+        let auth = null;
+        try {
+          const s = localStorage.getItem('florexe_auth');
+          if (s) auth = JSON.parse(s);
+        } catch (e) {}
+        if (auth?.accessToken) {
+          try {
+            const url = (window.FLOREXE_API_URL || '') + '/api/progress';
+            const res = await fetch(url, {
+              headers: { Authorization: 'Bearer ' + auth.accessToken },
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data && typeof data === 'object' && (Array.isArray(data.inventory) || typeof data.level === 'number')) {
+                return {
+                  inventory: Array.isArray(data.inventory) ? data.inventory : [],
+                  hand: Array.isArray(data.hand) ? data.hand : [],
+                  equippedTank: data.equippedTank && typeof data.equippedTank === 'object' ? data.equippedTank : null,
+                  equippedBody: data.equippedBody && typeof data.equippedBody === 'object' ? data.equippedBody : null,
+                  level: typeof data.level === 'number' && data.level >= 1 ? Math.min(100, data.level) : 1,
+                  xp: typeof data.xp === 'number' ? data.xp : 0,
+                  stars: typeof data.stars === 'number' ? data.stars : 0,
+                  score: typeof data.score === 'number' ? data.score : 0,
+                };
+              }
+            }
+          } catch (e) {}
+        }
+        let fromLocal = null;
         try {
           const key = 'florexe_saved_progress_' + gamemode;
           const s = localStorage.getItem(key);
           if (s) {
             const o = JSON.parse(s);
-            if (o && typeof o === 'object') return o;
+            if (o && typeof o === 'object') fromLocal = o;
           }
         } catch (e) {}
-        return null;
+        if (fromLocal && auth?.accessToken) {
+          try {
+            const url = (window.FLOREXE_API_URL || '') + '/api/progress';
+            fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + auth.accessToken },
+              body: JSON.stringify({
+                inventory: Array.isArray(fromLocal.inventory) ? fromLocal.inventory : [],
+                hand: Array.isArray(fromLocal.hand) ? fromLocal.hand : [],
+                equippedTank: fromLocal.equippedTank && typeof fromLocal.equippedTank === 'object' ? fromLocal.equippedTank : null,
+                equippedBody: fromLocal.equippedBody && typeof fromLocal.equippedBody === 'object' ? fromLocal.equippedBody : null,
+                level: typeof fromLocal.level === 'number' ? fromLocal.level : 1,
+                xp: typeof fromLocal.xp === 'number' ? fromLocal.xp : 0,
+                stars: typeof fromLocal.stars === 'number' ? fromLocal.stars : 0,
+                score: typeof fromLocal.score === 'number' ? fromLocal.score : 0,
+              }),
+              keepalive: true,
+            }).catch(() => {});
+          } catch (e) {}
+        }
+        return fromLocal;
       })();
       game.start(savedState).then(() => {
         requestAnimationFrame(() => {
@@ -599,19 +649,29 @@ function setupHUD(player) {
       equippedBody: p.equippedBody && typeof p.equippedBody === 'object' ? { ...p.equippedBody } : null,
       level: typeof p.level === 'number' ? p.level : 1,
       xp: typeof p.xp === 'number' ? p.xp : 0,
-      stars: typeof p.stars === 'number' ? p.stars : 0
+      stars: typeof p.stars === 'number' ? p.stars : 0,
+      score: typeof p.score === 'number' ? p.score : 0,
     };
     try {
+      const apiBase = window.FLOREXE_API_URL || '';
+      let auth = null;
+      try {
+        const s = localStorage.getItem('florexe_auth');
+        if (s) auth = JSON.parse(s);
+      } catch (e) {}
+      if (auth?.accessToken) {
+        try {
+          const url = (window.FLOREXE_API_URL || '') + '/api/progress';
+          fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + auth.accessToken },
+            body: JSON.stringify(savedState),
+            keepalive: true,
+          }).catch(() => {});
+        } catch (e) {}
+      }
       localStorage.setItem('florexe_saved_progress_' + game.gamemode, JSON.stringify(savedState));
     } catch (e) {}
-  }
-  if (saveExitBtn) {
-    saveExitBtn.onclick = () => {
-      saveProgressToStorage();
-      game.running = false;
-      mainMenu.classList.remove('hidden');
-      gameContainer.classList.add('hidden');
-    };
   }
   window.addEventListener('beforeunload', () => {
     if (gameContainer && !gameContainer.classList.contains('hidden')) saveProgressToStorage();
@@ -619,6 +679,29 @@ function setupHUD(player) {
   window.addEventListener('pagehide', () => {
     if (gameContainer && !gameContainer.classList.contains('hidden')) saveProgressToStorage();
   });
+  let progressSaveInterval = null;
+  function startProgressSaveInterval() {
+    if (progressSaveInterval) return;
+    progressSaveInterval = setInterval(() => {
+      if (game?.player && gameContainer && !gameContainer.classList.contains('hidden')) saveProgressToStorage();
+    }, 45000);
+  }
+  function stopProgressSaveInterval() {
+    if (progressSaveInterval) {
+      clearInterval(progressSaveInterval);
+      progressSaveInterval = null;
+    }
+  }
+  startProgressSaveInterval();
+  if (saveExitBtn) {
+    saveExitBtn.onclick = () => {
+      saveProgressToStorage();
+      stopProgressSaveInterval();
+      game.running = false;
+      mainMenu.classList.remove('hidden');
+      gameContainer.classList.add('hidden');
+    };
+  }
 
   function showItemTooltip(item, e) {
     if (!itemTooltip || !item || !item.subtype) return;
@@ -2015,13 +2098,17 @@ function tryShowUsernameModal() {
     if (containsBadWord(name)) { errEl.textContent = 'That username contains inappropriate language. Please choose something else.'; errEl.classList.remove('hidden'); return; }
 
     const apiBase = window.FLOREXE_API_URL || '';
-    const discordId = auth.user?.id || '';
+    const discordId = (auth.user?.id != null ? String(auth.user.id) : '') || '';
     try {
       const checkUrl = apiBase + '/api/username/check?username=' + encodeURIComponent(name) + (discordId ? '&discordId=' + encodeURIComponent(discordId) : '');
       const checkRes = await fetch(checkUrl);
       if (checkRes.ok) {
         const { taken } = await checkRes.json();
-        if (taken) { errEl.textContent = 'That username is already taken.'; errEl.classList.remove('hidden'); return; }
+        if (taken && !discordId) {
+          errEl.textContent = 'That username is already taken.';
+          errEl.classList.remove('hidden');
+          return;
+        }
       }
     } catch (e) {
       errEl.textContent = 'Could not check username. Run the server for unique usernames.';
@@ -2095,7 +2182,8 @@ function init() {
           equippedBody: p.equippedBody && typeof p.equippedBody === 'object' ? { ...p.equippedBody } : null,
           level: typeof p.level === 'number' ? p.level : 1,
           xp: typeof p.xp === 'number' ? p.xp : 0,
-          stars: typeof p.stars === 'number' ? p.stars : 0
+          stars: typeof p.stars === 'number' ? p.stars : 0,
+          score: typeof p.score === 'number' ? p.score : 0,
         } : null;
         game.start(savedState);
       }

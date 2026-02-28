@@ -1,11 +1,49 @@
 const path = require('path');
 const fs = require('fs');
 const express = require('express');
+const { getProgress, saveProgress } = require('./store.js');
 
 const app = express();
 const PORT = process.env.PORT || 53134;
 const USERS_FILE = path.join(__dirname, 'data', 'users.json');
 const MAPS_FILE = path.join(__dirname, 'data', 'maps.json');
+
+// Allow requests from GitHub Pages (florexe.io) and localhost for progress/auth API
+const CORS_ORIGINS = [
+  'https://florexe.io',
+  'https://www.florexe.io',
+  'http://localhost:53134',
+  'http://127.0.0.1:53134',
+];
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && CORS_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
+app.use(express.json());
+app.use(express.static(path.join(__dirname, '..')));
+
+/** Validate Discord OAuth token and return Discord user id or null. Uses Discord API. */
+async function getDiscordIdFromToken(bearerToken) {
+  const token = (bearerToken || '').trim();
+  if (!token) return null;
+  try {
+    const res = await fetch('https://discord.com/api/users/@me', {
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.id ? String(data.id) : null;
+  } catch (e) {
+    return null;
+  }
+}
 
 function loadUsers() {
   try {
@@ -47,6 +85,43 @@ app.post('/api/username/register', (req, res) => {
   if (key in users && users[key] !== d) return res.status(409).json({ ok: false, error: 'username already taken' });
   users[key] = d;
   saveUsers(users);
+  res.json({ ok: true });
+});
+
+// ---------- Game progress (server-side save, keyed by Discord id) ----------
+app.get('/api/progress', async (req, res) => {
+  const auth = req.headers.authorization;
+  const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  const discordId = await getDiscordIdFromToken(token);
+  if (!discordId) return res.status(401).json({ error: 'Invalid or missing Discord token' });
+  const key = String(discordId);
+  const raw = getProgress(key);
+  const progress = raw && typeof raw === 'object' ? raw : null;
+  if (progress) {
+    console.log('[progress] GET', key, 'level', progress.level, 'inventory', (progress.inventory || []).length);
+  }
+  res.json(progress || {});
+});
+
+app.post('/api/progress', express.json(), async (req, res) => {
+  const auth = req.headers.authorization;
+  const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  const discordId = await getDiscordIdFromToken(token);
+  if (!discordId) return res.status(401).json({ error: 'Invalid or missing Discord token' });
+  const key = String(discordId);
+  const p = req.body && typeof req.body === 'object' ? req.body : {};
+  const progress = {
+    inventory: Array.isArray(p.inventory) ? p.inventory : [],
+    hand: Array.isArray(p.hand) ? p.hand : [],
+    equippedTank: p.equippedTank && typeof p.equippedTank === 'object' ? p.equippedTank : null,
+    equippedBody: p.equippedBody && typeof p.equippedBody === 'object' ? p.equippedBody : null,
+    level: typeof p.level === 'number' && p.level >= 1 ? Math.min(100, p.level) : 1,
+    xp: typeof p.xp === 'number' ? Math.max(0, p.xp) : 0,
+    stars: typeof p.stars === 'number' ? Math.max(0, p.stars) : 0,
+    score: typeof p.score === 'number' ? Math.max(0, p.score) : 0,
+  };
+  saveProgress(key, progress);
+  console.log('[progress] POST', key, 'level', progress.level, 'inventory', progress.inventory.length);
   res.json({ ok: true });
 });
 
