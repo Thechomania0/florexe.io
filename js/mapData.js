@@ -203,12 +203,35 @@ export function getRarityWeightsForZone(zoneId) {
   return RARE_EPIC_WEIGHTS;
 }
 
-/** Get spawn point from a zones object (for server map / multiplayer). Returns { x, y } or null. */
+/** Get spawn point from a zones object (for server map / multiplayer). Prefer COMMON_UNCOMMON (common-uncommon rarity area) so player spawns there each time. Returns { x, y } or null. */
 export function getSpawnPointFromZones(zones) {
   if (!zones || !Array.isArray(zones.grid) || zones.grid.length !== CUSTOM_GRID_SIZE) return null;
   const wallRects = buildMergedWallFillsFromZones(zones);
   const inWall = (x, y) => isPointInWallRects(x, y, wallRects);
 
+  // 1) Prefer COMMON_UNCOMMON (2) cells – player spawn in common-uncommon area each time
+  const commonUncommonCells = [];
+  for (let i = 0; i < CUSTOM_GRID_SIZE; i++) {
+    for (let j = 0; j < CUSTOM_GRID_SIZE; j++) {
+      if (zones.grid[i] && zones.grid[i][j] === CUSTOM_CELL.COMMON_UNCOMMON) commonUncommonCells.push([i, j]);
+    }
+  }
+  if (commonUncommonCells.length > 0) {
+    const margin = CUSTOM_CELL_WORLD * 0.2;
+    for (let k = 0; k < 200; k++) {
+      const [i, j] = commonUncommonCells[Math.floor(Math.random() * commonUncommonCells.length)];
+      const x = CUSTOM_GRID_MIN + (i + 0.5) * CUSTOM_CELL_WORLD + (Math.random() - 0.5) * margin;
+      const y = CUSTOM_GRID_MIN + (j + 0.5) * CUSTOM_CELL_WORLD + (Math.random() - 0.5) * margin;
+      if (!inWall(x, y)) return { x, y };
+    }
+    for (const [i, j] of commonUncommonCells) {
+      const x = CUSTOM_GRID_MIN + (i + 0.5) * CUSTOM_CELL_WORLD;
+      const y = CUSTOM_GRID_MIN + (j + 0.5) * CUSTOM_CELL_WORLD;
+      if (!inWall(x, y)) return { x, y };
+    }
+  }
+
+  // 2) Fall back to SPAWN (6) cells
   const spawnCells = [];
   for (let i = 0; i < CUSTOM_GRID_SIZE; i++) {
     for (let j = 0; j < CUSTOM_GRID_SIZE; j++) {
@@ -254,6 +277,27 @@ export function getSpawnPoint() {
   const inWall = (x, y) => useRects ? isPointInWallRects(x, y, wallRects) : isPointInWall(x, y, getWalls());
 
   if (zones && zones.grid) {
+    // Prefer COMMON_UNCOMMON (common-uncommon spawn area) so player spawns there each time
+    const commonUncommonCells = [];
+    for (let i = 0; i < CUSTOM_GRID_SIZE; i++) {
+      for (let j = 0; j < CUSTOM_GRID_SIZE; j++) {
+        if (zones.grid[i] && zones.grid[i][j] === CUSTOM_CELL.COMMON_UNCOMMON) commonUncommonCells.push([i, j]);
+      }
+    }
+    if (commonUncommonCells.length > 0) {
+      const margin = CUSTOM_CELL_WORLD * 0.2;
+      for (let k = 0; k < 200; k++) {
+        const [i, j] = commonUncommonCells[Math.floor(Math.random() * commonUncommonCells.length)];
+        const x = CUSTOM_GRID_MIN + (i + 0.5) * CUSTOM_CELL_WORLD + (Math.random() - 0.5) * margin;
+        const y = CUSTOM_GRID_MIN + (j + 0.5) * CUSTOM_CELL_WORLD + (Math.random() - 0.5) * margin;
+        if (!inWall(x, y)) return { x, y };
+      }
+      for (const [i, j] of commonUncommonCells) {
+        const x = CUSTOM_GRID_MIN + (i + 0.5) * CUSTOM_CELL_WORLD;
+        const y = CUSTOM_GRID_MIN + (j + 0.5) * CUSTOM_CELL_WORLD;
+        if (!inWall(x, y)) return { x, y };
+      }
+    }
     const spawnCells = [];
     for (let i = 0; i < CUSTOM_GRID_SIZE; i++) {
       for (let j = 0; j < CUSTOM_GRID_SIZE; j++) {

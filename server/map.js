@@ -71,25 +71,44 @@ function getRandomPointInPlayableZoneFromZones(zones, walls) {
   };
 }
 
-/** Pick spawn point from SPAWN cells in zones.grid. Returns { x, y } or null. */
+/** Pick spawn point in COMMON_UNCOMMON (common-uncommon) zone so player spawns there each time. Falls back to SPAWN cells then any non-wall. Returns { x, y } or null. */
 function getSpawnPointFromZones(zones, walls) {
   if (!zones || !Array.isArray(zones.grid) || zones.grid.length !== CUSTOM_GRID_SIZE || !walls) return null;
+
+  const tryCells = (cells) => {
+    if (cells.length === 0) return null;
+    const margin = CUSTOM_CELL_WORLD * 0.2;
+    for (let k = 0; k < 100; k++) {
+      const [i, j] = cells[Math.floor(Math.random() * cells.length)];
+      const x = CUSTOM_GRID_MIN + (i + 0.5) * CUSTOM_CELL_WORLD + (Math.random() - 0.5) * margin;
+      const y = CUSTOM_GRID_MIN + (j + 0.5) * CUSTOM_CELL_WORLD + (Math.random() - 0.5) * margin;
+      if (!isPointInWall(x, y, walls)) return { x, y };
+    }
+    const [i, j] = cells[0];
+    return { x: CUSTOM_GRID_MIN + (i + 0.5) * CUSTOM_CELL_WORLD, y: CUSTOM_GRID_MIN + (j + 0.5) * CUSTOM_CELL_WORLD };
+  };
+
+  const commonUncommon = [];
   const spawnCells = [];
   for (let i = 0; i < CUSTOM_GRID_SIZE; i++) {
     for (let j = 0; j < CUSTOM_GRID_SIZE; j++) {
-      if (zones.grid[i]?.[j] === CUSTOM_CELL.SPAWN) spawnCells.push([i, j]);
+      const v = zones.grid[i]?.[j];
+      if (v === CUSTOM_CELL.COMMON_UNCOMMON) commonUncommon.push([i, j]);
+      if (v === CUSTOM_CELL.SPAWN) spawnCells.push([i, j]);
     }
   }
-  if (spawnCells.length === 0) return null;
-  const margin = CUSTOM_CELL_WORLD * 0.2;
-  for (let k = 0; k < 100; k++) {
-    const [i, j] = spawnCells[Math.floor(Math.random() * spawnCells.length)];
-    const x = CUSTOM_GRID_MIN + (i + 0.5) * CUSTOM_CELL_WORLD + (Math.random() - 0.5) * margin;
-    const y = CUSTOM_GRID_MIN + (j + 0.5) * CUSTOM_CELL_WORLD + (Math.random() - 0.5) * margin;
-    if (!isPointInWall(x, y, walls)) return { x, y };
+  let pt = tryCells(commonUncommon);
+  if (pt) return pt;
+  pt = tryCells(spawnCells);
+  if (pt) return pt;
+  const nonWall = [];
+  for (let i = 0; i < CUSTOM_GRID_SIZE; i++) {
+    for (let j = 0; j < CUSTOM_GRID_SIZE; j++) {
+      const v = zones.grid[i]?.[j];
+      if (v !== undefined && v !== CUSTOM_CELL.WALL) nonWall.push([i, j]);
+    }
   }
-  const [i, j] = spawnCells[0];
-  return { x: CUSTOM_GRID_MIN + (i + 0.5) * CUSTOM_CELL_WORLD, y: CUSTOM_GRID_MIN + (j + 0.5) * CUSTOM_CELL_WORLD };
+  return tryCells(nonWall);
 }
 
 function isPointInWall(x, y, walls) {

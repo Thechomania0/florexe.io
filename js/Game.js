@@ -159,24 +159,25 @@ export class Game {
     return getPlayableBounds();
   }
 
-  /** Replace foods and beetles from server snapshot. Each item: { id, x, y, rarity, hp, maxHp, size, weight, natural }. Merges by id and stores server position for interpolation to avoid teleporting. */
+  /** Replace foods and beetles from server snapshot. Each item: { id, x, y, rarity, hp, maxHp, size, weight, natural }. Merges by id (string) and stores server position for interpolation. Uses server hp only when number to avoid HP regenerating. */
   setMobsFromServer(snapshot) {
     if (!snapshot || typeof snapshot !== 'object') return;
     const foods = Array.isArray(snapshot.foods) ? snapshot.foods : [];
     const beetles = Array.isArray(snapshot.beetles) ? snapshot.beetles : [];
 
     const existingFoodById = new Map();
-    for (const f of this.foods) if (f.id != null) existingFoodById.set(f.id, f);
+    for (const f of this.foods) if (f.id != null) existingFoodById.set(String(f.id), f);
     const nextFoods = [];
     for (const f of foods) {
-      let food = existingFoodById.get(f.id);
+      const fid = f.id != null ? String(f.id) : null;
+      let food = fid != null ? existingFoodById.get(fid) : undefined;
       if (food) {
         food.serverX = f.x;
         food.serverY = f.y;
         food.vx = 0;
         food.vy = 0;
-        food.hp = typeof f.hp === 'number' ? f.hp : food.maxHp;
-        food.maxHp = typeof f.maxHp === 'number' ? f.maxHp : food.maxHp;
+        if (typeof f.hp === 'number') food.hp = Math.min(f.hp, food.maxHp);
+        if (typeof f.maxHp === 'number') food.maxHp = f.maxHp;
         if (typeof f.size === 'number') food.size = f.size;
         if (typeof f.weight === 'number') food.weight = f.weight;
       } else {
@@ -193,15 +194,16 @@ export class Game {
     this.foods = nextFoods;
 
     const existingBeetleById = new Map();
-    for (const b of this.beetles) if (b.id != null) existingBeetleById.set(b.id, b);
+    for (const b of this.beetles) if (b.id != null) existingBeetleById.set(String(b.id), b);
     const nextBeetles = [];
     for (const b of beetles) {
-      let beetle = existingBeetleById.get(b.id);
+      const bid = b.id != null ? String(b.id) : null;
+      let beetle = bid != null ? existingBeetleById.get(bid) : undefined;
       if (beetle) {
         beetle.serverX = b.x;
         beetle.serverY = b.y;
-        beetle.hp = typeof b.hp === 'number' ? b.hp : beetle.maxHp;
-        beetle.maxHp = typeof b.maxHp === 'number' ? b.maxHp : beetle.maxHp;
+        if (typeof b.hp === 'number') beetle.hp = Math.min(b.hp, beetle.maxHp);
+        if (typeof b.maxHp === 'number') beetle.maxHp = b.maxHp;
         if (typeof b.size === 'number') beetle.size = b.size;
         if (typeof b.weight === 'number') beetle.weight = b.weight;
       } else {

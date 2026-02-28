@@ -354,6 +354,7 @@ io.on('connection', (socket) => {
         });
       }
     }
+    io.to(room).emit('bullets', getBulletsSnapshot(room));
   });
 
   socket.on('square', (data) => {
