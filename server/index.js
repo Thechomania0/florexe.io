@@ -1,6 +1,8 @@
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
 const express = require('express');
+const { Server } = require('socket.io');
 const { getProgress, saveProgress } = require('./store.js');
 
 const app = express();
@@ -200,6 +202,74 @@ app.get('/map-editor.html', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'map-editor.html'));
 });
 
-app.listen(PORT, () => {
+// ---------- Multiplayer: WebSocket (Socket.io) ----------
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: CORS_ORIGINS, methods: ['GET', 'POST'] },
+});
+
+/** Room name from gamemode. state = { x, y, angle, hp, maxHp, level, displayName, equippedTank, equippedBody, size }. */
+const roomPlayers = new Map();
+
+function getRoomPlayers(room) {
+  if (!roomPlayers.has(room)) roomPlayers.set(room, new Map());
+  return roomPlayers.get(room);
+}
+
+function broadcastPlayers(room) {
+  const players = getRoomPlayers(room);
+  const list = Array.from(players.entries()).map(([id, state]) => ({ id, ...state }));
+  io.to(room).emit('players', list);
+}
+
+io.on('connection', (socket) => {
+  socket.on('join', (data) => {
+    const room = (data && data.gamemode) ? String(data.gamemode) : 'ffa';
+    const state = data && typeof data === 'object' ? {
+      x: typeof data.x === 'number' ? data.x : 0,
+      y: typeof data.y === 'number' ? data.y : 0,
+      angle: typeof data.angle === 'number' ? data.angle : 0,
+      hp: typeof data.hp === 'number' ? data.hp : 500,
+      maxHp: typeof data.maxHp === 'number' ? data.maxHp : 500,
+      level: typeof data.level === 'number' ? data.level : 1,
+      displayName: typeof data.displayName === 'string' ? data.displayName.slice(0, 50) : 'Player',
+      equippedTank: data.equippedTank && typeof data.equippedTank === 'object' ? data.equippedTank : null,
+      equippedBody: data.equippedBody && typeof data.equippedBody === 'object' ? data.equippedBody : null,
+      size: typeof data.size === 'number' ? data.size : 24.5,
+    } : {};
+    socket.join(room);
+    getRoomPlayers(room).set(socket.id, state);
+    broadcastPlayers(room);
+  });
+
+  socket.on('state', (data) => {
+    const room = Array.from(socket.rooms).find(r => r !== socket.id);
+    if (!room) return;
+    const state = data && typeof data === 'object' ? {
+      x: typeof data.x === 'number' ? data.x : 0,
+      y: typeof data.y === 'number' ? data.y : 0,
+      angle: typeof data.angle === 'number' ? data.angle : 0,
+      hp: typeof data.hp === 'number' ? data.hp : 500,
+      maxHp: typeof data.maxHp === 'number' ? data.maxHp : 500,
+      level: typeof data.level === 'number' ? data.level : 1,
+      displayName: typeof data.displayName === 'string' ? data.displayName.slice(0, 50) : 'Player',
+      equippedTank: data.equippedTank && typeof data.equippedTank === 'object' ? data.equippedTank : null,
+      equippedBody: data.equippedBody && typeof data.equippedBody === 'object' ? data.equippedBody : null,
+      size: typeof data.size === 'number' ? data.size : 24.5,
+    } : {};
+    getRoomPlayers(room).set(socket.id, state);
+    broadcastPlayers(room);
+  });
+
+  socket.on('disconnect', () => {
+    for (const room of socket.rooms) {
+      if (room === socket.id) continue;
+      getRoomPlayers(room).delete(socket.id);
+      broadcastPlayers(room);
+    }
+  });
+});
+
+server.listen(PORT, () => {
   console.log(`App listening at http://localhost:${PORT}`);
 });

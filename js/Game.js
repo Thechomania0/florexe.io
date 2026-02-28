@@ -54,6 +54,8 @@ export class Game {
     this.beetlePincerRightImage = null;
     /** Floating chat messages above the local player: { text, expiresAt }. Max 5; 2s each. */
     this.floatingMessages = [];
+    /** Other players in the same room (multiplayer). Each: { id, x, y, angle, hp, maxHp, level, displayName, equippedTank, equippedBody, size }. */
+    this.otherPlayers = [];
   }
 
   start(savedState = null) {
@@ -97,6 +99,30 @@ export class Game {
     while (this.foods.length < FOOD_TARGET_COUNT) this.spawnFood();
     while (this.beetles.length < BEETLE_TARGET_COUNT) this.spawnBeetle();
     return loadPromise;
+  }
+
+  /** Serializable state for multiplayer sync. */
+  getPlayerState() {
+    const p = this.player;
+    if (!p) return null;
+    return {
+      x: p.x,
+      y: p.y,
+      angle: p.angle,
+      hp: p.hp,
+      maxHp: p.maxHp,
+      level: p.level,
+      displayName: p.displayName || 'Player',
+      equippedTank: p.equippedTank && typeof p.equippedTank === 'object' ? p.equippedTank : null,
+      equippedBody: p.equippedBody && typeof p.equippedBody === 'object' ? p.equippedBody : null,
+      size: p.size,
+    };
+  }
+
+  /** Update list of other players from server (each has id, x, y, angle, hp, maxHp, level, displayName, equippedTank, equippedBody, size). */
+  setOtherPlayers(list) {
+    if (!Array.isArray(list)) return;
+    this.otherPlayers = list.filter((o) => o && typeof o.id !== 'undefined');
   }
 
   spawnFood() {
@@ -752,6 +778,35 @@ export class Game {
 
     for (const bullet of this.bullets) {
       bullet.draw(ctx, scale);
+    }
+
+    for (const op of this.otherPlayers) {
+      if (op.dead) continue;
+      ctx.save();
+      ctx.translate(op.x, op.y);
+      ctx.rotate(op.angle);
+      const s = (op.size ?? 24.5) * 2.4;
+      ctx.fillStyle = '#1ca8c9';
+      ctx.strokeStyle = '#4a4a4a';
+      ctx.lineWidth = Math.max(1, 3 / scale);
+      ctx.beginPath();
+      ctx.arc(0, 0, op.size ?? 24.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#2a2a2a';
+      ctx.fillRect(op.size ?? 24.5, -s * 0.15, s * 0.6, s * 0.3);
+      ctx.restore();
+      const name = (op.displayName || 'Player').slice(0, 20);
+      const fontSize = Math.max(10, 14 / scale);
+      ctx.font = `bold ${fontSize}px Rajdhani, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff';
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 2 / scale;
+      const nameY = (op.y ?? 0) - (op.size ?? 24.5) - 8;
+      ctx.strokeText(name, op.x ?? 0, nameY);
+      ctx.fillText(name, op.x ?? 0, nameY);
     }
 
     if (this.player && !this.player.dead) {

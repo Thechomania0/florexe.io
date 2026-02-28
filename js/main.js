@@ -14,6 +14,8 @@ function getEquippedTankName(player) {
 let game = null;
 let lastTime = 0;
 let animationId = null;
+let gameSocket = null;
+let gameSocketStateInterval = null;
 
 let canvas, ctx, mainMenu, gameContainer, minimapCanvas, minimapCtx;
 
@@ -237,6 +239,27 @@ function startGame(gamemode) {
         } else if (loadMeta.serverError === 'network') {
           push('[System] Could not load progress from server. Check your connection or try logging in again from the menu.');
         }
+      }
+
+      if (window.FLOREXE_API_URL && game) {
+        import('https://cdn.socket.io/4.7.2/socket.io.esm.min.js').then((mod) => {
+          const io = mod.io || mod.default;
+          if (!io || gameSocket) return;
+          gameSocket = io(window.FLOREXE_API_URL, { transports: ['websocket', 'polling'] });
+          const state = game.getPlayerState();
+          gameSocket.emit('join', {
+            gamemode: game.gamemode,
+            ...state,
+          });
+          gameSocket.on('players', (list) => {
+            if (game && gameSocket) game.setOtherPlayers(list.filter((p) => p.id !== gameSocket.id));
+          });
+          gameSocketStateInterval = setInterval(() => {
+            if (!game?.player || !gameSocket?.connected) return;
+            const s = game.getPlayerState();
+            if (s) gameSocket.emit('state', s);
+          }, 100);
+        }).catch(() => {});
       }
 
       lastTime = performance.now();
@@ -738,6 +761,14 @@ function setupHUD(player) {
     saveExitBtn.onclick = () => {
       saveProgressToStorage();
       stopProgressSaveInterval();
+      if (gameSocketStateInterval) {
+        clearInterval(gameSocketStateInterval);
+        gameSocketStateInterval = null;
+      }
+      if (gameSocket) {
+        gameSocket.disconnect();
+        gameSocket = null;
+      }
       game.running = false;
       mainMenu.classList.remove('hidden');
       gameContainer.classList.add('hidden');
