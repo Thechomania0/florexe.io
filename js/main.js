@@ -86,6 +86,10 @@ async function loadCustomMapFromRepo(gamemode) {
 }
 
 function startGame(gamemode) {
+  mainMenu = mainMenu || document.getElementById('main-menu');
+  gameContainer = gameContainer || document.getElementById('game-container');
+  if (!mainMenu || !gameContainer) return;
+
   const loadingScreenEl = document.getElementById('loading-screen');
   if (loadingScreenEl) loadingScreenEl.classList.remove('hidden');
 
@@ -2126,6 +2130,43 @@ function containsBadWord(s) {
   return false;
 }
 
+/** Returns the Discord OAuth URL for login. Used by updateAuthDisplay and menu click handler. */
+function getDiscordLoginUrl() {
+  const path = window.location.pathname;
+  const base = path.endsWith('/') ? path : path.replace(/\/[^/]*$/, '') + '/';
+  const origin = (window.location.origin.startsWith('http://') && !/^(localhost|127\.0\.0\.1)$/.test(window.location.hostname))
+    ? 'https://' + window.location.host : window.location.origin;
+  const redirectUri = origin + (base || '/') + 'auth/discord';
+  return 'https://discord.com/oauth2/authorize?client_id=1476693949090500708&response_type=token&redirect_uri=' + encodeURIComponent(redirectUri) + '&scope=identify';
+}
+
+/** Single click handler for menu: Play, Login, Logout. Uses delegation so it works even when content is replaced. */
+function handleMenuClick(e) {
+  if (!e.target.closest('#main-menu')) return;
+  const gamemodeBtn = e.target.closest('.gamemode-btn');
+  if (gamemodeBtn && !gamemodeBtn.disabled) {
+    e.preventDefault();
+    const mode = gamemodeBtn.dataset.mode;
+    if (mode === 'heaven') startGame('heaven');
+    else startGame(mode);
+    return;
+  }
+  if (e.target.closest('#menuLogoutBtn')) {
+    e.preventDefault();
+    localStorage.removeItem('florexe_auth');
+    localStorage.removeItem('florexe_username');
+    localStorage.removeItem('florexe_admin_color');
+    updateAuthDisplay();
+    tryShowUsernameModal();
+    return;
+  }
+  if (e.target.closest('#menuLoginBtn')) {
+    e.preventDefault();
+    window.location.href = getDiscordLoginUrl();
+    return;
+  }
+}
+
 function updateAuthDisplay() {
   const wrap = document.getElementById('menuAuthWrap');
   if (!wrap) return;
@@ -2160,13 +2201,8 @@ function updateAuthDisplay() {
     tryShowUsernameModal();
   } else {
     if (auth) { try { localStorage.removeItem('florexe_auth'); } catch (e) {} }
-    const path = window.location.pathname;
-    const base = path.endsWith('/') ? path : path.replace(/\/[^/]*$/, '') + '/';
-    const origin = (window.location.origin.startsWith('http://') && !/^(localhost|127\.0\.0\.1)$/.test(window.location.hostname))
-      ? 'https://' + window.location.host : window.location.origin;
-    const redirectUri = origin + (base || '/') + 'auth/discord';
     const apiHint = window.FLOREXE_API_URL ? '<p class="menu-login-hint">Log in to save and load progress across devices and incognito.</p>' : '';
-    wrap.innerHTML = apiHint + '<a href="https://discord.com/oauth2/authorize?client_id=1476693949090500708&response_type=token&redirect_uri=' + encodeURIComponent(redirectUri) + '&scope=identify" id="menuLoginBtn" class="menu-login-btn">Login with Discord</a>';
+    wrap.innerHTML = apiHint + '<a href="' + getDiscordLoginUrl() + '" id="menuLoginBtn" class="menu-login-btn">Login with Discord</a>';
     const mapWrap = document.getElementById('menuMapEditorWrap');
     if (mapWrap) mapWrap.style.display = '';
   }
@@ -2294,14 +2330,7 @@ function init() {
 
   // Always run menu setup so Play / Login / Map Editor work even if canvas isn't ready
   updateAuthDisplay();
-  document.querySelectorAll('.gamemode-btn').forEach(btn => {
-    btn.onclick = () => {
-      if (btn.disabled) return;
-      const mode = btn.dataset.mode;
-      if (mode === 'heaven') startGame('heaven');
-      else startGame(mode);
-    };
-  });
+  document.body.addEventListener('click', handleMenuClick, false);
 
   if (!canvas || !ctx || !mainMenu || !gameContainer) return;
   preloadIcons();

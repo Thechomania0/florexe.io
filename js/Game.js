@@ -12,8 +12,8 @@ import { Bullet } from './entities/Bullet.js';
 import { distance, getRarityColor } from './utils.js';
 import { Player } from './Player.js';
 import { loadTankAssets, getLoadedTankAssets, getBodyIconUrlByRarity, getGunIconUrlByRarity, getPetalIconUrlByRarity } from './TankAssets.js';
-o
-// Weight comparison: push factor = (higher/lower - 1) capped at 1 (100%). Heavier can push lighter by that %.
+
+// Weight comparison: push factor = (higher/lower - 1) capped at 1 (100%). Heavier can push lighter by that %. push factor = (higher/lower - 1) capped at 1 (100%). Heavier can push lighter by that %.
 function bulletDisplaceStrength(pusherWeight, pushedWeight) {
   const pw = Math.max(1, Math.min(100, pusherWeight || 0));
   const pd = Math.max(1, Math.min(100, pushedWeight || 0));
