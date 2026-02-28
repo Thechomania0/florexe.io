@@ -1,8 +1,56 @@
 /**
  * Server-authoritative mob state per room. Syncs food and beetle spawn/death across all clients.
  * Mirrors client config (hp, drops) for loot calculation.
+ * Spawn zones mirror client mapData zones to avoid spawning in walls.
  */
 const MAP_HALF = 8000;
+
+// Zone rects (minX, maxX, minY, maxY) - playable areas avoiding walls on built-in map
+const ZONE_NURSERY = { minX: -1200, maxX: 1200, minY: -1200, maxY: 1200 };
+const ZONE_ULTRA_SUPER = { minX: -MAP_HALF, maxX: -3500, minY: 3500, maxY: MAP_HALF };
+const ZONE_MYTHIC_BL = { minX: -MAP_HALF, maxX: -2500, minY: -MAP_HALF, maxY: -2500 };
+const ZONE_MYTHIC_TR = { minX: 2500, maxX: MAP_HALF, minY: 3500, maxY: MAP_HALF };
+const ZONE_RARE_EPIC_RECTS = [
+  { minX: -3500, maxX: -2500, minY: -2500, maxY: MAP_HALF },
+  { minX: -2500, maxX: 2500, minY: -MAP_HALF, maxY: -2500 },
+  { minX: -2500, maxX: 2500, minY: 1200, maxY: 3500 },
+  { minX: 2500, maxX: MAP_HALF, minY: -MAP_HALF, maxY: 3500 },
+];
+
+const ZONES_FOR_SPAWN = [
+  { rect: ZONE_NURSERY, weight: 3 },
+  { rect: ZONE_ULTRA_SUPER, weight: 2 },
+  { rect: ZONE_MYTHIC_BL, weight: 3 },
+  { rect: ZONE_MYTHIC_TR, weight: 3 },
+  { rect: null, weight: 10 },
+];
+
+function getRandomPointInPlayableZone() {
+  const total = ZONES_FOR_SPAWN.reduce((s, z) => s + z.weight, 0);
+  let r = Math.random() * total;
+  for (const { rect, weight } of ZONES_FOR_SPAWN) {
+    r -= weight;
+    if (r <= 0) {
+      if (rect) {
+        return {
+          x: rect.minX + Math.random() * (rect.maxX - rect.minX),
+          y: rect.minY + Math.random() * (rect.maxY - rect.minY),
+        };
+      }
+      const z = ZONE_RARE_EPIC_RECTS[Math.floor(Math.random() * ZONE_RARE_EPIC_RECTS.length)];
+      return {
+        x: z.minX + Math.random() * (z.maxX - z.minX),
+        y: z.minY + Math.random() * (z.maxY - z.minY),
+      };
+    }
+  }
+  const z = ZONE_RARE_EPIC_RECTS[0];
+  return {
+    x: z.minX + Math.random() * (z.maxX - z.minX),
+    y: z.minY + Math.random() * (z.maxY - z.minY),
+  };
+}
+
 const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic', 'ultra', 'super'];
 
 const FOOD_CONFIG = {
@@ -78,10 +126,11 @@ function spawnFood(room) {
   if (rarity === 'super') m.hasNaturalSuperFood = true;
   const cfg = FOOD_CONFIG[rarity];
   const id = 'f_' + (m.nextId++);
+  const pt = getRandomPointInPlayableZone();
   const food = {
     id,
-    x: (Math.random() * 2 - 1) * MAP_HALF,
-    y: (Math.random() * 2 - 1) * MAP_HALF,
+    x: pt.x,
+    y: pt.y,
     rarity,
     hp: cfg.hp,
     maxHp: cfg.hp,
@@ -99,10 +148,11 @@ function spawnBeetle(room) {
   if (rarity === 'super') m.hasNaturalSuperBeetle = true;
   const cfg = BEETLE_CONFIG[rarity];
   const id = 'b_' + (m.nextId++);
+  const pt = getRandomPointInPlayableZone();
   const beetle = {
     id,
-    x: (Math.random() * 2 - 1) * MAP_HALF,
-    y: (Math.random() * 2 - 1) * MAP_HALF,
+    x: pt.x,
+    y: pt.y,
     rarity,
     hp: cfg.hp,
     maxHp: cfg.hp,

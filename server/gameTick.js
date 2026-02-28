@@ -73,6 +73,7 @@ function addSquare(room, data) {
     weight: data.weight != null ? data.weight : 1,
     spawnedAt: now,
     isRiotTrap: !!data.isRiotTrap,
+    bodyColor: (data.bodyColor && typeof data.bodyColor === 'string') ? data.bodyColor : null,
   };
   getRoomSquares(room).push(sq);
   return sq;
@@ -215,12 +216,22 @@ function getSquaresSnapshot(room) {
     duration: s.duration,
     rarity: s.rarity,
     spawnedAt: s.spawnedAt,
+    bodyColor: s.bodyColor || null,
   }));
 }
 
 function clearRoom(room) {
   roomBullets.set(room, []);
   roomSquares.set(room, []);
+}
+
+function removePlayerEntities(room, ownerId) {
+  const bullets = getRoomBullets(room);
+  const squares = getRoomSquares(room);
+  const newBullets = bullets.filter((b) => b.ownerId !== ownerId);
+  const newSquares = squares.filter((s) => s.ownerId !== ownerId);
+  roomBullets.set(room, newBullets);
+  roomSquares.set(room, newSquares);
 }
 
 module.exports = {
@@ -232,4 +243,5 @@ module.exports = {
   getBulletsSnapshot,
   getSquaresSnapshot,
   clearRoom,
+  removePlayerEntities,
 };

@@ -223,6 +223,7 @@ const {
   tick,
   getBulletsSnapshot,
   getSquaresSnapshot,
+  removePlayerEntities,
 } = require('./gameTick.js');
 
 /** Room name from gamemode. state = { x, y, angle, hp, maxHp, level, displayName, equippedTank, equippedBody, size }. */
@@ -369,6 +370,7 @@ io.on('connection', (socket) => {
       rarity: data.rarity,
       weight: data.weight,
       isRiotTrap: data.isRiotTrap,
+      bodyColor: data.bodyColor,
     });
   });
 
@@ -376,7 +378,10 @@ io.on('connection', (socket) => {
     for (const room of socket.rooms) {
       if (room === socket.id) continue;
       getRoomPlayers(room).delete(socket.id);
+      removePlayerEntities(room, socket.id);
       broadcastPlayers(room);
+      io.to(room).emit('bullets', getBulletsSnapshot(room));
+      io.to(room).emit('squares', getSquaresSnapshot(room));
       if (getRoomPlayers(room).size === 0) {
         if (roomSpawnIntervals.has(room)) {
           clearInterval(roomSpawnIntervals.get(room));

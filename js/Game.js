@@ -99,6 +99,7 @@ export class Game {
         rarity: sq.rarity,
         weight: sq.weight,
         isRiotTrap: sq.isRiotTrap,
+        bodyColor: sq.bodyColor,
       });
       return;
     }
@@ -957,7 +958,7 @@ export class Game {
       for (const sq of this.serverSquares) {
         ctx.save();
         ctx.translate(sq.x, sq.y);
-        const fillColor = getRarityColor(sq.rarity || 'common');
+        const fillColor = (sq.bodyColor && typeof sq.bodyColor === 'string') ? sq.bodyColor : getRarityColor(sq.rarity || 'common');
         ctx.fillStyle = fillColor;
         ctx.strokeStyle = '#4a4a4a';
         ctx.lineWidth = 2 / scale;
