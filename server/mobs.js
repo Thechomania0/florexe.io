@@ -227,13 +227,14 @@ function hitMob(room, mobId, mobType, damage, playerX, playerY) {
   return { killed: false };
 }
 
-/** Update beetle positions: chase nearest player in vision. Never move into wall cells (matches client drawn walls). */
+/** Update beetle positions: chase nearest player in vision. Never move into wall cells. Use substeps so beetles can creep toward player when path is partially blocked. */
 function updateBeetles(room, roomPlayers, dtMs) {
   const m = getRoomMobs(room);
   const players = roomPlayers.get(room);
   if (!players || players.size === 0) return;
   const dtSec = dtMs / 1000;
   const CHASE_SPEED = 120;
+  const SUBSTEPS = 4;
   for (const beetle of m.beetles) {
     let nearestDist = (beetle.vision ?? 1000) + 1;
     let tx = null;
@@ -253,15 +254,20 @@ function updateBeetles(room, roomPlayers, dtMs) {
       const dy = ty - beetle.y;
       const dist = Math.hypot(dx, dy);
       if (dist >= 1e-9) {
-        const move = CHASE_SPEED * dtSec;
-        const newX = beetle.x + (dx / dist) * move;
-        const newY = beetle.y + (dy / dist) * move;
-        if (!isPointInWallCell(newX, newY)) {
-          beetle.x = newX;
-          beetle.y = newY;
-        } else {
-          if (!isPointInWallCell(newX, beetle.y)) beetle.x = newX;
-          if (!isPointInWallCell(beetle.x, newY)) beetle.y = newY;
+        const totalMove = CHASE_SPEED * dtSec;
+        const step = totalMove / SUBSTEPS;
+        const ux = dx / dist;
+        const uy = dy / dist;
+        for (let s = 0; s < SUBSTEPS; s++) {
+          const newX = beetle.x + ux * step;
+          const newY = beetle.y + uy * step;
+          if (!isPointInWallCell(newX, newY)) {
+            beetle.x = newX;
+            beetle.y = newY;
+          } else {
+            if (!isPointInWallCell(newX, beetle.y)) beetle.x = newX;
+            if (!isPointInWallCell(beetle.x, newY)) beetle.y = newY;
+          }
         }
       }
     }

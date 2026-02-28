@@ -186,10 +186,24 @@ export class Game {
         if (typeof f.maxHp === 'number') food.maxHp = f.maxHp;
         if (typeof f.size === 'number') food.size = f.size;
         if (typeof f.weight === 'number') food.weight = f.weight;
+        const dx = (typeof f.x === 'number' ? f.x : food.x) - food.x;
+        const dy = (typeof f.y === 'number' ? f.y : food.y) - food.y;
+        if (dx * dx + dy * dy > 400 * 400) {
+          food.x = typeof f.x === 'number' ? f.x : food.x;
+          food.y = typeof f.y === 'number' ? f.y : food.y;
+        }
       } else {
-        food = new Food(f.x, f.y, f.rarity, f.natural !== false, f.id);
-        food.serverX = f.x;
-        food.serverY = f.y;
+        food = new Food(
+          typeof f.x === 'number' ? f.x : 0,
+          typeof f.y === 'number' ? f.y : 0,
+          f.rarity,
+          f.natural !== false,
+          f.id
+        );
+        food.x = typeof f.x === 'number' ? f.x : 0;
+        food.y = typeof f.y === 'number' ? f.y : 0;
+        food.serverX = food.x;
+        food.serverY = food.y;
         food.hp = typeof f.hp === 'number' ? f.hp : food.maxHp;
         food.maxHp = typeof f.maxHp === 'number' ? f.maxHp : food.maxHp;
         if (typeof f.size === 'number') food.size = f.size;
@@ -215,10 +229,24 @@ export class Game {
         beetle.semiMajor = (beetle.size ?? 20) * (25.5 / 64) * hitboxScale;
         beetle.semiMinor = (beetle.size ?? 20) * (19.5 / 64) * hitboxScale;
         if (typeof b.weight === 'number') beetle.weight = b.weight;
+        const dx = (typeof b.x === 'number' ? b.x : beetle.x) - beetle.x;
+        const dy = (typeof b.y === 'number' ? b.y : beetle.y) - beetle.y;
+        if (dx * dx + dy * dy > 400 * 400) {
+          beetle.x = typeof b.x === 'number' ? b.x : beetle.x;
+          beetle.y = typeof b.y === 'number' ? b.y : beetle.y;
+        }
       } else {
-        beetle = new Beetle(b.x, b.y, b.rarity, b.natural !== false, b.id);
-        beetle.serverX = b.x;
-        beetle.serverY = b.y;
+        beetle = new Beetle(
+          typeof b.x === 'number' ? b.x : 0,
+          typeof b.y === 'number' ? b.y : 0,
+          b.rarity,
+          b.natural !== false,
+          b.id
+        );
+        beetle.x = typeof b.x === 'number' ? b.x : 0;
+        beetle.y = typeof b.y === 'number' ? b.y : 0;
+        beetle.serverX = beetle.x;
+        beetle.serverY = beetle.y;
         beetle.hp = typeof b.hp === 'number' ? b.hp : beetle.maxHp;
         beetle.maxHp = typeof b.maxHp === 'number' ? b.maxHp : beetle.maxHp;
         if (typeof b.size === 'number') beetle.size = b.size;
