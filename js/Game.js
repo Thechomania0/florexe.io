@@ -159,29 +159,65 @@ export class Game {
     return getPlayableBounds();
   }
 
-  /** Replace foods and beetles from server snapshot. Each item: { id, x, y, rarity, hp, maxHp, size, weight, natural }. */
+  /** Replace foods and beetles from server snapshot. Each item: { id, x, y, rarity, hp, maxHp, size, weight, natural }. Merges by id and stores server position for interpolation to avoid teleporting. */
   setMobsFromServer(snapshot) {
     if (!snapshot || typeof snapshot !== 'object') return;
     const foods = Array.isArray(snapshot.foods) ? snapshot.foods : [];
     const beetles = Array.isArray(snapshot.beetles) ? snapshot.beetles : [];
-    this.foods = foods.map((f) => {
-      const food = new Food(f.x, f.y, f.rarity, f.natural !== false, f.id);
-      food.hp = typeof f.hp === 'number' ? f.hp : food.maxHp;
-      food.maxHp = typeof f.maxHp === 'number' ? f.maxHp : food.maxHp;
-      if (typeof f.size === 'number') food.size = f.size;
-      if (typeof f.weight === 'number') food.weight = f.weight;
-      return food;
-    });
-    this.beetles = beetles.map((b) => {
-      const beetle = new Beetle(b.x, b.y, b.rarity, b.natural !== false, b.id);
-      beetle.hp = typeof b.hp === 'number' ? b.hp : beetle.maxHp;
-      beetle.maxHp = typeof b.maxHp === 'number' ? b.maxHp : beetle.maxHp;
-      if (typeof b.size === 'number') beetle.size = b.size;
-      if (typeof b.weight === 'number') beetle.weight = b.weight;
-      beetle.semiMajor = beetle.size * (25.5 / 64);
-      beetle.semiMinor = beetle.size * (19.5 / 64);
-      return beetle;
-    });
+
+    const existingFoodById = new Map();
+    for (const f of this.foods) if (f.id != null) existingFoodById.set(f.id, f);
+    const nextFoods = [];
+    for (const f of foods) {
+      let food = existingFoodById.get(f.id);
+      if (food) {
+        food.serverX = f.x;
+        food.serverY = f.y;
+        food.vx = 0;
+        food.vy = 0;
+        food.hp = typeof f.hp === 'number' ? f.hp : food.maxHp;
+        food.maxHp = typeof f.maxHp === 'number' ? f.maxHp : food.maxHp;
+        if (typeof f.size === 'number') food.size = f.size;
+        if (typeof f.weight === 'number') food.weight = f.weight;
+      } else {
+        food = new Food(f.x, f.y, f.rarity, f.natural !== false, f.id);
+        food.serverX = f.x;
+        food.serverY = f.y;
+        food.hp = typeof f.hp === 'number' ? f.hp : food.maxHp;
+        food.maxHp = typeof f.maxHp === 'number' ? f.maxHp : food.maxHp;
+        if (typeof f.size === 'number') food.size = f.size;
+        if (typeof f.weight === 'number') food.weight = f.weight;
+      }
+      nextFoods.push(food);
+    }
+    this.foods = nextFoods;
+
+    const existingBeetleById = new Map();
+    for (const b of this.beetles) if (b.id != null) existingBeetleById.set(b.id, b);
+    const nextBeetles = [];
+    for (const b of beetles) {
+      let beetle = existingBeetleById.get(b.id);
+      if (beetle) {
+        beetle.serverX = b.x;
+        beetle.serverY = b.y;
+        beetle.hp = typeof b.hp === 'number' ? b.hp : beetle.maxHp;
+        beetle.maxHp = typeof b.maxHp === 'number' ? b.maxHp : beetle.maxHp;
+        if (typeof b.size === 'number') beetle.size = b.size;
+        if (typeof b.weight === 'number') beetle.weight = b.weight;
+      } else {
+        beetle = new Beetle(b.x, b.y, b.rarity, b.natural !== false, b.id);
+        beetle.serverX = b.x;
+        beetle.serverY = b.y;
+        beetle.hp = typeof b.hp === 'number' ? b.hp : beetle.maxHp;
+        beetle.maxHp = typeof b.maxHp === 'number' ? b.maxHp : beetle.maxHp;
+        if (typeof b.size === 'number') beetle.size = b.size;
+        if (typeof b.weight === 'number') beetle.weight = b.weight;
+        beetle.semiMajor = beetle.size * (25.5 / 64);
+        beetle.semiMinor = beetle.size * (19.5 / 64);
+      }
+      nextBeetles.push(beetle);
+    }
+    this.beetles = nextBeetles;
   }
 
   /** Apply kill reward from server (stars, drop, xp, score) and remove mob by id. */
@@ -413,6 +449,38 @@ export class Game {
     if (!this.running || !this.player) return;
 
     this.player.update(dt, this);
+
+    // Multiplayer: interpolate mob positions toward server to avoid teleporting every tick
+    if (this.multiplayerSocket) {
+      const LERP = 0.28;
+      const SNAP = 0.8;
+      for (const food of this.foods) {
+        if (food.serverX != null && food.serverY != null) {
+          const dx = food.serverX - food.x;
+          const dy = food.serverY - food.y;
+          if (Math.abs(dx) < SNAP && Math.abs(dy) < SNAP) {
+            food.x = food.serverX;
+            food.y = food.serverY;
+          } else {
+            food.x += dx * LERP;
+            food.y += dy * LERP;
+          }
+        }
+      }
+      for (const beetle of this.beetles) {
+        if (beetle.serverX != null && beetle.serverY != null) {
+          const dx = beetle.serverX - beetle.x;
+          const dy = beetle.serverY - beetle.y;
+          if (Math.abs(dx) < SNAP && Math.abs(dy) < SNAP) {
+            beetle.x = beetle.serverX;
+            beetle.y = beetle.serverY;
+          } else {
+            beetle.x += dx * LERP;
+            beetle.y += dy * LERP;
+          }
+        }
+      }
+    }
 
     // Wall collision: use rect-based when custom map (exact match to drawn walls), else segment-based
     const wallFills = this.getWallFillsForGame();
