@@ -1769,7 +1769,7 @@ function setupChat() {
 
   const chatCommandList = document.getElementById('chatCommandList');
   const CHAT_COMMANDS = [
-    { cmd: '/kill all', desc: 'Kill all food and claim all dropped loot' },
+    { cmd: '/kill all', desc: 'Kill all mobs (food, beetles, etc.) and claim all dropped loot' },
     { cmd: '/adminmode on | off', desc: 'Toggle admin mode (ghost, 0 damage, 99999 of each gun and body)' },
     { cmd: '/spawn [rarity] [mob]', desc: 'Spawn mob at your location (e.g. /spawn super food)' },
     { cmd: '/give [user] [rarity] [item]', desc: 'Add item to user inventory (e.g. /give me super overlord)' },
@@ -1855,6 +1855,7 @@ function setupChat() {
           appendMessage('[System] No player.');
         } else {
           let foodCount = 0;
+          let beetleCount = 0;
           if (game.foods?.length) {
             const foods = [...game.foods];
             for (const food of foods) {
@@ -1862,14 +1863,22 @@ function setupChat() {
               foodCount++;
             }
           }
+          if (game.beetles?.length) {
+            const beetles = [...game.beetles];
+            for (const beetle of beetles) {
+              p.onKill(beetle, game);
+              beetleCount++;
+            }
+          }
           const claimCount = game.claimAllDrops(p.id);
-          if (foodCount > 0 || claimCount > 0) {
+          if (foodCount > 0 || beetleCount > 0 || claimCount > 0) {
             const parts = [];
             if (foodCount > 0) parts.push(`Killed ${foodCount} food`);
+            if (beetleCount > 0) parts.push(`Killed ${beetleCount} beetle${beetleCount !== 1 ? 's' : ''}`);
             if (claimCount > 0) parts.push(`claimed ${claimCount} drops`);
             appendMessage('[System] ' + parts.join('; ') + '.');
           } else {
-            appendMessage('[System] No food on the map and no dropped loot to claim.');
+            appendMessage('[System] No mobs on the map and no dropped loot to claim.');
           }
         }
       } else if (raw.toLowerCase().startsWith('/adminmode ')) {
