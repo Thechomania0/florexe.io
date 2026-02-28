@@ -30,6 +30,11 @@ export class Beetle {
     this.playerInVision = false;
     /** Phase for pincer open/close animation (radians), advances when playerInVision. */
     this.pincerPhase = 0;
+    /** Idle state when no player in vision: 'rotate' | 'wait_after_rotate' | 'move' | 'wait_after_move'. */
+    this.idlePhase = 'rotate';
+    this.idleTimer = 0;
+    this.idleTargetAngle = Math.random() * Math.PI * 2;
+    this.idleMoveRemaining = 0;
   }
 
   /** Radius of the oval hitbox in a given direction (angle in radians, in beetle-local space: 0 = along semiMajor). */
@@ -64,8 +69,8 @@ export class Beetle {
   }
 
   /**
-   * Beetle-only update: chase the player when in vision. No spinning or food-like behavior.
-   * Applies velocity from bullet impacts, then moves toward player if in range.
+   * Beetle-only update: chase the player when in vision; otherwise idle (rotate, wait, move, wait, repeat).
+   * Applies velocity from bullet impacts first, then either chase or idle.
    */
   update(dt, game) {
     const dtSec = dt / 1000;
@@ -76,29 +81,81 @@ export class Beetle {
     this.vy *= Math.pow(friction, dt);
 
     const player = game?.player;
-    if (!player || player.dead || player.adminMode === true || this.vision <= 0) {
-      this.playerInVision = false;
+    const inVision = player && !player.dead && player.adminMode !== true && this.vision > 0 &&
+      (() => {
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const dist = Math.hypot(dx, dy);
+        return dist <= this.vision && dist >= 1e-6;
+      })();
+
+    if (inVision) {
+      const dx = player.x - this.x;
+      const dy = player.y - this.y;
+      const dist = Math.hypot(dx, dy);
+      this.playerInVision = true;
+      this.pincerPhase += dt * 0.003;
+      const speed = 120;
+      const move = speed * dtSec;
+      this.x += (dx / dist) * move;
+      this.y += (dy / dist) * move;
+      this.facingAngle = Math.atan2(dy, dx);
       return;
     }
 
-    const dx = player.x - this.x;
-    const dy = player.y - this.y;
-    const dist = Math.hypot(dx, dy);
-    if (dist > this.vision || dist < 1e-6) {
-      this.playerInVision = false;
+    this.playerInVision = false;
+
+    // Idle: rotate to random angle (slow) → wait 1–2s → move forward 30–60% of base distance → wait 1–2s → repeat
+    const IDLE_ROTATE_SPEED = 0.5; // radians per second
+    const IDLE_MOVE_BASE = 50;
+    const IDLE_MOVE_MIN = 0.3;
+    const IDLE_MOVE_MAX = 0.6;
+    const IDLE_SPEED = 40; // world units per second when moving forward in idle
+
+    if (this.idlePhase === 'rotate') {
+      let diff = this.idleTargetAngle - this.facingAngle;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      const maxTurn = IDLE_ROTATE_SPEED * dtSec;
+      if (Math.abs(diff) <= maxTurn) {
+        this.facingAngle = this.idleTargetAngle;
+        this.idlePhase = 'wait_after_rotate';
+        this.idleTimer = 1000 + Math.random() * 1000;
+      } else {
+        this.facingAngle += Math.sign(diff) * maxTurn;
+      }
       return;
     }
 
-    this.playerInVision = true;
-    this.pincerPhase += dt * 0.003; // animate pincers when player in vision
+    if (this.idlePhase === 'wait_after_rotate') {
+      this.idleTimer -= dt;
+      if (this.idleTimer <= 0) {
+        this.idlePhase = 'move';
+        const pct = IDLE_MOVE_MIN + Math.random() * (IDLE_MOVE_MAX - IDLE_MOVE_MIN);
+        this.idleMoveRemaining = IDLE_MOVE_BASE * pct;
+      }
+      return;
+    }
 
-    const speed = 120; // world units per second
-    const move = speed * dtSec;
-    const nx = dx / dist;
-    const ny = dy / dist;
-    this.x += nx * move;
-    this.y += ny * move;
-    this.facingAngle = Math.atan2(ny, nx);
+    if (this.idlePhase === 'move') {
+      const step = Math.min(this.idleMoveRemaining, IDLE_SPEED * dtSec);
+      this.x += Math.cos(this.facingAngle) * step;
+      this.y += Math.sin(this.facingAngle) * step;
+      this.idleMoveRemaining -= step;
+      if (this.idleMoveRemaining <= 0) {
+        this.idlePhase = 'wait_after_move';
+        this.idleTimer = 1000 + Math.random() * 1000;
+      }
+      return;
+    }
+
+    if (this.idlePhase === 'wait_after_move') {
+      this.idleTimer -= dt;
+      if (this.idleTimer <= 0) {
+        this.idlePhase = 'rotate';
+        this.idleTargetAngle = Math.random() * Math.PI * 2;
+      }
+    }
   }
 
   draw(ctx, scale, cam, playerLevel, beetleImage, beetleBodyImage, beetlePincerLeftImage, beetlePincerRightImage) {

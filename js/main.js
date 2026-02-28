@@ -2015,8 +2015,10 @@ function tryShowUsernameModal() {
     if (containsBadWord(name)) { errEl.textContent = 'That username contains inappropriate language. Please choose something else.'; errEl.classList.remove('hidden'); return; }
 
     const apiBase = window.FLOREXE_API_URL || '';
+    const discordId = auth.user?.id || '';
     try {
-      const checkRes = await fetch(apiBase + '/api/username/check?username=' + encodeURIComponent(name));
+      const checkUrl = apiBase + '/api/username/check?username=' + encodeURIComponent(name) + (discordId ? '&discordId=' + encodeURIComponent(discordId) : '');
+      const checkRes = await fetch(checkUrl);
       if (checkRes.ok) {
         const { taken } = await checkRes.json();
         if (taken) { errEl.textContent = 'That username is already taken.'; errEl.classList.remove('hidden'); return; }
@@ -2027,7 +2029,6 @@ function tryShowUsernameModal() {
       return;
     }
 
-    const discordId = auth.user?.id || '';
     try {
       const regRes = await fetch(apiBase + '/api/username/register', {
         method: 'POST',

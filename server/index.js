@@ -28,8 +28,12 @@ app.use(express.static(path.join(__dirname, '..')));
 app.get('/api/username/check', (req, res) => {
   const username = (req.query.username || '').trim().toLowerCase();
   if (!username) return res.json({ taken: false });
+  const discordId = (req.query.discordId || '').toString();
   const users = loadUsers();
-  res.json({ taken: username in users });
+  if (!(username in users)) return res.json({ taken: false });
+  // Same user already has this username (e.g. re-setting after clearing localStorage) → not taken for them
+  if (discordId && users[username] === discordId) return res.json({ taken: false });
+  res.json({ taken: true });
 });
 
 app.post('/api/username/register', (req, res) => {
