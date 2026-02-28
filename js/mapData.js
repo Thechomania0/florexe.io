@@ -293,10 +293,9 @@ export function getWallFills() {
   return fills;
 }
 
-/** Merged wall rects for fast drawing: horizontally adjacent wall cells become one rect per row run. 1:1 with editor. */
-export function getMergedWallFills() {
-  const zones = getCustomZones();
-  if (!zones || !zones.grid) return [];
+/** Build merged wall rects from any zones object (grid must exist). Used for both localStorage and server map. */
+export function buildMergedWallFillsFromZones(zones) {
+  if (!zones || !Array.isArray(zones.grid) || zones.grid.length !== CUSTOM_GRID_SIZE) return [];
   const merged = [];
   for (let j = 0; j < CUSTOM_GRID_SIZE; j++) {
     const y1 = CUSTOM_GRID_MIN + j * CUSTOM_CELL_WORLD;
@@ -315,6 +314,13 @@ export function getMergedWallFills() {
     }
   }
   return merged;
+}
+
+/** Merged wall rects for fast drawing: horizontally adjacent wall cells become one rect per row run. 1:1 with editor. */
+export function getMergedWallFills() {
+  const zones = getCustomZones();
+  if (!zones || !zones.grid) return [];
+  return buildMergedWallFillsFromZones(zones);
 }
 
 /** Axis-aligned bounds of playable area (non-wall cells). For custom map only; returns null for built-in. */

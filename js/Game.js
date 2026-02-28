@@ -1,5 +1,5 @@
 import { MAP_SIZE, FOOD_SPAWN_HALF, INFERNO_BASE_RADIUS, BODY_UPGRADES } from './config.js';
-import { getSpawnPoint, getRandomPointAndWeights, getWalls, getMergedWallFills, getPlayableBounds, WALL_HALF_WIDTH, getWallHalfWidth, resolveWallCollision, resolveWallCollisionRects, isPointInWall, wallsNear } from './mapData.js';
+import { getSpawnPoint, getRandomPointAndWeights, getWalls, getMergedWallFills, buildMergedWallFillsFromZones, getPlayableBounds, WALL_HALF_WIDTH, getWallHalfWidth, resolveWallCollision, resolveWallCollisionRects, isPointInWall, wallsNear } from './mapData.js';
 
 const FOOD_TARGET_COUNT = 800;    // 50% of previous 1600 (reduce spawn rate by 50%)
 const FOOD_SPAWN_BATCH = 140;    // 50% of previous 280
@@ -133,9 +133,11 @@ export class Game {
     return (this.multiplayerSocket && this.serverWalls) ? this.serverWalls : getWalls();
   }
 
-  /** Wall fills for rect-based collision. Empty when multiplayer (server map uses segment walls). */
+  /** Wall fills for rect-based collision. In multiplayer, use server zones grid when available so walls render solid. */
   getWallFillsForGame() {
-    return (this.multiplayerSocket && this.serverWalls) ? [] : getMergedWallFills();
+    if (this.multiplayerSocket && this.serverZones && this.serverZones.grid)
+      return buildMergedWallFillsFromZones(this.serverZones);
+    return getMergedWallFills();
   }
 
   /** Replace foods and beetles from server snapshot. Each item: { id, x, y, rarity, hp, maxHp, size, weight, natural }. */
