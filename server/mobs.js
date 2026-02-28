@@ -65,14 +65,14 @@ const FOOD_CONFIG = {
 };
 
 const BEETLE_CONFIG = {
-  common: { hp: 10, size: 24, weight: 1, drops: { common: 0.8, uncommon: 0.2 }, stars: 0 },
-  uncommon: { hp: 40, size: 36, weight: 10, drops: { common: 0.5, uncommon: 0.5 }, stars: 0 },
-  rare: { hp: 150, size: 48, weight: 20, drops: { uncommon: 0.8, rare: 0.2 }, stars: 0 },
-  epic: { hp: 1000, size: 60, weight: 30, drops: { uncommon: 0.06, rare: 0.8, epic: 0.14 }, stars: 0 },
-  legendary: { hp: 8000, size: 84, weight: 40, drops: { rare: 0.1, epic: 0.8, legendary: 0.1 }, stars: 0 },
-  mythic: { hp: 25000, size: 108, weight: 60, drops: { epic: 0.07, legendary: 0.9, mythic: 0.03 }, stars: 0 },
-  ultra: { hp: 300000, size: 170, weight: 80, drops: { legendary: 0.845, mythic: 0.15, ultra: 0.005 }, stars: 0 },
-  super: { hp: 20000000, size: 405, weight: 99, drops: { mythic: 0.77, ultra: 0.23 }, stars: 5000 },
+  common: { hp: 10, size: 24, weight: 1, vision: 200, drops: { common: 0.8, uncommon: 0.2 }, stars: 0 },
+  uncommon: { hp: 40, size: 36, weight: 10, vision: 250, drops: { common: 0.5, uncommon: 0.5 }, stars: 0 },
+  rare: { hp: 150, size: 48, weight: 20, vision: 300, drops: { uncommon: 0.8, rare: 0.2 }, stars: 0 },
+  epic: { hp: 1000, size: 60, weight: 30, vision: 400, drops: { uncommon: 0.06, rare: 0.8, epic: 0.14 }, stars: 0 },
+  legendary: { hp: 8000, size: 84, weight: 40, vision: 600, drops: { rare: 0.1, epic: 0.8, legendary: 0.1 }, stars: 0 },
+  mythic: { hp: 25000, size: 108, weight: 60, vision: 800, drops: { epic: 0.07, legendary: 0.9, mythic: 0.03 }, stars: 0 },
+  ultra: { hp: 300000, size: 170, weight: 80, vision: 1000, drops: { legendary: 0.845, mythic: 0.15, ultra: 0.005 }, stars: 0 },
+  super: { hp: 20000000, size: 405, weight: 99, vision: 1200, drops: { mythic: 0.77, ultra: 0.23 }, stars: 5000 },
 };
 
 const SPAWN_WEIGHTS = { common: 100, uncommon: 50, rare: 25, epic: 12, legendary: 6, mythic: 3, ultra: 1, super: 0.1 };
@@ -159,6 +159,9 @@ function spawnBeetle(room) {
     size: cfg.size,
     weight: cfg.weight,
     natural: true,
+    vx: 0,
+    vy: 0,
+    vision: cfg.vision ?? 1000,
   };
   m.beetles.push(beetle);
   return beetle;
@@ -251,6 +254,40 @@ function hitMob(room, mobId, mobType, damage, playerX, playerY) {
   return { killed: false };
 }
 
+/** Update beetle positions: chase nearest player in vision. */
+function updateBeetles(room, roomPlayers, dtMs) {
+  const m = getRoomMobs(room);
+  const players = roomPlayers.get(room);
+  if (!players || players.size === 0) return;
+  const dtSec = dtMs / 1000;
+  const CHASE_SPEED = 120;
+  for (const beetle of m.beetles) {
+    let nearestDist = (beetle.vision ?? 1000) + 1;
+    let tx = null;
+    let ty = null;
+    for (const [, state] of players) {
+      const px = state.x || 0;
+      const py = state.y || 0;
+      const d = Math.hypot(beetle.x - px, beetle.y - py);
+      if (d <= (beetle.vision ?? 1000) && d >= 1e-6 && d < nearestDist) {
+        nearestDist = d;
+        tx = px;
+        ty = py;
+      }
+    }
+    if (tx != null && ty != null) {
+      const dx = tx - beetle.x;
+      const dy = ty - beetle.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist >= 1e-9) {
+        const move = CHASE_SPEED * dtSec;
+        beetle.x += (dx / dist) * move;
+        beetle.y += (dy / dist) * move;
+      }
+    }
+  }
+}
+
 function getMobsSnapshot(room) {
   const m = getRoomMobs(room);
   return {
@@ -265,6 +302,7 @@ module.exports = {
   spawnBeetle,
   runSpawn,
   hitMob,
+  updateBeetles,
   getMobsSnapshot,
   SPAWN_INTERVAL_MS,
   FOOD_TARGET,

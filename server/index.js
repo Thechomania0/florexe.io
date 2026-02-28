@@ -372,6 +372,7 @@ io.on('connection', (socket) => {
       isRiotTrap: data.isRiotTrap,
       bodyColor: data.bodyColor,
     });
+    io.to(room).emit('squares', getSquaresSnapshot(room));
   });
 
   socket.on('disconnect', () => {

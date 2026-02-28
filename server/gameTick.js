@@ -1,7 +1,7 @@
 /**
  * Server-side bullets and squares (traps). Updated in game tick; collisions with mobs call mobs.hitMob.
  */
-const { getRoomMobs, hitMob, getMobsSnapshot } = require('./mobs.js');
+const { getRoomMobs, hitMob, getMobsSnapshot, updateBeetles } = require('./mobs.js');
 const MAP_HALF = 8000;
 
 function distance(ax, ay, bx, by) {
@@ -16,6 +16,42 @@ function ellipseOverlapsCircle(beetle, cx, cy, r) {
   const a = semiMajor + r;
   const b = semiMinor + r;
   return (dx / a) * (dx / a) + (dy / b) * (dy / b) <= 1;
+}
+
+const TRAP_NO_COLLISION_MS = 200;
+const MAX_SEPARATION_PER_FRAME = 2.5;
+
+function effectiveWeight(w) {
+  const n = Math.max(0, Math.min(100, typeof w === 'number' ? w : 1));
+  return n === 0 ? 1 : n;
+}
+
+function runSquareSquareCollision(squares, dtMs) {
+  const now = Date.now();
+  for (let i = 0; i < squares.length; i++) {
+    const sq = squares[i];
+    if (now - sq.spawnedAt < TRAP_NO_COLLISION_MS) continue;
+    for (let j = i + 1; j < squares.length; j++) {
+      const other = squares[j];
+      if (now - other.spawnedAt < TRAP_NO_COLLISION_MS) continue;
+      const d = distance(sq.x, sq.y, other.x, other.y);
+      const overlap = sq.size + other.size - d;
+      if (overlap > 0 && d >= 1e-9) {
+        const nx = (sq.x - other.x) / d;
+        const ny = (sq.y - other.y) / d;
+        const pw = effectiveWeight(sq.weight);
+        const po = effectiveWeight(other.weight);
+        const totalWeight = pw + po;
+        const sep = Math.min(overlap / 2, MAX_SEPARATION_PER_FRAME * (dtMs / 50));
+        const moveThis = sep * (po / totalWeight);
+        const moveOther = sep * (pw / totalWeight);
+        sq.x += nx * moveThis;
+        sq.y += ny * moveThis;
+        other.x -= nx * moveOther;
+        other.y -= ny * moveOther;
+      }
+    }
+  }
 }
 
 const roomBullets = new Map();
@@ -95,6 +131,7 @@ function tick(room, dtMs, roomPlayers) {
   const squares = getRoomSquares(room);
   const m = getRoomMobs(room);
   const killPayloads = [];
+  updateBeetles(room, roomPlayers, dtMs);
 
   for (const bullet of bullets) {
     bullet.x += Math.cos(bullet.angle) * bullet.speed * dtMs;
@@ -166,6 +203,7 @@ function tick(room, dtMs, roomPlayers) {
     sq.x += sq.vx * (dtMs / 1000);
     sq.y += sq.vy * (dtMs / 1000);
   }
+  runSquareSquareCollision(squares, dtMs);
   const sqDamage = 50 * (dtMs / 1000);
   for (const sq of squares) {
     if (sq.duration <= 0) continue;

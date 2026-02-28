@@ -146,17 +146,19 @@ export class Game {
   /** Apply kill reward from server (stars, drop, xp, score) and remove mob by id. */
   applyKillReward(payload) {
     if (!payload || !this.player) return;
-    const { mobId, mobType, rarity, maxHp, stars, drop } = payload;
+    const { mobId, mobType, rarity, maxHp, stars, drop, x, y } = payload;
     this.player.mobKills = this.player.mobKills || {};
     this.player.mobKills[rarity] = (this.player.mobKills[rarity] || 0) + 1;
     this.player.addXp((maxHp || 0) * 0.5);
     this.player.score += maxHp || 0;
     if (typeof stars === 'number' && stars > 0) this.player.stars += stars;
     if (drop && typeof drop === 'object' && drop.rarity) {
+      const dropX = typeof x === 'number' ? x : this.player.x;
+      const dropY = typeof y === 'number' ? y : this.player.y;
       if (drop.type === 'petal' && drop.subtype === 'egg') {
-        this.player.addLoot('petal', 'egg', drop.rarity);
+        this.addDrop(dropX, dropY, { type: 'petal', subtype: 'egg', rarity: drop.rarity }, this.player.id);
       } else if (drop.type === 'body' || drop.type === 'tank') {
-        this.player.addLoot(drop.type, drop.subtype || '', drop.rarity);
+        this.addDrop(dropX, dropY, { type: drop.type, subtype: drop.subtype || '', rarity: drop.rarity }, this.player.id);
       }
     }
     if (mobType === 'beetle') {
