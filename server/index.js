@@ -208,8 +208,19 @@ const io = new Server(server, {
   cors: { origin: CORS_ORIGINS, methods: ['GET', 'POST'] },
 });
 
+const {
+  getRoomMobs,
+  runSpawn,
+  hitMob,
+  getMobsSnapshot,
+  SPAWN_INTERVAL_MS,
+  FOOD_TARGET,
+  BEETLE_TARGET,
+} = require('./mobs.js');
+
 /** Room name from gamemode. state = { x, y, angle, hp, maxHp, level, displayName, equippedTank, equippedBody, size }. */
 const roomPlayers = new Map();
+const roomSpawnIntervals = new Map();
 
 function getRoomPlayers(room) {
   if (!roomPlayers.has(room)) roomPlayers.set(room, new Map());
@@ -220,6 +231,18 @@ function broadcastPlayers(room) {
   const players = getRoomPlayers(room);
   const list = Array.from(players.entries()).map(([id, state]) => ({ id, ...state }));
   io.to(room).emit('players', list);
+}
+
+function startSpawnInterval(room) {
+  if (roomSpawnIntervals.has(room)) return;
+  const m = getRoomMobs(room);
+  while (m.foods.length < Math.min(FOOD_TARGET, 200)) runSpawn(room);
+  while (m.beetles.length < Math.min(BEETLE_TARGET, 200)) runSpawn(room);
+  const interval = setInterval(() => {
+    runSpawn(room);
+    io.to(room).emit('mobs', getMobsSnapshot(room));
+  }, SPAWN_INTERVAL_MS);
+  roomSpawnIntervals.set(room, interval);
 }
 
 io.on('connection', (socket) => {
@@ -240,6 +263,8 @@ io.on('connection', (socket) => {
     socket.join(room);
     getRoomPlayers(room).set(socket.id, state);
     broadcastPlayers(room);
+    startSpawnInterval(room);
+    socket.emit('mobs', getMobsSnapshot(room));
   });
 
   socket.on('state', (data) => {
@@ -261,11 +286,30 @@ io.on('connection', (socket) => {
     broadcastPlayers(room);
   });
 
+  socket.on('hit', (data) => {
+    const room = Array.from(socket.rooms).find(r => r !== socket.id);
+    if (!room || !data || typeof data !== 'object') return;
+    const mobId = data.mobId;
+    const mobType = data.mobType === 'beetle' ? 'beetle' : 'food';
+    const damage = typeof data.damage === 'number' ? Math.max(0, data.damage) : 0;
+    const playerX = typeof data.x === 'number' ? data.x : 0;
+    const playerY = typeof data.y === 'number' ? data.y : 0;
+    const result = hitMob(room, mobId, mobType, damage, playerX, playerY);
+    if (result.killed && result.killPayload) {
+      socket.emit('kill', result.killPayload);
+    }
+    io.to(room).emit('mobs', getMobsSnapshot(room));
+  });
+
   socket.on('disconnect', () => {
     for (const room of socket.rooms) {
       if (room === socket.id) continue;
       getRoomPlayers(room).delete(socket.id);
       broadcastPlayers(room);
+      if (getRoomPlayers(room).size === 0 && roomSpawnIntervals.has(room)) {
+        clearInterval(roomSpawnIntervals.get(room));
+        roomSpawnIntervals.delete(room);
+      }
     }
   });
 });

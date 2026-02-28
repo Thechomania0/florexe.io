@@ -3,8 +3,9 @@ import { drawPolygon, getRarityColor, drawRoundedHealthBar } from '../utils.js';
 import { darkenColor } from '../utils.js';  
 
 export class Food {
-  constructor(x, y, rarity, natural = false) {
+  constructor(x, y, rarity, natural = false, id = null) {
     const config = FOOD_CONFIG[rarity];
+    this.id = id;
     this.x = x;
     this.y = y;
     this.rarity = rarity;

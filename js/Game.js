@@ -56,6 +56,60 @@ export class Game {
     this.floatingMessages = [];
     /** Other players in the same room (multiplayer). Each: { id, x, y, angle, hp, maxHp, level, displayName, equippedTank, equippedBody, size }. */
     this.otherPlayers = [];
+    /** When set, mobs are synced from server (join/hit/mobs). No local spawn. */
+    this.multiplayerSocket = null;
+  }
+
+  setMultiplayerSocket(socket) {
+    this.multiplayerSocket = socket;
+  }
+
+  /** Replace foods and beetles from server snapshot. Each item: { id, x, y, rarity, hp, maxHp, size, weight, natural }. */
+  setMobsFromServer(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') return;
+    const foods = Array.isArray(snapshot.foods) ? snapshot.foods : [];
+    const beetles = Array.isArray(snapshot.beetles) ? snapshot.beetles : [];
+    this.foods = foods.map((f) => {
+      const food = new Food(f.x, f.y, f.rarity, f.natural !== false, f.id);
+      food.hp = typeof f.hp === 'number' ? f.hp : food.maxHp;
+      food.maxHp = typeof f.maxHp === 'number' ? f.maxHp : food.maxHp;
+      if (typeof f.size === 'number') food.size = f.size;
+      if (typeof f.weight === 'number') food.weight = f.weight;
+      return food;
+    });
+    this.beetles = beetles.map((b) => {
+      const beetle = new Beetle(b.x, b.y, b.rarity, b.natural !== false, b.id);
+      beetle.hp = typeof b.hp === 'number' ? b.hp : beetle.maxHp;
+      beetle.maxHp = typeof b.maxHp === 'number' ? b.maxHp : beetle.maxHp;
+      if (typeof b.size === 'number') beetle.size = b.size;
+      if (typeof b.weight === 'number') beetle.weight = b.weight;
+      beetle.semiMajor = beetle.size * (25.5 / 64);
+      beetle.semiMinor = beetle.size * (19.5 / 64);
+      return beetle;
+    });
+  }
+
+  /** Apply kill reward from server (stars, drop, xp, score) and remove mob by id. */
+  applyKillReward(payload) {
+    if (!payload || !this.player) return;
+    const { mobId, mobType, rarity, maxHp, stars, drop } = payload;
+    this.player.mobKills = this.player.mobKills || {};
+    this.player.mobKills[rarity] = (this.player.mobKills[rarity] || 0) + 1;
+    this.player.addXp((maxHp || 0) * 0.5);
+    this.player.score += maxHp || 0;
+    if (typeof stars === 'number' && stars > 0) this.player.stars += stars;
+    if (drop && typeof drop === 'object' && drop.rarity) {
+      if (drop.type === 'petal' && drop.subtype === 'egg') {
+        this.player.addLoot('petal', 'egg', drop.rarity);
+      } else if (drop.type === 'body' || drop.type === 'tank') {
+        this.player.addLoot(drop.type, drop.subtype || '', drop.rarity);
+      }
+    }
+    if (mobType === 'beetle') {
+      this.beetles = this.beetles.filter((beetle) => beetle.id !== mobId);
+    } else {
+      this.foods = this.foods.filter((food) => food.id !== mobId);
+    }
   }
 
   start(savedState = null) {
@@ -444,8 +498,18 @@ export class Game {
           if (bullet.hitTargets.has(food)) continue;
           if (distance(bullet.x, bullet.y, food.x, food.y) < bullet.size + food.size) {
             bullet.hitTargets.add(food);
-            food.hp -= bullet.damage;
-            if (food.hp <= 0) this.player.onKill(food, this);
+            if (this.multiplayerSocket && food.id != null) {
+              this.multiplayerSocket.emit('hit', {
+                mobId: food.id,
+                mobType: 'food',
+                damage: bullet.damage,
+                x: this.player.x,
+                y: this.player.y,
+              });
+            } else {
+              food.hp -= bullet.damage;
+              if (food.hp <= 0) this.player.onKill(food, this);
+            }
             const pushFactor = bulletDisplaceStrength(bullet.weight, food.weight);
             food.vx += Math.cos(bullet.angle) * bullet.speed * pushFactor;
             food.vy += Math.sin(bullet.angle) * bullet.speed * pushFactor;
@@ -458,8 +522,18 @@ export class Game {
           if (bullet.hitTargets.has(beetle)) continue;
           if (beetle.ellipseOverlapsCircle(bullet.x, bullet.y, bullet.size)) {
             bullet.hitTargets.add(beetle);
-            beetle.hp -= bullet.damage;
-            if (beetle.hp <= 0) this.player.onKill(beetle, this);
+            if (this.multiplayerSocket && beetle.id != null) {
+              this.multiplayerSocket.emit('hit', {
+                mobId: beetle.id,
+                mobType: 'beetle',
+                damage: bullet.damage,
+                x: this.player.x,
+                y: this.player.y,
+              });
+            } else {
+              beetle.hp -= bullet.damage;
+              if (beetle.hp <= 0) this.player.onKill(beetle, this);
+            }
             const pushFactor = bulletDisplaceStrength(bullet.weight, beetle.weight);
             beetle.vx += Math.cos(bullet.angle) * bullet.speed * pushFactor;
             beetle.vy += Math.sin(bullet.angle) * bullet.speed * pushFactor;
@@ -483,8 +557,18 @@ export class Game {
         if (!bulletsToRemove.has(bullet)) {
           for (const food of this.foods) {
             if (distance(bullet.x, bullet.y, food.x, food.y) < bullet.size + food.size) {
-              food.hp -= bullet.damage;
-              if (food.hp <= 0) this.player.onKill(food, this);
+              if (this.multiplayerSocket && food.id != null) {
+                this.multiplayerSocket.emit('hit', {
+                  mobId: food.id,
+                  mobType: 'food',
+                  damage: bullet.damage,
+                  x: this.player.x,
+                  y: this.player.y,
+                });
+              } else {
+                food.hp -= bullet.damage;
+                if (food.hp <= 0) this.player.onKill(food, this);
+              }
               const pushFactor = bulletDisplaceStrength(bullet.weight, food.weight);
               food.vx += Math.cos(bullet.angle) * bullet.speed * pushFactor;
               food.vy += Math.sin(bullet.angle) * bullet.speed * pushFactor;
@@ -496,8 +580,18 @@ export class Game {
         if (!bulletsToRemove.has(bullet)) {
           for (const beetle of this.beetles) {
             if (beetle.ellipseOverlapsCircle(bullet.x, bullet.y, bullet.size)) {
-              beetle.hp -= bullet.damage;
-              if (beetle.hp <= 0) this.player.onKill(beetle, this);
+              if (this.multiplayerSocket && beetle.id != null) {
+                this.multiplayerSocket.emit('hit', {
+                  mobId: beetle.id,
+                  mobType: 'beetle',
+                  damage: bullet.damage,
+                  x: this.player.x,
+                  y: this.player.y,
+                });
+              } else {
+                beetle.hp -= bullet.damage;
+                if (beetle.hp <= 0) this.player.onKill(beetle, this);
+              }
               const pushFactor = bulletDisplaceStrength(bullet.weight, beetle.weight);
               beetle.vx += Math.cos(bullet.angle) * bullet.speed * pushFactor;
               beetle.vy += Math.sin(bullet.angle) * bullet.speed * pushFactor;
@@ -512,17 +606,38 @@ export class Game {
 
     for (const sq of this.squares) {
       sq.update(dt, this);
+      const sqDamage = sq.damage * dt / 1000;
       for (const food of this.foods) {
         const d = distance(sq.x, sq.y, food.x, food.y);
         if (d < sq.size + food.size) {
-          food.hp -= sq.damage * dt / 1000;
-          if (food.hp <= 0) this.player.onKill(food, this);
+          if (this.multiplayerSocket && food.id != null) {
+            this.multiplayerSocket.emit('hit', {
+              mobId: food.id,
+              mobType: 'food',
+              damage: sqDamage,
+              x: this.player.x,
+              y: this.player.y,
+            });
+          } else {
+            food.hp -= sqDamage;
+            if (food.hp <= 0) this.player.onKill(food, this);
+          }
         }
       }
       for (const beetle of this.beetles) {
         if (beetle.ellipseOverlapsCircle(sq.x, sq.y, sq.size)) {
-          beetle.hp -= sq.damage * dt / 1000;
-          if (beetle.hp <= 0) this.player.onKill(beetle, this);
+          if (this.multiplayerSocket && beetle.id != null) {
+            this.multiplayerSocket.emit('hit', {
+              mobId: beetle.id,
+              mobType: 'beetle',
+              damage: sqDamage,
+              x: this.player.x,
+              y: this.player.y,
+            });
+          } else {
+            beetle.hp -= sqDamage;
+            if (beetle.hp <= 0) this.player.onKill(beetle, this);
+          }
         }
       }
     }
@@ -564,7 +679,7 @@ export class Game {
     this.squares = this.squares.filter(s => !s.isExpired());
 
     this.spawnTimer += dt;
-    if (this.spawnTimer >= FOOD_SPAWN_INTERVAL_MS) {
+    if (!this.multiplayerSocket && this.spawnTimer >= FOOD_SPAWN_INTERVAL_MS) {
       this.spawnTimer = 0;
       if (this.foods.length < FOOD_TARGET_COUNT) {
         for (let i = 0; i < FOOD_SPAWN_BATCH && this.foods.length < FOOD_TARGET_COUNT; i++) this.spawnFood();
@@ -851,6 +966,48 @@ export class Game {
         ctx.fillStyle = '#fff';
         ctx.fillText(text, p.x, y);
       }
+    }
+
+    // Admin only: arrows pointing to every super mob (food and beetle)
+    if (this.player && this.player.isAdmin && !this.player.dead) {
+      const halfW = cw / 2;
+      const halfH = ch / 2;
+      const margin = 40;
+      const superMobs = [
+        ...this.foods.filter((f) => f.rarity === 'super').map((f) => ({ x: f.x, y: f.y })),
+        ...this.beetles.filter((b) => b.rarity === 'super').map((b) => ({ x: b.x, y: b.y })),
+      ];
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      for (const mob of superMobs) {
+        const sx = halfW + (mob.x - cam.x) * scale;
+        const sy = halfH + (mob.y - cam.y) * scale;
+        const dx = sx - halfW;
+        const dy = sy - halfH;
+        if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) continue;
+        const inView = sx >= margin && sx <= cw - margin && sy >= margin && sy <= ch - margin;
+        if (inView) continue;
+        let t = Infinity;
+        if (Math.abs(dx) > 1e-6) t = Math.min(t, (dx > 0 ? halfW - margin : -halfW + margin) / dx);
+        if (Math.abs(dy) > 1e-6) t = Math.min(t, (dy > 0 ? halfH - margin : -halfH + margin) / dy);
+        if (t === Infinity || t <= 0) continue;
+        const ex = halfW + dx * t;
+        const ey = halfH + dy * t;
+        const angle = Math.atan2(dy, dx);
+        const arrowLen = 24;
+        const arrowW = 14;
+        ctx.fillStyle = getRarityColor('super');
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(ex + Math.cos(angle) * arrowLen, ey + Math.sin(angle) * arrowLen);
+        ctx.lineTo(ex - Math.cos(angle) * arrowLen + Math.sin(angle) * arrowW, ey - Math.sin(angle) * arrowLen - Math.cos(angle) * arrowW);
+        ctx.lineTo(ex - Math.cos(angle) * arrowLen - Math.sin(angle) * arrowW, ey - Math.sin(angle) * arrowLen + Math.cos(angle) * arrowW);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+      ctx.restore();
     }
 
     ctx.restore();

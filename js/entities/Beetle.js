@@ -4,8 +4,9 @@ import { darkenColor } from '../utils.js';
 
 /** Beetle mob: hostile enemy that chases the player when in vision. Uses BEETLE_CONFIG for stats. */
 export class Beetle {
-  constructor(x, y, rarity, natural = false) {
+  constructor(x, y, rarity, natural = false, id = null) {
     const config = BEETLE_CONFIG[rarity];
+    this.id = id;
     this.x = x;
     this.y = y;
     this.rarity = rarity;

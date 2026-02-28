@@ -251,8 +251,15 @@ function startGame(gamemode) {
             gamemode: game.gamemode,
             ...state,
           });
+          game.setMultiplayerSocket(gameSocket);
           gameSocket.on('players', (list) => {
             if (game && gameSocket) game.setOtherPlayers(list.filter((p) => p.id !== gameSocket.id));
+          });
+          gameSocket.on('mobs', (data) => {
+            if (game) game.setMobsFromServer(data);
+          });
+          gameSocket.on('kill', (payload) => {
+            if (game) game.applyKillReward(payload);
           });
           gameSocketStateInterval = setInterval(() => {
             if (!game?.player || !gameSocket?.connected) return;
@@ -769,6 +776,7 @@ function setupHUD(player) {
         gameSocket.disconnect();
         gameSocket = null;
       }
+      if (game) game.setMultiplayerSocket(null);
       game.running = false;
       mainMenu.classList.remove('hidden');
       gameContainer.classList.add('hidden');
@@ -1900,6 +1908,7 @@ function setupChat() {
       appendMessage(`A Super ${label} Has Spawned!`, { system: true, color: RARITY_COLORS.super });
     };
     if (game.player) game.player.displayName = chatGuestName;
+    if (game.player) game.player.isAdmin = isAdmin();
   }
 
   function isChatBlocked() {
