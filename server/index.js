@@ -74,6 +74,19 @@ app.get('/api/username/check', (req, res) => {
   res.json({ taken: true });
 });
 
+app.get('/api/username/me', async (req, res) => {
+  const auth = req.headers.authorization;
+  const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  const discordId = await getDiscordIdFromToken(token);
+  if (!discordId) return res.status(401).json({ error: 'Invalid or missing Discord token' });
+  const users = loadUsers();
+  const d = String(discordId);
+  for (const [key, val] of Object.entries(users)) {
+    if (val === d) return res.json({ username: key });
+  }
+  res.json({ username: null });
+});
+
 app.post('/api/username/register', (req, res) => {
   const { username, discordId } = req.body || {};
   const u = (String(username || '')).trim();

@@ -2056,14 +2056,34 @@ function updateAuthDisplay() {
   }
 }
 
-function tryShowUsernameModal() {
-  const hasUsername = localStorage.getItem('florexe_username');
+async function tryShowUsernameModal() {
+  let hasUsername = localStorage.getItem('florexe_username');
   let auth = null;
   try {
     const s = localStorage.getItem('florexe_auth');
     if (s) auth = JSON.parse(s);
   } catch (e) {}
-  if (!auth || hasUsername) return;
+  if (!auth) return;
+  if (hasUsername) return;
+
+  // If logged in but no local username, fetch from server (user may have set it on another device)
+  const apiBase = window.FLOREXE_API_URL || '';
+  if (auth?.accessToken && apiBase) {
+    try {
+      const res = await fetch(apiBase + '/api/username/me', {
+        headers: { Authorization: 'Bearer ' + auth.accessToken },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.username && typeof data.username === 'string') {
+          localStorage.setItem('florexe_username', data.username);
+          updateAuthDisplay();
+          return;
+        }
+      }
+    } catch (e) {}
+  }
+
   const modal = document.getElementById('username-modal');
   const input = document.getElementById('usernameInput');
   const errEl = document.getElementById('usernameError');
