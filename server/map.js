@@ -128,6 +128,17 @@ function isPointInWall(x, y, walls) {
   return false;
 }
 
+/** True if (x, y) lies inside a wall cell in the zones grid (matches client drawn walls). Use to keep beetles out of walls. */
+function isPointInWallCell(x, y) {
+  const map = loadDefaultMap();
+  if (!map.zones || !Array.isArray(map.zones.grid)) return false;
+  const g = map.zones.grid;
+  const i = Math.floor((x - CUSTOM_GRID_MIN) / CUSTOM_CELL_WORLD);
+  const j = Math.floor((y - CUSTOM_GRID_MIN) / CUSTOM_CELL_WORLD);
+  if (i < 0 || i >= CUSTOM_GRID_SIZE || j < 0 || j >= CUSTOM_GRID_SIZE) return true;
+  return g[i] && g[i][j] === CUSTOM_CELL.WALL;
+}
+
 function getDefaultMap() {
   return loadDefaultMap();
 }
@@ -139,6 +150,7 @@ function getBuiltInWalls() {
 
 module.exports = {
   isPointInWall,
+  isPointInWallCell,
   getDefaultMap,
   getBuiltInWalls,
   getRandomPointInPlayableZoneFromZones,

@@ -1,6 +1,6 @@
 import { Game } from './Game.js';
 import { RARITY_COLORS, CRAFT_CHANCES, RARITIES, TANK_UPGRADES, BODY_UPGRADES, MAP_SIZE, FOOD_CONFIG, INFERNO_BASE_RADIUS, SHOP_ITEM_PRICES } from './config.js';
-import { WALL_HALF_WIDTH } from './mapData.js';
+import { WALL_HALF_WIDTH, getSpawnPointFromZones, getSpawnPoint } from './mapData.js';
 import { getRarityColor, darkenColor } from './utils.js';
 import { getIconUrl as getTankAssetIconUrl, getGunIconUrl, getBodyIconUrl, getBodyIconUrlByRarity, getGunIconUrlByRarity, getPetalIconUrlByRarity, loadTankAssets, GUN_SUBTYPES, BODY_SUBTYPES } from './TankAssets.js';
 
@@ -191,7 +191,8 @@ function startGame(gamemode) {
       })();
       const savedState = progressResult.state ?? null;
       const loadMeta = progressResult;
-      game.start(savedState).then(() => {
+
+      function finishStart() {
         requestAnimationFrame(() => {
           const elapsed = Date.now() - loadingShownAt;
           const minDisplay = 1200;
@@ -201,66 +202,65 @@ function startGame(gamemode) {
             if (el) el.classList.add('hidden');
           }, delay);
         });
-      });
-      game.scale = Math.max(0.8, Math.min(canvas.width, canvas.height) / 720);
-
-      const player = game.player;
-      document.getElementById('hpBar').style.width = '100%';
-      document.getElementById('hpText').textContent = `HP ${formatScore(player.hp)}/${formatScore(player.maxHp)}`;
-      document.getElementById('level').textContent = `LV ${Math.round(player.level)}`;
-      document.getElementById('xpBar').style.width = '0%';
-      document.getElementById('xpText').textContent = `EXP ${formatScore(0)} / ${formatScore(100)}`;
-      document.getElementById('stars').textContent = `★ ${Math.round(player.stars)}`;
-      document.getElementById('score').textContent = `Score: ${formatScore(player.score)}`;
-
-      const fireHint = document.getElementById('fireHint');
-      if (fireHint) {
-        fireHint.classList.remove('hidden');
-        setTimeout(() => fireHint.classList.add('hidden'), 5000);
-      }
-
-      setupPlayerInput(player);
-      setupHUD(player);
-      setupCrafting(player);
-      setupGallery(player);
-      setupChat();
-
-      if (loadMeta) {
-        const chatEl = document.getElementById('chatMessages');
-        const push = (text) => {
-          if (!chatEl) return;
-          const line = document.createElement('div');
-          line.className = 'chat-msg chat-msg-system';
-          line.textContent = text;
-          chatEl.appendChild(line);
-          chatEl.scrollTop = chatEl.scrollHeight;
-        };
-        if (loadMeta.onProduction && !loadMeta.hadAuth) {
-          push('[System] You\'re not logged in. Click "Login with Discord" on the menu to save and load progress across devices and incognito.');
-        } else if (loadMeta.serverError === '401') {
-          push('[System] Session expired. Please log in again from the menu to sync progress.');
-          updateAuthDisplay();
-        } else if (loadMeta.serverError === 'network') {
-          push('[System] Could not load progress from server. Check your connection or try logging in again from the menu.');
+        game.scale = Math.max(0.8, Math.min(canvas.width, canvas.height) / 720);
+        const player = game.player;
+        document.getElementById('hpBar').style.width = '100%';
+        document.getElementById('hpText').textContent = `HP ${formatScore(player.hp)}/${formatScore(player.maxHp)}`;
+        document.getElementById('level').textContent = `LV ${Math.round(player.level)}`;
+        document.getElementById('xpBar').style.width = '0%';
+        document.getElementById('xpText').textContent = `EXP ${formatScore(0)} / ${formatScore(100)}`;
+        document.getElementById('stars').textContent = `★ ${Math.round(player.stars)}`;
+        document.getElementById('score').textContent = `Score: ${formatScore(player.score)}`;
+        const fireHint = document.getElementById('fireHint');
+        if (fireHint) {
+          fireHint.classList.remove('hidden');
+          setTimeout(() => fireHint.classList.add('hidden'), 5000);
         }
+        setupPlayerInput(player);
+        setupHUD(player);
+        setupCrafting(player);
+        setupGallery(player);
+        setupChat();
+        if (loadMeta) {
+          const chatEl = document.getElementById('chatMessages');
+          const push = (text) => {
+            if (!chatEl) return;
+            const line = document.createElement('div');
+            line.className = 'chat-msg chat-msg-system';
+            line.textContent = text;
+            chatEl.appendChild(line);
+            chatEl.scrollTop = chatEl.scrollHeight;
+          };
+          if (loadMeta.onProduction && !loadMeta.hadAuth) {
+            push('[System] You\'re not logged in. Click "Login with Discord" on the menu to save and load progress across devices and incognito.');
+          } else if (loadMeta.serverError === '401') {
+            push('[System] Session expired. Please log in again from the menu to sync progress.');
+            updateAuthDisplay();
+          } else if (loadMeta.serverError === 'network') {
+            push('[System] Could not load progress from server. Check your connection or try logging in again from the menu.');
+          }
+        }
+        lastTime = performance.now();
+        if (animationId) cancelAnimationFrame(animationId);
+        loop(performance.now());
       }
 
-      if (window.FLOREXE_API_URL && game) {
+      if (window.FLOREXE_API_URL) {
         import('https://cdn.socket.io/4.7.2/socket.io.esm.min.js').then((mod) => {
           const io = mod.io || mod.default;
-          if (!io || gameSocket) return;
+          if (!io || gameSocket) { game.start(savedState).then(finishStart); return; }
           gameSocket = io(window.FLOREXE_API_URL, { transports: ['websocket', 'polling'] });
-          const state = game.getPlayerState();
-          gameSocket.emit('join', {
-            gamemode: game.gamemode,
-            ...state,
-          });
           game.setMultiplayerSocket(gameSocket);
           gameSocket.on('players', (list) => {
             if (game && gameSocket) game.setOtherPlayers(list.filter((p) => p.id !== gameSocket.id));
           });
           gameSocket.on('map', (data) => {
-            if (game) game.setMapFromServer(data);
+            if (!game) return;
+            game.setMapFromServer(data);
+            if (!game.player) {
+              const spawn = getSpawnPointFromZones(game.serverZones) || getSpawnPoint();
+              game.startMultiplayer(savedState, spawn).then(finishStart);
+            }
           });
           gameSocket.on('playerLeft', (data) => {
             if (game && data && data.id) game.removeOtherPlayer(data.id);
@@ -282,12 +282,21 @@ function startGame(gamemode) {
             const s = game.getPlayerState();
             if (s) gameSocket.emit('state', s);
           }, 100);
-        }).catch(() => {});
+          const joinState = {
+            gamemode: game.gamemode,
+            x: 0, y: 0, angle: 0,
+            hp: 500, maxHp: 500,
+            level: (savedState && typeof savedState.level === 'number') ? savedState.level : 1,
+            displayName: 'Player',
+            equippedTank: (savedState && savedState.equippedTank) || null,
+            equippedBody: (savedState && savedState.equippedBody) || null,
+            size: 24.5,
+          };
+          gameSocket.emit('join', joinState);
+        }).catch(() => { game.start(savedState).then(finishStart); });
+      } else {
+        game.start(savedState).then(finishStart);
       }
-
-      lastTime = performance.now();
-      if (animationId) cancelAnimationFrame(animationId);
-      loop(performance.now());
     });
   });
 }

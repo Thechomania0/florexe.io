@@ -3,7 +3,7 @@
  * Mirrors client config (hp, drops) for loot calculation.
  * Uses Centralia zones.grid for spawn so mobs align with map pixels/units.
  */
-const { isPointInWall, getDefaultMap, getRandomPointInPlayableZoneFromZones } = require('./map.js');
+const { isPointInWall, getDefaultMap, getRandomPointInPlayableZoneFromZones, isPointInWallCell } = require('./map.js');
 
 // Fallback zones only when Centralia has no zones (should not happen)
 const MAP_HALF = 8000;
@@ -227,7 +227,7 @@ function hitMob(room, mobId, mobType, damage, playerX, playerY) {
   return { killed: false };
 }
 
-/** Update beetle positions: chase nearest player in vision. */
+/** Update beetle positions: chase nearest player in vision. Never move into wall cells (matches client drawn walls). */
 function updateBeetles(room, roomPlayers, dtMs) {
   const m = getRoomMobs(room);
   const players = roomPlayers.get(room);
@@ -254,8 +254,12 @@ function updateBeetles(room, roomPlayers, dtMs) {
       const dist = Math.hypot(dx, dy);
       if (dist >= 1e-9) {
         const move = CHASE_SPEED * dtSec;
-        beetle.x += (dx / dist) * move;
-        beetle.y += (dy / dist) * move;
+        const newX = beetle.x + (dx / dist) * move;
+        const newY = beetle.y + (dy / dist) * move;
+        if (!isPointInWallCell(newX, newY)) {
+          beetle.x = newX;
+          beetle.y = newY;
+        }
       }
     }
   }

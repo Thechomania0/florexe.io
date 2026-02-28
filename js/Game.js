@@ -301,6 +301,50 @@ export class Game {
     return loadPromise;
   }
 
+  /** Start game for multiplayer only: player at spawnPoint, no local mob spawn (server sends mobs). */
+  startMultiplayer(savedState, spawnPoint) {
+    const { x: spawnX, y: spawnY } = spawnPoint || getSpawnPoint();
+    this.bullets = [];
+    this.squares = [];
+    this.drops = [];
+    this.foods = [];
+    this.beetles = [];
+    this.player = new Player('player1', spawnX, spawnY, this.gamemode);
+    if (savedState && typeof savedState === 'object') {
+      if (Array.isArray(savedState.inventory)) this.player.inventory = savedState.inventory.slice();
+      if (Array.isArray(savedState.hand)) this.player.hand = savedState.hand.slice();
+      if (savedState.equippedTank && typeof savedState.equippedTank === 'object') {
+        this.player.equippedTank = { ...savedState.equippedTank };
+      }
+      if (savedState.equippedBody && typeof savedState.equippedBody === 'object') {
+        this.player.equippedBody = { ...savedState.equippedBody };
+      }
+      if (typeof savedState.level === 'number' && savedState.level >= 1) {
+        this.player.level = Math.min(100, savedState.level);
+        this.player.xp = typeof savedState.xp === 'number' ? savedState.xp : 0;
+      }
+      if (typeof savedState.stars === 'number') this.player.stars = Math.max(0, savedState.stars);
+      if (typeof savedState.score === 'number') this.player.score = Math.max(0, savedState.score);
+    }
+    this.player.applyStats();
+    this.player.hp = this.player.maxHp;
+    this.camera.x = this.player.x;
+    this.camera.y = this.player.y;
+    this.running = true;
+    const loadPromise = loadTankAssets().then(() => {
+      this.player.tankAssets = getLoadedTankAssets();
+    });
+    this.beetleImage = new Image();
+    this.beetleImage.src = 'assets/icons/mobs/beetle/beetle.svg';
+    this.beetleBodyImage = new Image();
+    this.beetleBodyImage.src = 'assets/icons/mobs/beetle/body.svg';
+    this.beetlePincerLeftImage = new Image();
+    this.beetlePincerLeftImage.src = 'assets/icons/mobs/beetle/pincer_left.svg';
+    this.beetlePincerRightImage = new Image();
+    this.beetlePincerRightImage.src = 'assets/icons/mobs/beetle/pincer_right.svg';
+    return loadPromise;
+  }
+
   /** Serializable state for multiplayer sync. */
   getPlayerState() {
     const p = this.player;
@@ -537,11 +581,19 @@ export class Game {
       }
     }
 
-    for (const food of this.foods) {
-      food.update(dt);
-    }
-    for (const beetle of this.beetles) {
-      beetle.update(dt, this);
+    // Update mobs: when multiplayer only update nearby (server drives position); otherwise update all
+    const player = this.player;
+    const updateMargin = 1400;
+    if (this.multiplayerSocket && player) {
+      for (const food of this.foods) {
+        if (Math.abs(food.x - player.x) <= updateMargin && Math.abs(food.y - player.y) <= updateMargin) food.update(dt);
+      }
+      for (const beetle of this.beetles) {
+        if (Math.abs(beetle.x - player.x) <= updateMargin && Math.abs(beetle.y - player.y) <= updateMargin) beetle.update(dt, this);
+      }
+    } else {
+      for (const food of this.foods) food.update(dt);
+      for (const beetle of this.beetles) beetle.update(dt, this);
     }
 
     // Wall collision for food/shapes: keep them inside playable area
@@ -1074,7 +1126,13 @@ export class Game {
     }
 
     if (this.multiplayerSocket) {
-      for (const b of this.serverBullets) {
+      const cam = this.camera;
+      const viewW = (ctx.canvas.width / scale) * 0.6;
+      const viewH = (ctx.canvas.height / scale) * 0.6;
+      const bulletList = this.serverBullets.filter((b) =>
+        b.x >= cam.x - viewW && b.x <= cam.x + viewW && b.y >= cam.y - viewH && b.y <= cam.y + viewH
+      ).slice(0, 300);
+      for (const b of bulletList) {
         ctx.save();
         ctx.fillStyle = '#1ca8c9';
         ctx.strokeStyle = '#4a4a4a';
@@ -1085,7 +1143,10 @@ export class Game {
         ctx.stroke();
         ctx.restore();
       }
-      for (const sq of this.serverSquares) {
+      const squareList = this.serverSquares.filter((sq) =>
+        sq.x >= cam.x - viewW && sq.x <= cam.x + viewW && sq.y >= cam.y - viewH && sq.y <= cam.y + viewH
+      ).slice(0, 200);
+      for (const sq of squareList) {
         ctx.save();
         ctx.translate(sq.x, sq.y);
         const fillColor = (sq.bodyColor && typeof sq.bodyColor === 'string') ? sq.bodyColor : getRarityColor(sq.rarity || 'common');
