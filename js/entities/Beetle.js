@@ -21,7 +21,7 @@ export class Beetle {
     /** @deprecated Use ellipse overlap methods instead. Kept for wall collision margin. */
     this.collisionRadius = Math.max(this.semiMajor, this.semiMinor);
     this.weight = config.weight ?? 1;
-    this.vision = BEETLE_VISION;
+    this.vision = config.vision ?? BEETLE_VISION;
     this.vx = 0;
     this.vy = 0;
     /** Facing direction (radians) for drawing; updated when chasing so beetle faces the player. */
