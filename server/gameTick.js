@@ -1,7 +1,7 @@
 /**
  * Server-side bullets and squares (traps). Updated in game tick; collisions with mobs call mobs.hitMob.
  */
-const { getRoomMobs, hitMob, getMobsSnapshot, updateBeetles } = require('./mobs.js');
+const { getRoomMobs, hitMob, getMobsSnapshot, updateBeetles, removeMobsFullyInWall } = require('./mobs.js');
 const MAP_HALF = 8000;
 
 function distance(ax, ay, bx, by) {
@@ -11,8 +11,9 @@ function distance(ax, ay, bx, by) {
 function ellipseOverlapsCircle(beetle, cx, cy, r) {
   const dx = cx - beetle.x;
   const dy = cy - beetle.y;
-  const semiMajor = beetle.size * (25.5 / 64);
-  const semiMinor = beetle.size * (19.5 / 64);
+  const hitboxScale = (beetle.rarity === 'mythic' || beetle.rarity === 'legendary') ? 0.4 : 1;
+  const semiMajor = beetle.size * (25.5 / 64) * hitboxScale;
+  const semiMinor = beetle.size * (19.5 / 64) * hitboxScale;
   const a = semiMajor + r;
   const b = semiMinor + r;
   return (dx / a) * (dx / a) + (dy / b) * (dy / b) <= 1;
@@ -94,6 +95,8 @@ function addBullet(room, data) {
 
 function addSquare(room, data) {
   const now = Date.now();
+  const rawDuration = data.duration != null ? data.duration : 6000;
+  const duration = Math.max(100, Math.min(30000, Number(rawDuration) || 6000));
   const sq = {
     id: 'sq_' + (nextSquareId++),
     ownerId: data.ownerId,
@@ -104,7 +107,7 @@ function addSquare(room, data) {
     damage: data.damage || 50,
     hp: data.hp != null ? data.hp : 800,
     size: data.size != null ? data.size : 25,
-    duration: data.duration != null ? data.duration : 6000,
+    duration,
     rarity: data.rarity || 'common',
     weight: data.weight != null ? data.weight : 1,
     spawnedAt: now,
@@ -132,6 +135,7 @@ function tick(room, dtMs, roomPlayers) {
   const m = getRoomMobs(room);
   const killPayloads = [];
   updateBeetles(room, roomPlayers, dtMs);
+  removeMobsFullyInWall(room);
 
   for (const bullet of bullets) {
     bullet.x += Math.cos(bullet.angle) * bullet.speed * dtMs;
@@ -199,14 +203,16 @@ function tick(room, dtMs, roomPlayers) {
   roomBullets.set(room, newBullets);
 
   for (const sq of squares) {
-    sq.duration -= dtMs;
+    sq.duration = Math.max(0, sq.duration - dtMs);
     sq.x += sq.vx * (dtMs / 1000);
     sq.y += sq.vy * (dtMs / 1000);
   }
   runSquareSquareCollision(squares, dtMs);
-  const sqDamage = 50 * (dtMs / 1000);
+  const maxSquareAgeMs = 30000;
+  const now = Date.now();
   for (const sq of squares) {
     if (sq.duration <= 0) continue;
+    if (now - sq.spawnedAt > maxSquareAgeMs) continue;
     const dmg = (sq.damage || 50) * (dtMs / 1000);
     const ownerPos = getOwnerPosition(room, sq.ownerId, roomPlayers);
     for (const food of m.foods) {
@@ -222,7 +228,7 @@ function tick(room, dtMs, roomPlayers) {
       }
     }
   }
-  const newSquares = squares.filter((s) => s.duration > 0);
+  const newSquares = squares.filter((s) => s.duration > 0 && (now - s.spawnedAt) <= maxSquareAgeMs);
   roomSquares.set(room, newSquares);
 
   return { killPayloads };

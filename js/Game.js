@@ -12,7 +12,7 @@ import { Bullet } from './entities/Bullet.js';
 import { distance, getRarityColor } from './utils.js';
 import { Player } from './Player.js';
 import { loadTankAssets, getLoadedTankAssets, getBodyIconUrlByRarity, getGunIconUrlByRarity, getPetalIconUrlByRarity } from './TankAssets.js';
-
+o
 // Weight comparison: push factor = (higher/lower - 1) capped at 1 (100%). Heavier can push lighter by that %.
 function bulletDisplaceStrength(pusherWeight, pushedWeight) {
   const pw = Math.max(1, Math.min(100, pusherWeight || 0));
@@ -205,6 +205,9 @@ export class Game {
         if (typeof b.hp === 'number') beetle.hp = Math.min(b.hp, beetle.maxHp);
         if (typeof b.maxHp === 'number') beetle.maxHp = b.maxHp;
         if (typeof b.size === 'number') beetle.size = b.size;
+        const hitboxScale = (b.rarity === 'mythic' || b.rarity === 'legendary') ? 0.4 : 1;
+        beetle.semiMajor = (beetle.size ?? 20) * (25.5 / 64) * hitboxScale;
+        beetle.semiMinor = (beetle.size ?? 20) * (19.5 / 64) * hitboxScale;
         if (typeof b.weight === 'number') beetle.weight = b.weight;
       } else {
         beetle = new Beetle(b.x, b.y, b.rarity, b.natural !== false, b.id);
@@ -214,8 +217,9 @@ export class Game {
         beetle.maxHp = typeof b.maxHp === 'number' ? b.maxHp : beetle.maxHp;
         if (typeof b.size === 'number') beetle.size = b.size;
         if (typeof b.weight === 'number') beetle.weight = b.weight;
-        beetle.semiMajor = beetle.size * (25.5 / 64);
-        beetle.semiMinor = beetle.size * (19.5 / 64);
+        const hitboxScale = (b.rarity === 'mythic' || b.rarity === 'legendary') ? 0.4 : 1;
+        beetle.semiMajor = beetle.size * (25.5 / 64) * hitboxScale;
+        beetle.semiMinor = beetle.size * (19.5 / 64) * hitboxScale;
       }
       nextBeetles.push(beetle);
     }

@@ -3,7 +3,7 @@
  * Mirrors client config (hp, drops) for loot calculation.
  * Uses Centralia zones.grid for spawn so mobs align with map pixels/units.
  */
-const { isPointInWall, getDefaultMap, getRandomPointInPlayableZoneFromZones, isPointInWallCell } = require('./map.js');
+const { isPointInWall, getDefaultMap, getRandomPointInPlayableZoneFromZones, isPointInWallCell, isCircleFullyInWall } = require('./map.js');
 
 // Fallback zones only when Centralia has no zones (should not happen)
 const MAP_HALF = 8000;
@@ -259,6 +259,9 @@ function updateBeetles(room, roomPlayers, dtMs) {
         if (!isPointInWallCell(newX, newY)) {
           beetle.x = newX;
           beetle.y = newY;
+        } else {
+          if (!isPointInWallCell(newX, beetle.y)) beetle.x = newX;
+          if (!isPointInWallCell(beetle.x, newY)) beetle.y = newY;
         }
       }
     }
@@ -273,6 +276,22 @@ function getMobsSnapshot(room) {
   };
 }
 
+/** Last resort: remove any food or beetle whose hitbox is fully inside a wall cell (instant kill, no reward). */
+function removeMobsFullyInWall(room) {
+  const m = getRoomMobs(room);
+  for (let i = m.foods.length - 1; i >= 0; i--) {
+    const f = m.foods[i];
+    const r = (f.size != null && typeof f.size === 'number') ? f.size : 12;
+    if (isCircleFullyInWall(f.x, f.y, r)) m.foods.splice(i, 1);
+  }
+  for (let i = m.beetles.length - 1; i >= 0; i--) {
+    const b = m.beetles[i];
+    const hitboxScale = (b.rarity === 'mythic' || b.rarity === 'legendary') ? 0.4 : 1;
+    const semiMajor = (b.size != null ? b.size * (25.5 / 64) : 20) * hitboxScale;
+    if (isCircleFullyInWall(b.x, b.y, semiMajor)) m.beetles.splice(i, 1);
+  }
+}
+
 module.exports = {
   getRoomMobs,
   spawnFood,
@@ -280,6 +299,7 @@ module.exports = {
   runSpawn,
   hitMob,
   updateBeetles,
+  removeMobsFullyInWall,
   getMobsSnapshot,
   SPAWN_INTERVAL_MS,
   FOOD_TARGET,

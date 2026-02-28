@@ -139,6 +139,34 @@ function isPointInWallCell(x, y) {
   return g[i] && g[i][j] === CUSTOM_CELL.WALL;
 }
 
+/** True if the circle (x, y, radius) is entirely inside wall cells. Used as last resort to kill stuck mobs. */
+function isCircleFullyInWall(x, y, radius) {
+  const map = loadDefaultMap();
+  if (!map.zones || !Array.isArray(map.zones.grid)) return false;
+  const g = map.zones.grid;
+  const i0 = Math.floor((x - radius - CUSTOM_GRID_MIN) / CUSTOM_CELL_WORLD);
+  const i1 = Math.floor((x + radius - CUSTOM_GRID_MIN) / CUSTOM_CELL_WORLD);
+  const j0 = Math.floor((y - radius - CUSTOM_GRID_MIN) / CUSTOM_CELL_WORLD);
+  const j1 = Math.floor((y + radius - CUSTOM_GRID_MIN) / CUSTOM_CELL_WORLD);
+  let anyOverlap = false;
+  for (let j = j0; j <= j1; j++) {
+    for (let i = i0; i <= i1; i++) {
+      if (i < 0 || i >= CUSTOM_GRID_SIZE || j < 0 || j >= CUSTOM_GRID_SIZE) return false;
+      const cellMinX = CUSTOM_GRID_MIN + i * CUSTOM_CELL_WORLD;
+      const cellMaxX = CUSTOM_GRID_MIN + (i + 1) * CUSTOM_CELL_WORLD;
+      const cellMinY = CUSTOM_GRID_MIN + j * CUSTOM_CELL_WORLD;
+      const cellMaxY = CUSTOM_GRID_MIN + (j + 1) * CUSTOM_CELL_WORLD;
+      const closestX = Math.max(cellMinX, Math.min(cellMaxX, x));
+      const closestY = Math.max(cellMinY, Math.min(cellMaxY, y));
+      if (Math.hypot(x - closestX, y - closestY) <= radius + 1e-6) {
+        anyOverlap = true;
+        if (!g[i] || g[i][j] !== CUSTOM_CELL.WALL) return false;
+      }
+    }
+  }
+  return anyOverlap;
+}
+
 function getDefaultMap() {
   return loadDefaultMap();
 }
@@ -151,6 +179,7 @@ function getBuiltInWalls() {
 module.exports = {
   isPointInWall,
   isPointInWallCell,
+  isCircleFullyInWall,
   getDefaultMap,
   getBuiltInWalls,
   getRandomPointInPlayableZoneFromZones,

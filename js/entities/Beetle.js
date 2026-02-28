@@ -16,9 +16,10 @@ export class Beetle {
     this.hp = config.hp;
     this.damage = config.damage;
     this.size = config.size;
-    /** Oval hitbox matching body: semi-axes in world units (from body rect 25.5×19.5 in 64 viewBox). */
-    this.semiMajor = this.size * (25.5 / 64);
-    this.semiMinor = this.size * (19.5 / 64);
+    /** Oval hitbox matching body: semi-axes in world units (from body rect 25.5×19.5 in 64 viewBox). Mythic/legendary use 40% size. */
+    const hitboxScale = (rarity === 'mythic' || rarity === 'legendary') ? 0.4 : 1;
+    this.semiMajor = this.size * (25.5 / 64) * hitboxScale;
+    this.semiMinor = this.size * (19.5 / 64) * hitboxScale;
     /** @deprecated Use ellipse overlap methods instead. Kept for wall collision margin. */
     this.collisionRadius = Math.max(this.semiMajor, this.semiMinor);
     this.weight = config.weight ?? 1;
