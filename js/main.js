@@ -2156,7 +2156,7 @@ function updateAuthDisplay() {
       adminColorBtn.onclick = (e) => { e.preventDefault(); colorInput.click(); };
     }
     const mapWrap = document.getElementById('menuMapEditorWrap');
-    if (mapWrap) mapWrap.style.display = isAdmin() ? '' : 'none';
+    if (mapWrap) mapWrap.style.display = '';
     tryShowUsernameModal();
   } else {
     if (auth) { try { localStorage.removeItem('florexe_auth'); } catch (e) {} }
@@ -2168,7 +2168,7 @@ function updateAuthDisplay() {
     const apiHint = window.FLOREXE_API_URL ? '<p class="menu-login-hint">Log in to save and load progress across devices and incognito.</p>' : '';
     wrap.innerHTML = apiHint + '<a href="https://discord.com/oauth2/authorize?client_id=1476693949090500708&response_type=token&redirect_uri=' + encodeURIComponent(redirectUri) + '&scope=identify" id="menuLoginBtn" class="menu-login-btn">Login with Discord</a>';
     const mapWrap = document.getElementById('menuMapEditorWrap');
-    if (mapWrap) mapWrap.style.display = 'none';
+    if (mapWrap) mapWrap.style.display = '';
   }
 }
 
@@ -2291,11 +2291,9 @@ function init() {
     minimapCanvas.height = MINIMAP_SIZE;
     minimapCtx = minimapCanvas.getContext('2d');
   }
-  if (!canvas || !ctx || !mainMenu || !gameContainer) return;
-  updateAuthDisplay();
-  preloadIcons();
-  resize();
 
+  // Always run menu setup so Play / Login / Map Editor work even if canvas isn't ready
+  updateAuthDisplay();
   document.querySelectorAll('.gamemode-btn').forEach(btn => {
     btn.onclick = () => {
       if (btn.disabled) return;
@@ -2304,6 +2302,10 @@ function init() {
       else startGame(mode);
     };
   });
+
+  if (!canvas || !ctx || !mainMenu || !gameContainer) return;
+  preloadIcons();
+  resize();
 
   const respawnBtn = document.getElementById('respawnBtn');
   if (respawnBtn) {
