@@ -440,7 +440,7 @@ export class Player {
           sq.rotation = Math.random() * Math.PI * 2;
           sq.angularVelocity = (Math.random() - 0.5) * 0.1;
           this.squares.push(sq);
-          game.squares.push(sq);
+          game.addSquare(sq);
           this.riotRecoil[this.riotBurstIndex] = 10;
           this.riotBurstIndex++;
           this.lastRiotShot = now;
@@ -466,7 +466,7 @@ export class Player {
           if (r !== 'super') maxRange *= 0.4; // 60% range reduction; super keeps full range
           const bulletHp = t.bulletHp ?? 50;
 
-          game.bullets.push(
+          game.addBullet(
             new Bullet(
               this.x,
               this.y,
@@ -505,7 +505,7 @@ export class Player {
           let maxRange = (t.bulletMaxRangeBase ?? 1800) * Math.pow(1.1, rarityIndex);
           if (r !== 'super') maxRange *= 0.4;
 
-          game.bullets.push(
+          game.addBullet(
             new Bullet(
               this.x,
               this.y,
@@ -541,7 +541,7 @@ export class Player {
           const bulletWeight = t.weightByRarity?.[r] ?? 0;
           const maxRange = t.bulletMaxRangeBase ?? 600;
 
-          game.bullets.push(
+          game.addBullet(
             new Bullet(
               this.x,
               this.y,
@@ -565,7 +565,9 @@ export class Player {
         }
 
         else if (this.equippedTank.subtype === 'anchor') {
-          const alive = this.squares.filter(s => !s.isExpired()).length;
+          const alive = game.multiplayerSocket
+            ? game.serverSquares.filter(s => s.ownerId === game.multiplayerSocket.id && (s.duration || 0) > 0).length
+            : this.squares.filter(s => !s.isExpired()).length;
 
           if (alive < t.maxSquares) {
             const dmg = (t.damageByRarity?.[r] || 300) * this.attackMult;
@@ -598,7 +600,7 @@ export class Player {
             );
 
             this.squares.push(sq);
-            game.squares.push(sq);
+            game.addSquare(sq);
             this.recoil = 8;
             const recoilPct = t.recoilMovePercent ?? RECOIL_MOVE_PERCENT;
             const trapSpeed = t.trapLaunchSpeed ?? 0.2;

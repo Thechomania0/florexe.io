@@ -217,10 +217,19 @@ const {
   FOOD_TARGET,
   BEETLE_TARGET,
 } = require('./mobs.js');
+const {
+  addBullet,
+  addSquare,
+  tick,
+  getBulletsSnapshot,
+  getSquaresSnapshot,
+} = require('./gameTick.js');
 
 /** Room name from gamemode. state = { x, y, angle, hp, maxHp, level, displayName, equippedTank, equippedBody, size }. */
 const roomPlayers = new Map();
 const roomSpawnIntervals = new Map();
+const TICK_MS = 50;
+const roomTickIntervals = new Map();
 
 function getRoomPlayers(room) {
   if (!roomPlayers.has(room)) roomPlayers.set(room, new Map());
@@ -245,9 +254,25 @@ function startSpawnInterval(room) {
   roomSpawnIntervals.set(room, interval);
 }
 
+function startGameTick(room) {
+  if (roomTickIntervals.has(room)) return;
+  const interval = setInterval(() => {
+    const players = getRoomPlayers(room);
+    if (players.size === 0) return;
+    const result = tick(room, TICK_MS, roomPlayers);
+    io.to(room).emit('mobs', getMobsSnapshot(room));
+    io.to(room).emit('bullets', getBulletsSnapshot(room));
+    io.to(room).emit('squares', getSquaresSnapshot(room));
+    for (const { socketId, payload } of result.killPayloads) {
+      io.to(socketId).emit('kill', payload);
+    }
+  }, TICK_MS);
+  roomTickIntervals.set(room, interval);
+}
+
 io.on('connection', (socket) => {
   socket.on('join', (data) => {
-    const room = (data && data.gamemode) ? String(data.gamemode) : 'ffa';
+    const room = ((data && data.gamemode) ? String(data.gamemode) : 'ffa').toLowerCase();
     const state = data && typeof data === 'object' ? {
       x: typeof data.x === 'number' ? data.x : 0,
       y: typeof data.y === 'number' ? data.y : 0,
@@ -264,11 +289,14 @@ io.on('connection', (socket) => {
     getRoomPlayers(room).set(socket.id, state);
     broadcastPlayers(room);
     startSpawnInterval(room);
+    startGameTick(room);
     socket.emit('mobs', getMobsSnapshot(room));
+    socket.emit('bullets', getBulletsSnapshot(room));
+    socket.emit('squares', getSquaresSnapshot(room));
   });
 
   socket.on('state', (data) => {
-    const room = Array.from(socket.rooms).find(r => r !== socket.id);
+    const room = Array.from(socket.rooms).find(r => r !== socket.id && r.length > 0);
     if (!room) return;
     const state = data && typeof data === 'object' ? {
       x: typeof data.x === 'number' ? data.x : 0,
@@ -287,7 +315,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('hit', (data) => {
-    const room = Array.from(socket.rooms).find(r => r !== socket.id);
+    const room = Array.from(socket.rooms).find(r => r !== socket.id && r.length > 0);
     if (!room || !data || typeof data !== 'object') return;
     const mobId = data.mobId;
     const mobType = data.mobType === 'beetle' ? 'beetle' : 'food';
@@ -301,14 +329,63 @@ io.on('connection', (socket) => {
     io.to(room).emit('mobs', getMobsSnapshot(room));
   });
 
+  socket.on('shoot', (data) => {
+    const room = Array.from(socket.rooms).find(r => r !== socket.id && r.length > 0);
+    if (!room || !data) return;
+    const list = Array.isArray(data) ? data : (data.bullets ? data.bullets : [data]);
+    for (const b of list) {
+      if (b && typeof b === 'object') {
+        addBullet(room, {
+          ownerId: socket.id,
+          x: typeof b.x === 'number' ? b.x : 0,
+          y: typeof b.y === 'number' ? b.y : 0,
+          angle: typeof b.angle === 'number' ? b.angle : 0,
+          speed: b.speed,
+          damage: b.damage,
+          size: b.size,
+          lifetime: b.lifetime,
+          penetrating: b.penetrating,
+          weight: b.weight,
+          maxRange: b.maxRange,
+          hp: b.hp,
+        });
+      }
+    }
+  });
+
+  socket.on('square', (data) => {
+    const room = Array.from(socket.rooms).find(r => r !== socket.id && r.length > 0);
+    if (!room || !data || typeof data !== 'object') return;
+    addSquare(room, {
+      ownerId: socket.id,
+      x: typeof data.x === 'number' ? data.x : 0,
+      y: typeof data.y === 'number' ? data.y : 0,
+      vx: data.vx,
+      vy: data.vy,
+      damage: data.damage,
+      hp: data.hp,
+      size: data.size,
+      duration: data.duration,
+      rarity: data.rarity,
+      weight: data.weight,
+      isRiotTrap: data.isRiotTrap,
+    });
+  });
+
   socket.on('disconnect', () => {
     for (const room of socket.rooms) {
       if (room === socket.id) continue;
       getRoomPlayers(room).delete(socket.id);
       broadcastPlayers(room);
-      if (getRoomPlayers(room).size === 0 && roomSpawnIntervals.has(room)) {
-        clearInterval(roomSpawnIntervals.get(room));
-        roomSpawnIntervals.delete(room);
+      if (getRoomPlayers(room).size === 0) {
+        if (roomSpawnIntervals.has(room)) {
+          clearInterval(roomSpawnIntervals.get(room));
+          roomSpawnIntervals.delete(room);
+        }
+        if (roomTickIntervals.has(room)) {
+          clearInterval(roomTickIntervals.get(room));
+          roomTickIntervals.delete(room);
+        }
       }
     }
   });

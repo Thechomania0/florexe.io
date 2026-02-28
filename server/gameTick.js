@@ -1,0 +1,235 @@
+/**
+ * Server-side bullets and squares (traps). Updated in game tick; collisions with mobs call mobs.hitMob.
+ */
+const { getRoomMobs, hitMob, getMobsSnapshot } = require('./mobs.js');
+const MAP_HALF = 8000;
+
+function distance(ax, ay, bx, by) {
+  return Math.hypot(ax - bx, ay - by);
+}
+
+function ellipseOverlapsCircle(beetle, cx, cy, r) {
+  const dx = cx - beetle.x;
+  const dy = cy - beetle.y;
+  const semiMajor = beetle.size * (25.5 / 64);
+  const semiMinor = beetle.size * (19.5 / 64);
+  const a = semiMajor + r;
+  const b = semiMinor + r;
+  return (dx / a) * (dx / a) + (dy / b) * (dy / b) <= 1;
+}
+
+const roomBullets = new Map();
+const roomSquares = new Map();
+let nextBulletId = 1;
+let nextSquareId = 1;
+
+function getRoomBullets(room) {
+  if (!roomBullets.has(room)) roomBullets.set(room, []);
+  return roomBullets.get(room);
+}
+
+function getRoomSquares(room) {
+  if (!roomSquares.has(room)) roomSquares.set(room, []);
+  return roomSquares.get(room);
+}
+
+function addBullet(room, data) {
+  const b = {
+    id: 'bullet_' + (nextBulletId++),
+    ownerId: data.ownerId,
+    x: data.x,
+    y: data.y,
+    angle: data.angle,
+    speed: (data.speed || 0.4) * 0.7,
+    damage: data.damage || 20,
+    size: (data.size || 6) * 0.7,
+    lifetime: data.lifetime != null ? data.lifetime : 3000,
+    penetrating: !!data.penetrating,
+    weight: data.weight != null ? data.weight : 1,
+    maxRange: data.maxRange != null ? data.maxRange : null,
+    originX: data.x,
+    originY: data.y,
+    hp: data.hp != null ? data.hp : null,
+    hitTargets: [],
+  };
+  getRoomBullets(room).push(b);
+  return b;
+}
+
+function addSquare(room, data) {
+  const now = Date.now();
+  const sq = {
+    id: 'sq_' + (nextSquareId++),
+    ownerId: data.ownerId,
+    x: data.x,
+    y: data.y,
+    vx: data.vx != null ? data.vx : 0,
+    vy: data.vy != null ? data.vy : 0,
+    damage: data.damage || 50,
+    hp: data.hp != null ? data.hp : 800,
+    size: data.size != null ? data.size : 25,
+    duration: data.duration != null ? data.duration : 6000,
+    rarity: data.rarity || 'common',
+    weight: data.weight != null ? data.weight : 1,
+    spawnedAt: now,
+    isRiotTrap: !!data.isRiotTrap,
+  };
+  getRoomSquares(room).push(sq);
+  return sq;
+}
+
+function getOwnerPosition(room, ownerId, roomPlayers) {
+  const players = roomPlayers.get(room);
+  if (!players) return { x: 0, y: 0 };
+  const state = players.get(ownerId);
+  if (!state) return { x: 0, y: 0 };
+  return { x: state.x || 0, y: state.y || 0 };
+}
+
+/**
+ * Run one game tick for the room (bullets and squares update, collision with mobs). Returns { mobsChanged, killPayloads }.
+ */
+function tick(room, dtMs, roomPlayers) {
+  const bullets = getRoomBullets(room);
+  const squares = getRoomSquares(room);
+  const m = getRoomMobs(room);
+  const killPayloads = [];
+
+  for (const bullet of bullets) {
+    bullet.x += Math.cos(bullet.angle) * bullet.speed * dtMs;
+    bullet.y += Math.sin(bullet.angle) * bullet.speed * dtMs;
+    bullet.lifetime -= dtMs;
+    if (bullet.maxRange != null && distance(bullet.x, bullet.y, bullet.originX, bullet.originY) > bullet.maxRange)
+      bullet.lifetime = 0;
+  }
+  const bulletsToRemove = new Set();
+  for (const bullet of bullets) {
+    if (bullet.lifetime <= 0) {
+      bulletsToRemove.add(bullet);
+      continue;
+    }
+    const ownerPos = getOwnerPosition(room, bullet.ownerId, roomPlayers);
+    const ownerX = ownerPos.x;
+    const ownerY = ownerPos.y;
+    if (bullet.penetrating) {
+      for (const food of m.foods) {
+        if (bullet.hp != null && bullet.hp <= 0) break;
+        if (bullet.hitTargets.includes(food.id)) continue;
+        if (distance(bullet.x, bullet.y, food.x, food.y) < bullet.size + food.size) {
+          bullet.hitTargets.push(food.id);
+          const result = hitMob(room, food.id, 'food', bullet.damage, ownerX, ownerY);
+          if (result.killed && result.killPayload) killPayloads.push({ socketId: bullet.ownerId, payload: result.killPayload });
+          if (bullet.hp != null) bullet.hp -= 1;
+          if (bullet.hp != null && bullet.hp <= 0) bulletsToRemove.add(bullet);
+        }
+      }
+      for (const beetle of m.beetles) {
+        if (bullet.hp != null && bullet.hp <= 0) break;
+        if (bullet.hitTargets.includes(beetle.id)) continue;
+        if (ellipseOverlapsCircle(beetle, bullet.x, bullet.y, bullet.size)) {
+          bullet.hitTargets.push(beetle.id);
+          const result = hitMob(room, beetle.id, 'beetle', bullet.damage, ownerX, ownerY);
+          if (result.killed && result.killPayload) killPayloads.push({ socketId: bullet.ownerId, payload: result.killPayload });
+          if (bullet.hp != null) bullet.hp -= 1;
+          if (bullet.hp != null && bullet.hp <= 0) bulletsToRemove.add(bullet);
+        }
+      }
+    } else {
+      let hit = false;
+      for (const food of m.foods) {
+        if (distance(bullet.x, bullet.y, food.x, food.y) < bullet.size + food.size) {
+          const result = hitMob(room, food.id, 'food', bullet.damage, ownerX, ownerY);
+          if (result.killed && result.killPayload) killPayloads.push({ socketId: bullet.ownerId, payload: result.killPayload });
+          hit = true;
+          break;
+        }
+      }
+      if (!hit) {
+        for (const beetle of m.beetles) {
+          if (ellipseOverlapsCircle(beetle, bullet.x, bullet.y, bullet.size)) {
+            const result = hitMob(room, beetle.id, 'beetle', bullet.damage, ownerX, ownerY);
+            if (result.killed && result.killPayload) killPayloads.push({ socketId: bullet.ownerId, payload: result.killPayload });
+            hit = true;
+            break;
+          }
+        }
+      }
+      if (hit) bulletsToRemove.add(bullet);
+    }
+  }
+  const newBullets = bullets.filter((b) => !bulletsToRemove.has(b));
+  roomBullets.set(room, newBullets);
+
+  for (const sq of squares) {
+    sq.duration -= dtMs;
+    sq.x += sq.vx * (dtMs / 1000);
+    sq.y += sq.vy * (dtMs / 1000);
+  }
+  const sqDamage = 50 * (dtMs / 1000);
+  for (const sq of squares) {
+    if (sq.duration <= 0) continue;
+    const dmg = (sq.damage || 50) * (dtMs / 1000);
+    const ownerPos = getOwnerPosition(room, sq.ownerId, roomPlayers);
+    for (const food of m.foods) {
+      if (distance(sq.x, sq.y, food.x, food.y) < sq.size + food.size) {
+        const result = hitMob(room, food.id, 'food', dmg, ownerPos.x, ownerPos.y);
+        if (result.killed && result.killPayload) killPayloads.push({ socketId: sq.ownerId, payload: result.killPayload });
+      }
+    }
+    for (const beetle of m.beetles) {
+      if (ellipseOverlapsCircle(beetle, sq.x, sq.y, sq.size)) {
+        const result = hitMob(room, beetle.id, 'beetle', dmg, ownerPos.x, ownerPos.y);
+        if (result.killed && result.killPayload) killPayloads.push({ socketId: sq.ownerId, payload: result.killPayload });
+      }
+    }
+  }
+  const newSquares = squares.filter((s) => s.duration > 0);
+  roomSquares.set(room, newSquares);
+
+  return { killPayloads };
+}
+
+function getBulletsSnapshot(room) {
+  return getRoomBullets(room).map((b) => ({
+    id: b.id,
+    ownerId: b.ownerId,
+    x: b.x,
+    y: b.y,
+    angle: b.angle,
+    size: b.size,
+    lifetime: b.lifetime,
+  }));
+}
+
+function getSquaresSnapshot(room) {
+  return getRoomSquares(room).map((s) => ({
+    id: s.id,
+    ownerId: s.ownerId,
+    x: s.x,
+    y: s.y,
+    vx: s.vx,
+    vy: s.vy,
+    damage: s.damage,
+    hp: s.hp,
+    size: s.size,
+    duration: s.duration,
+    rarity: s.rarity,
+    spawnedAt: s.spawnedAt,
+  }));
+}
+
+function clearRoom(room) {
+  roomBullets.set(room, []);
+  roomSquares.set(room, []);
+}
+
+module.exports = {
+  getRoomBullets,
+  getRoomSquares,
+  addBullet,
+  addSquare,
+  tick,
+  getBulletsSnapshot,
+  getSquaresSnapshot,
+  clearRoom,
+};

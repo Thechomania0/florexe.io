@@ -258,6 +258,12 @@ function startGame(gamemode) {
           gameSocket.on('mobs', (data) => {
             if (game) game.setMobsFromServer(data);
           });
+          gameSocket.on('bullets', (data) => {
+            if (game) game.setBulletsFromServer(data);
+          });
+          gameSocket.on('squares', (data) => {
+            if (game) game.setSquaresFromServer(data);
+          });
           gameSocket.on('kill', (payload) => {
             if (game) game.applyKillReward(payload);
           });

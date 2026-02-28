@@ -58,6 +58,59 @@ export class Game {
     this.otherPlayers = [];
     /** When set, mobs are synced from server (join/hit/mobs). No local spawn. */
     this.multiplayerSocket = null;
+    /** Server-authoritative bullets and squares (when multiplayer). Replaced from server each tick. */
+    this.serverBullets = [];
+    this.serverSquares = [];
+  }
+
+  /** When multiplayer: emit to server. Otherwise add to game.bullets. */
+  addBullet(bullet) {
+    if (this.multiplayerSocket && bullet) {
+      this.multiplayerSocket.emit('shoot', {
+        x: bullet.x,
+        y: bullet.y,
+        angle: bullet.angle,
+        damage: bullet.damage,
+        size: bullet.size / 0.7,
+        speed: bullet.speed / 0.7,
+        lifetime: bullet.lifetime,
+        penetrating: bullet.penetrating,
+        weight: bullet.weight,
+        maxRange: bullet.maxRange != null ? bullet.maxRange : undefined,
+        hp: bullet.hp != null ? bullet.hp : undefined,
+      });
+      return;
+    }
+    if (bullet) this.bullets.push(bullet);
+  }
+
+  /** When multiplayer: emit to server. Otherwise add to game.squares. */
+  addSquare(sq) {
+    if (this.multiplayerSocket && sq) {
+      this.multiplayerSocket.emit('square', {
+        x: sq.x,
+        y: sq.y,
+        vx: sq.vx,
+        vy: sq.vy,
+        damage: sq.damage,
+        hp: sq.hp,
+        size: sq.size,
+        duration: sq.duration,
+        rarity: sq.rarity,
+        weight: sq.weight,
+        isRiotTrap: sq.isRiotTrap,
+      });
+      return;
+    }
+    if (sq) this.squares.push(sq);
+  }
+
+  setBulletsFromServer(list) {
+    this.serverBullets = Array.isArray(list) ? list : [];
+  }
+
+  setSquaresFromServer(list) {
+    this.serverSquares = Array.isArray(list) ? list : [];
   }
 
   setMultiplayerSocket(socket) {
@@ -470,6 +523,7 @@ export class Game {
     }
 
     const bulletsToRemove = new Set();
+    if (!this.multiplayerSocket) {
     for (const bullet of this.bullets) {
       bullet.update(dt);
       if (bullet.lifetime <= 0) {
@@ -677,6 +731,7 @@ export class Game {
       }
     }
     this.squares = this.squares.filter(s => !s.isExpired());
+    }
 
     this.spawnTimer += dt;
     if (!this.multiplayerSocket && this.spawnTimer >= FOOD_SPAWN_INTERVAL_MS) {
@@ -887,12 +942,37 @@ export class Game {
       ctx.restore();
     }
 
+    if (this.multiplayerSocket) {
+      for (const b of this.serverBullets) {
+        ctx.save();
+        ctx.fillStyle = '#1ca8c9';
+        ctx.strokeStyle = '#4a4a4a';
+        ctx.lineWidth = Math.max(1, 3 / scale);
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, (b.size || 6) * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+      for (const sq of this.serverSquares) {
+        ctx.save();
+        ctx.translate(sq.x, sq.y);
+        const fillColor = getRarityColor(sq.rarity || 'common');
+        ctx.fillStyle = fillColor;
+        ctx.strokeStyle = '#4a4a4a';
+        ctx.lineWidth = 2 / scale;
+        ctx.fillRect(-sq.size, -sq.size, sq.size * 2, sq.size * 2);
+        ctx.strokeRect(-sq.size, -sq.size, sq.size * 2, sq.size * 2);
+        ctx.restore();
+      }
+    } else {
     for (const sq of this.squares) {
       sq.draw(ctx, scale);
     }
 
     for (const bullet of this.bullets) {
       bullet.draw(ctx, scale);
+    }
     }
 
     for (const op of this.otherPlayers) {
