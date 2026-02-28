@@ -103,8 +103,9 @@ function startGame(gamemode) {
         chatEl.appendChild(line);
         chatEl.scrollTop = chatEl.scrollHeight;
       };
-      const savedState = await (async () => {
+      const progressResult = await (async () => {
         const apiBase = window.FLOREXE_API_URL || '';
+        const onProduction = !!apiBase;
         let auth = null;
         try {
           const s = localStorage.getItem('florexe_auth');
@@ -120,18 +121,30 @@ function startGame(gamemode) {
               const data = await res.json();
               if (data && typeof data === 'object' && (Array.isArray(data.inventory) || typeof data.level === 'number')) {
                 return {
-                  inventory: Array.isArray(data.inventory) ? data.inventory : [],
-                  hand: Array.isArray(data.hand) ? data.hand : [],
-                  equippedTank: data.equippedTank && typeof data.equippedTank === 'object' ? data.equippedTank : null,
-                  equippedBody: data.equippedBody && typeof data.equippedBody === 'object' ? data.equippedBody : null,
-                  level: typeof data.level === 'number' && data.level >= 1 ? Math.min(100, data.level) : 1,
-                  xp: typeof data.xp === 'number' ? data.xp : 0,
-                  stars: typeof data.stars === 'number' ? data.stars : 0,
-                  score: typeof data.score === 'number' ? data.score : 0,
+                  state: {
+                    inventory: Array.isArray(data.inventory) ? data.inventory : [],
+                    hand: Array.isArray(data.hand) ? data.hand : [],
+                    equippedTank: data.equippedTank && typeof data.equippedTank === 'object' ? data.equippedTank : null,
+                    equippedBody: data.equippedBody && typeof data.equippedBody === 'object' ? data.equippedBody : null,
+                    level: typeof data.level === 'number' && data.level >= 1 ? Math.min(100, data.level) : 1,
+                    xp: typeof data.xp === 'number' ? data.xp : 0,
+                    stars: typeof data.stars === 'number' ? data.stars : 0,
+                    score: typeof data.score === 'number' ? data.score : 0,
+                  },
+                  loadSource: 'server',
+                  hadAuth: true,
+                  serverError: null,
+                  onProduction,
                 };
               }
             }
-          } catch (e) {}
+            if (res.status === 401) {
+              try { localStorage.removeItem('florexe_auth'); } catch (e2) {}
+              return { state: null, loadSource: null, hadAuth: true, serverError: '401', onProduction };
+            }
+          } catch (e) {
+            return { state: null, loadSource: null, hadAuth: true, serverError: 'network', onProduction };
+          }
         }
         let fromLocal = null;
         try {
@@ -162,8 +175,16 @@ function startGame(gamemode) {
             }).catch(() => {});
           } catch (e) {}
         }
-        return fromLocal;
+        return {
+          state: fromLocal,
+          loadSource: fromLocal ? 'local' : null,
+          hadAuth: !!auth?.accessToken,
+          serverError: null,
+          onProduction,
+        };
       })();
+      const savedState = progressResult.state ?? null;
+      const loadMeta = progressResult;
       game.start(savedState).then(() => {
         requestAnimationFrame(() => {
           const elapsed = Date.now() - loadingShownAt;
@@ -197,6 +218,26 @@ function startGame(gamemode) {
       setupCrafting(player);
       setupGallery(player);
       setupChat();
+
+      if (loadMeta) {
+        const chatEl = document.getElementById('chatMessages');
+        const push = (text) => {
+          if (!chatEl) return;
+          const line = document.createElement('div');
+          line.className = 'chat-msg chat-msg-system';
+          line.textContent = text;
+          chatEl.appendChild(line);
+          chatEl.scrollTop = chatEl.scrollHeight;
+        };
+        if (loadMeta.onProduction && !loadMeta.hadAuth) {
+          push('[System] You\'re not logged in. Click "Login with Discord" on the menu to save and load progress across devices and incognito.');
+        } else if (loadMeta.serverError === '401') {
+          push('[System] Session expired. Please log in again from the menu to sync progress.');
+          updateAuthDisplay();
+        } else if (loadMeta.serverError === 'network') {
+          push('[System] Could not load progress from server. Check your connection or try logging in again from the menu.');
+        }
+      }
 
       lastTime = performance.now();
       if (animationId) cancelAnimationFrame(animationId);
@@ -2059,7 +2100,8 @@ function updateAuthDisplay() {
     const origin = (window.location.origin.startsWith('http://') && !/^(localhost|127\.0\.0\.1)$/.test(window.location.hostname))
       ? 'https://' + window.location.host : window.location.origin;
     const redirectUri = origin + (base || '/') + 'auth/discord';
-    wrap.innerHTML = '<a href="https://discord.com/oauth2/authorize?client_id=1476693949090500708&response_type=token&redirect_uri=' + encodeURIComponent(redirectUri) + '&scope=identify" id="menuLoginBtn" class="menu-login-btn">Login with Discord</a>';
+    const apiHint = window.FLOREXE_API_URL ? '<p class="menu-login-hint">Log in to save and load progress across devices and incognito.</p>' : '';
+    wrap.innerHTML = apiHint + '<a href="https://discord.com/oauth2/authorize?client_id=1476693949090500708&response_type=token&redirect_uri=' + encodeURIComponent(redirectUri) + '&scope=identify" id="menuLoginBtn" class="menu-login-btn">Login with Discord</a>';
     const mapWrap = document.getElementById('menuMapEditorWrap');
     if (mapWrap) mapWrap.style.display = 'none';
   }

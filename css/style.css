@@ -77,6 +77,12 @@ body {
   background: #4752c4;
 }
 
+.menu-login-hint {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.75);
+  margin: 0 0 0.5rem 0;
+}
+
 .menu-user-wrap {
   display: inline-flex;
   align-items: center;
