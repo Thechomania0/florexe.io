@@ -1,78 +1,61 @@
 /**
- * Server-side map: built-in walls (Centralia Plains) for spawn validation.
+ * Server-side map: Centralia Plains (server/Centralia_plains.json) is the default.
  * Mobs must spawn in playable areas, not inside walls.
  */
-const WALL_HALF_WIDTH = 120;
+const fs = require('fs');
+const path = require('path');
 
-const CORRIDOR_HALF = 280;
-const WINDING_WAYPOINTS = [
-  [900, 900],
-  [900, 2200],
-  [-400, 2200],
-  [-400, 3800],
-  [-1800, 3800],
-  [-1800, 5200],
-  [-3200, 5200],
-  [-3200, 6600],
-  [-4600, 6600],
-  [-4600, 7600],
-  [-5800, 7600],
-  [-6800, 7600],
-  [-7200, 7200],
-];
+const CENTRALIA_PATH = path.join(__dirname, 'Centralia_plains.json');
 
-function buildWallsFromWaypoints(waypoints, halfWidth) {
-  const walls = [];
-  for (let i = 0; i < waypoints.length - 1; i++) {
-    const [ax, ay] = waypoints[i];
-    const [bx, by] = waypoints[i + 1];
-    const dx = bx - ax;
-    const dy = by - ay;
-    const len = Math.hypot(dx, dy) || 1;
-    const nx = -dy / len;
-    const ny = dx / len;
-    walls.push({ x1: ax + nx * halfWidth, y1: ay + ny * halfWidth, x2: bx + nx * halfWidth, y2: by + ny * halfWidth });
-    walls.push({ x1: ax - nx * halfWidth, y1: ay - ny * halfWidth, x2: bx - nx * halfWidth, y2: by - ny * halfWidth });
+// Wall half-width for custom map (40-unit grid) - matches client mapData
+const CUSTOM_WALL_HALF_WIDTH = 20;
+const BUILT_IN_WALL_HALF_WIDTH = 120;
+
+let defaultMap = null;
+
+function loadDefaultMap() {
+  if (defaultMap) return defaultMap;
+  try {
+    const data = JSON.parse(fs.readFileSync(CENTRALIA_PATH, 'utf8'));
+    if (data && Array.isArray(data.walls) && data.walls.length > 0) {
+      defaultMap = { walls: data.walls, zones: data.zones || null };
+      return defaultMap;
+    }
+  } catch (e) {
+    console.warn('[map] Could not load Centralia_plains.json:', e.message);
   }
-  return walls;
+  defaultMap = { walls: [], zones: null };
+  return defaultMap;
 }
 
-function buildSectionWalls() {
-  const n = 1200;
-  const g = 200;
-  const topY = n + g;
-  const gapMin = 600;
-  const gapMax = 1200;
-  return [
-    { x1: -n - g, y1: topY, x2: -n - g, y2: -n - g },
-    { x1: -n - g, y1: -n - g, x2: n + g, y2: -n - g },
-    { x1: n + g, y1: -n - g, x2: n + g, y2: topY },
-    { x1: n + g, y1: topY, x2: gapMax, y2: topY },
-    { x1: gapMin, y1: topY, x2: -n - g, y2: topY },
-  ];
-}
-
-const BUILT_IN_WALLS = [...buildSectionWalls(), ...buildWallsFromWaypoints(WINDING_WAYPOINTS, CORRIDOR_HALF)];
-
-function isPointInWall(x, y, walls = BUILT_IN_WALLS) {
-  for (const w of walls) {
-    const dx = w.x2 - w.x1;
-    const dy = w.y2 - w.y1;
+function isPointInWall(x, y, walls) {
+  const map = loadDefaultMap();
+  const w = walls || map.walls;
+  const half = map.zones && map.zones.grid ? CUSTOM_WALL_HALF_WIDTH : BUILT_IN_WALL_HALF_WIDTH;
+  for (const seg of w) {
+    const dx = seg.x2 - seg.x1;
+    const dy = seg.y2 - seg.y1;
     const len = Math.hypot(dx, dy) || 1;
-    const t = Math.max(0, Math.min(1, ((x - w.x1) * dx + (y - w.y1) * dy) / (len * len)));
-    const px = w.x1 + t * dx;
-    const py = w.y1 + t * dy;
+    const t = Math.max(0, Math.min(1, ((x - seg.x1) * dx + (y - seg.y1) * dy) / (len * len)));
+    const px = seg.x1 + t * dx;
+    const py = seg.y1 + t * dy;
     const dist = Math.hypot(x - px, y - py);
-    if (dist < WALL_HALF_WIDTH) return true;
+    if (dist < half) return true;
   }
   return false;
 }
 
+function getDefaultMap() {
+  return loadDefaultMap();
+}
+
+/** @deprecated Use getDefaultMap() */
 function getBuiltInWalls() {
-  return BUILT_IN_WALLS;
+  return loadDefaultMap().walls;
 }
 
 module.exports = {
   isPointInWall,
+  getDefaultMap,
   getBuiltInWalls,
 };

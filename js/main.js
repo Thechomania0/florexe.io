@@ -60,12 +60,16 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 
-/** Load custom map from data/custom-map*.json when localStorage has no map. Default map = what new users see when cache is cleared. */
+/** Load default map when localStorage has no map. Centralia Plains (server/Centralia_plains.json) is the default for the entire game. */
 async function loadCustomMapFromRepo(gamemode) {
   try {
     if (localStorage.getItem('florexe_custom_zones')) return;
     const base = document.querySelector('base')?.getAttribute('href') || './';
-    const paths = gamemode && gamemode !== 'ffa' ? [base + 'data/custom-map-' + gamemode + '.json', base + 'data/custom-map.json'] : [base + 'data/custom-map.json'];
+    const paths = [
+      base + 'server/Centralia_plains.json',
+      ...(gamemode && gamemode !== 'ffa' ? [base + 'data/custom-map-' + gamemode + '.json'] : []),
+      base + 'data/custom-map.json',
+    ];
     let data = null;
     for (const url of paths) {
       const r = await fetch(url);

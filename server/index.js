@@ -225,7 +225,7 @@ const {
   getSquaresSnapshot,
   removePlayerEntities,
 } = require('./gameTick.js');
-const { getBuiltInWalls } = require('./map.js');
+const { getDefaultMap } = require('./map.js');
 
 /** Room name from gamemode. state = { x, y, angle, hp, maxHp, level, displayName, equippedTank, equippedBody, size }. */
 const roomPlayers = new Map();
@@ -292,7 +292,7 @@ io.on('connection', (socket) => {
     broadcastPlayers(room);
     startSpawnInterval(room);
     startGameTick(room);
-    socket.emit('map', { walls: getBuiltInWalls() });
+    socket.emit('map', getDefaultMap());
     socket.emit('mobs', getMobsSnapshot(room));
     socket.emit('bullets', getBulletsSnapshot(room));
     socket.emit('squares', getSquaresSnapshot(room));

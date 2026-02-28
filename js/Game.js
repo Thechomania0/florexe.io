@@ -61,8 +61,9 @@ export class Game {
     /** Server-authoritative bullets and squares (when multiplayer). Replaced from server each tick. */
     this.serverBullets = [];
     this.serverSquares = [];
-    /** Map data from server when multiplayer (walls). Client uses this instead of mapData.js. */
+    /** Map data from server when multiplayer (walls, zones). Client uses this instead of mapData.js. */
     this.serverWalls = null;
+    this.serverZones = null;
   }
 
   /** When multiplayer: emit to server. Otherwise add to game.bullets. */
@@ -118,12 +119,13 @@ export class Game {
 
   setMultiplayerSocket(socket) {
     this.multiplayerSocket = socket;
-    if (!socket) this.serverWalls = null;
+    if (!socket) { this.serverWalls = null; this.serverZones = null; }
   }
 
-  /** Set map data from server (walls) so client uses server map in multiplayer. */
+  /** Set map data from server (walls, zones) so client uses server map in multiplayer. */
   setMapFromServer(data) {
     if (data && Array.isArray(data.walls)) this.serverWalls = data.walls;
+    if (data && data.zones && Array.isArray(data.zones.grid)) this.serverZones = data.zones;
   }
 
   /** Walls for collision/spawn: server map when multiplayer, else client mapData. */

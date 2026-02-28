@@ -14,7 +14,7 @@ import { MAP_SIZE } from './config.js';
 
 const HALF = MAP_SIZE / 2;
 
-/** Set to an array of { x1, y1, x2, y2 } to use your own walls (e.g. from map-editor.html). Leave null to use built-in walls. */
+/** Set to an array of { x1, y1, x2, y2 } to use custom walls in code. Leave null; default map is Centralia Plains. */
 export let CUSTOM_WALLS = null;
 
 // ============== ZONES (rectangles: minX, maxX, minY, maxY) ==============
@@ -258,60 +258,9 @@ export function getSpawnPoint() {
   return { x: 0, y: 0 };
 }
 
-const CORRIDOR_HALF = 280;
-const WINDING_WAYPOINTS = [
-  [900, 900],
-  [900, 2200],
-  [-400, 2200],
-  [-400, 3800],
-  [-1800, 3800],
-  [-1800, 5200],
-  [-3200, 5200],
-  [-3200, 6600],
-  [-4600, 6600],
-  [-4600, 7600],
-  [-5800, 7600],
-  [-6800, 7600],
-  [-7200, 7200],
-];
-
-function buildWallsFromWaypoints(waypoints, halfWidth) {
-  const walls = [];
-  for (let i = 0; i < waypoints.length - 1; i++) {
-    const [ax, ay] = waypoints[i];
-    const [bx, by] = waypoints[i + 1];
-    const dx = bx - ax;
-    const dy = by - ay;
-    const len = Math.hypot(dx, dy) || 1;
-    const nx = -dy / len;
-    const ny = dx / len;
-    walls.push({ x1: ax + nx * halfWidth, y1: ay + ny * halfWidth, x2: bx + nx * halfWidth, y2: by + ny * halfWidth });
-    walls.push({ x1: ax - nx * halfWidth, y1: ay - ny * halfWidth, x2: bx - nx * halfWidth, y2: by - ny * halfWidth });
-  }
-  return walls;
-}
-
-function buildSectionWalls() {
-  const n = 1200;
-  const g = 200;
-  const topY = n + g;
-  const gapMin = 600;
-  const gapMax = 1200;
-  return [
-    { x1: -n - g, y1: topY, x2: -n - g, y2: -n - g },
-    { x1: -n - g, y1: -n - g, x2: n + g, y2: -n - g },
-    { x1: n + g, y1: -n - g, x2: n + g, y2: topY },
-    { x1: n + g, y1: topY, x2: gapMax, y2: topY },
-    { x1: gapMin, y1: topY, x2: -n - g, y2: topY },
-  ];
-}
-
-export const WALLS = (CUSTOM_WALLS && CUSTOM_WALLS.length > 0)
-  ? CUSTOM_WALLS
-  : [...buildSectionWalls(), ...buildWallsFromWaypoints(WINDING_WAYPOINTS, CORRIDOR_HALF)];
-
-/** Use this in the game: returns walls from localStorage (map editor save) or built-in. Reload the game after saving in the editor. */
+/** Returns walls from localStorage or CUSTOM_WALLS. Centralia Plains is loaded via loadCustomMapFromRepo when localStorage is empty. */
 export function getWalls() {
+  if (CUSTOM_WALLS && Array.isArray(CUSTOM_WALLS) && CUSTOM_WALLS.length > 0) return CUSTOM_WALLS;
   try {
     const s = localStorage.getItem('florexe_custom_walls');
     if (s) {
@@ -319,7 +268,7 @@ export function getWalls() {
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch (e) {}
-  return WALLS;
+  return [];
 }
 
 /** Returns filled rectangles for every wall cell from the custom map editor grid. 1:1 with editor (no flip). */
