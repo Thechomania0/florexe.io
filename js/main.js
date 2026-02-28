@@ -1,6 +1,6 @@
 import { Game } from './Game.js';
 import { RARITY_COLORS, CRAFT_CHANCES, RARITIES, TANK_UPGRADES, BODY_UPGRADES, MAP_SIZE, FOOD_CONFIG, INFERNO_BASE_RADIUS, SHOP_ITEM_PRICES } from './config.js';
-import { WALL_HALF_WIDTH, getWalls, getMergedWallFills, getPlayableBounds } from './mapData.js';
+import { WALL_HALF_WIDTH } from './mapData.js';
 import { getRarityColor, darkenColor } from './utils.js';
 import { getIconUrl as getTankAssetIconUrl, getGunIconUrl, getBodyIconUrl, getBodyIconUrlByRarity, getGunIconUrlByRarity, getPetalIconUrlByRarity, loadTankAssets, GUN_SUBTYPES, BODY_SUBTYPES } from './TankAssets.js';
 
@@ -2387,7 +2387,7 @@ function drawMinimap() {
   minimapCtx.fillStyle = 'rgba(230, 230, 230, 0.95)';
   minimapCtx.fillRect(0, 0, w, h);
 
-  const playableBounds = getPlayableBounds();
+  const playableBounds = game.getPlayableBoundsForGame();
   if (playableBounds) {
     const { minX, maxX, minY, maxY } = playableBounds;
     minimapCtx.fillStyle = 'rgba(30, 30, 30, 0.95)';
@@ -2417,7 +2417,7 @@ function drawMinimap() {
     }
   }
 
-  const wallFills = getMergedWallFills();
+  const wallFills = game.getWallFillsForGame();
   if (wallFills.length > 0) {
     minimapCtx.fillStyle = 'rgba(30, 30, 30, 0.95)';
     for (const r of wallFills) {
@@ -2435,7 +2435,7 @@ function drawMinimap() {
     minimapCtx.lineJoin = 'round';
     const wallW = Math.max(2, (2 * WALL_HALF_WIDTH) * scale);
     minimapCtx.lineWidth = wallW;
-    for (const wall of getWalls()) {
+    for (const wall of game.getWallsForGame()) {
       const a = toMinimap(wall.x1, wall.y1);
       const b = toMinimap(wall.x2, wall.y2);
       minimapCtx.beginPath();

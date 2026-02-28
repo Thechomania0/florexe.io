@@ -323,10 +323,9 @@ export function getMergedWallFills() {
   return buildMergedWallFillsFromZones(zones);
 }
 
-/** Axis-aligned bounds of playable area (non-wall cells). For custom map only; returns null for built-in. */
-export function getPlayableBounds() {
-  const zones = getCustomZones();
-  if (!zones || !zones.grid) return null;
+/** Build playable bounds from any zones object. Used for both localStorage and server map. */
+export function getPlayableBoundsFromZones(zones) {
+  if (!zones || !Array.isArray(zones.grid) || zones.grid.length !== CUSTOM_GRID_SIZE) return null;
   let minI = CUSTOM_GRID_SIZE, maxI = -1, minJ = CUSTOM_GRID_SIZE, maxJ = -1;
   for (let i = 0; i < CUSTOM_GRID_SIZE; i++) {
     for (let j = 0; j < CUSTOM_GRID_SIZE; j++) {
@@ -345,6 +344,13 @@ export function getPlayableBounds() {
     minY: CUSTOM_GRID_MIN + minJ * CUSTOM_CELL_WORLD,
     maxY: CUSTOM_GRID_MIN + (maxJ + 1) * CUSTOM_CELL_WORLD,
   };
+}
+
+/** Axis-aligned bounds of playable area (non-wall cells). For custom map only; returns null for built-in. */
+export function getPlayableBounds() {
+  const zones = getCustomZones();
+  if (!zones || !zones.grid) return null;
+  return getPlayableBoundsFromZones(zones);
 }
 
 /** Filter walls to those whose bbox intersects (cx-margin, cy-margin, cx+margin, cy+margin). */

@@ -1,5 +1,5 @@
 import { MAP_SIZE, FOOD_SPAWN_HALF, INFERNO_BASE_RADIUS, BODY_UPGRADES } from './config.js';
-import { getSpawnPoint, getRandomPointAndWeights, getWalls, getMergedWallFills, buildMergedWallFillsFromZones, getPlayableBounds, WALL_HALF_WIDTH, getWallHalfWidth, resolveWallCollision, resolveWallCollisionRects, isPointInWall, wallsNear } from './mapData.js';
+import { getSpawnPoint, getRandomPointAndWeights, getWalls, getMergedWallFills, buildMergedWallFillsFromZones, getPlayableBounds, getPlayableBoundsFromZones, WALL_HALF_WIDTH, getWallHalfWidth, resolveWallCollision, resolveWallCollisionRects, isPointInWall, wallsNear } from './mapData.js';
 
 const FOOD_TARGET_COUNT = 800;    // 50% of previous 1600 (reduce spawn rate by 50%)
 const FOOD_SPAWN_BATCH = 140;    // 50% of previous 280
@@ -138,6 +138,13 @@ export class Game {
     if (this.multiplayerSocket && this.serverZones && this.serverZones.grid)
       return buildMergedWallFillsFromZones(this.serverZones);
     return getMergedWallFills();
+  }
+
+  /** Playable bounds for minimap/clip. In multiplayer, use server zones so singleplayer layer is not mixed in. */
+  getPlayableBoundsForGame() {
+    if (this.multiplayerSocket && this.serverZones && this.serverZones.grid)
+      return getPlayableBoundsFromZones(this.serverZones);
+    return getPlayableBounds();
   }
 
   /** Replace foods and beetles from server snapshot. Each item: { id, x, y, rarity, hp, maxHp, size, weight, natural }. */
@@ -863,7 +870,7 @@ export class Game {
     const top = cam.y - halfHeight;
     const bottom = cam.y + halfHeight;
 
-    const playableBounds = getPlayableBounds();
+    const playableBounds = this.getPlayableBoundsForGame();
 
     /* ===========================
        GRID: draw first so walls can be drawn on top (no grid lines on black walls).
