@@ -153,12 +153,23 @@ export class Game {
     this.player.score += maxHp || 0;
     if (typeof stars === 'number' && stars > 0) this.player.stars += stars;
     if (drop && typeof drop === 'object' && drop.rarity) {
-      const dropX = typeof x === 'number' ? x : this.player.x;
-      const dropY = typeof y === 'number' ? y : this.player.y;
-      if (drop.type === 'petal' && drop.subtype === 'egg') {
-        this.addDrop(dropX, dropY, { type: 'petal', subtype: 'egg', rarity: drop.rarity }, this.player.id);
-      } else if (drop.type === 'body' || drop.type === 'tank') {
-        this.addDrop(dropX, dropY, { type: drop.type, subtype: drop.subtype || '', rarity: drop.rarity }, this.player.id);
+      let dropX = typeof x === 'number' ? x : null;
+      let dropY = typeof y === 'number' ? y : null;
+      if (dropX == null || dropY == null) {
+        const mob = mobType === 'beetle'
+          ? this.beetles.find((b) => b.id === mobId)
+          : this.foods.find((f) => f.id === mobId);
+        if (mob) {
+          dropX = mob.x;
+          dropY = mob.y;
+        }
+      }
+      if (dropX != null && dropY != null) {
+        if (drop.type === 'petal' && drop.subtype === 'egg') {
+          this.addDrop(dropX, dropY, { type: 'petal', subtype: 'egg', rarity: drop.rarity }, this.player.id);
+        } else if (drop.type === 'body' || drop.type === 'tank') {
+          this.addDrop(dropX, dropY, { type: drop.type, subtype: drop.subtype || '', rarity: drop.rarity }, this.player.id);
+        }
       }
     }
     if (mobType === 'beetle') {

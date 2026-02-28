@@ -5,11 +5,12 @@
  */
 const MAP_HALF = 8000;
 
-// Zone rects (minX, maxX, minY, maxY) - playable areas avoiding walls on built-in map
-const ZONE_NURSERY = { minX: -1200, maxX: 1200, minY: -1200, maxY: 1200 };
-const ZONE_ULTRA_SUPER = { minX: -MAP_HALF, maxX: -3500, minY: 3500, maxY: MAP_HALF };
-const ZONE_MYTHIC_BL = { minX: -MAP_HALF, maxX: -2500, minY: -MAP_HALF, maxY: -2500 };
-const ZONE_MYTHIC_TR = { minX: 2500, maxX: MAP_HALF, minY: 3500, maxY: MAP_HALF };
+// Zone rects (minX, maxX, minY, maxY) - playable areas matching client "Centralia Plains" built-in map
+const ZONE_NURSERY = { minX: -1200, maxX: 1200, minY: -1200, maxY: 1200, rarityWeights: { common: 60, uncommon: 40 } };
+const ZONE_ULTRA_SUPER = { minX: -MAP_HALF, maxX: -3500, minY: 3500, maxY: MAP_HALF, rarityWeights: { ultra: 55, super: 45 } };
+const ZONE_MYTHIC_BL = { minX: -MAP_HALF, maxX: -2500, minY: -MAP_HALF, maxY: -2500, rarityWeights: { mythic: 75, legendary: 25 } };
+const ZONE_MYTHIC_TR = { minX: 2500, maxX: MAP_HALF, minY: 3500, maxY: MAP_HALF, rarityWeights: { mythic: 75, legendary: 25 } };
+const RARE_EPIC_WEIGHTS = { rare: 50, epic: 50 };
 const ZONE_RARE_EPIC_RECTS = [
   { minX: -3500, maxX: -2500, minY: -2500, maxY: MAP_HALF },
   { minX: -2500, maxX: 2500, minY: -MAP_HALF, maxY: -2500 },
@@ -25,7 +26,8 @@ const ZONES_FOR_SPAWN = [
   { rect: null, weight: 10 },
 ];
 
-function getRandomPointInPlayableZone() {
+/** Returns { x, y, rarityWeights } so spawns use zone-based rarity (nursery = common/uncommon, corners = mythic/ultra/super, etc.). */
+function getRandomPointAndRarityInPlayableZone() {
   const total = ZONES_FOR_SPAWN.reduce((s, z) => s + z.weight, 0);
   let r = Math.random() * total;
   for (const { rect, weight } of ZONES_FOR_SPAWN) {
@@ -35,12 +37,14 @@ function getRandomPointInPlayableZone() {
         return {
           x: rect.minX + Math.random() * (rect.maxX - rect.minX),
           y: rect.minY + Math.random() * (rect.maxY - rect.minY),
+          rarityWeights: rect.rarityWeights,
         };
       }
       const z = ZONE_RARE_EPIC_RECTS[Math.floor(Math.random() * ZONE_RARE_EPIC_RECTS.length)];
       return {
         x: z.minX + Math.random() * (z.maxX - z.minX),
         y: z.minY + Math.random() * (z.maxY - z.minY),
+        rarityWeights: RARE_EPIC_WEIGHTS,
       };
     }
   }
@@ -48,6 +52,7 @@ function getRandomPointInPlayableZone() {
   return {
     x: z.minX + Math.random() * (z.maxX - z.minX),
     y: z.minY + Math.random() * (z.maxY - z.minY),
+    rarityWeights: RARE_EPIC_WEIGHTS,
   };
 }
 
@@ -94,15 +99,6 @@ function pickRandomWeighted(weights) {
   return entries[entries.length - 1][0];
 }
 
-function randomRarity(spawnType, m) {
-  let rarity = pickRandomWeighted(SPAWN_WEIGHTS);
-  if (rarity === 'super') {
-    if (spawnType === 'food' && m.hasNaturalSuperFood) rarity = 'ultra';
-    else if (spawnType === 'beetle' && m.hasNaturalSuperBeetle) rarity = 'ultra';
-  }
-  return rarity;
-}
-
 const roomMobs = new Map();
 
 function getRoomMobs(room) {
@@ -119,14 +115,23 @@ function getRoomMobs(room) {
   return roomMobs.get(room);
 }
 
+function randomRarityFromZone(rarityWeights, spawnType, m) {
+  let rarity = pickRandomWeighted(rarityWeights);
+  if (rarity === 'super') {
+    if (spawnType === 'food' && m.hasNaturalSuperFood) rarity = 'ultra';
+    else if (spawnType === 'beetle' && m.hasNaturalSuperBeetle) rarity = 'ultra';
+  }
+  return rarity;
+}
+
 function spawnFood(room) {
   const m = getRoomMobs(room);
   if (m.foods.length >= FOOD_TARGET) return;
-  const rarity = randomRarity('food', m);
+  const pt = getRandomPointAndRarityInPlayableZone();
+  const rarity = randomRarityFromZone(pt.rarityWeights, 'food', m);
   if (rarity === 'super') m.hasNaturalSuperFood = true;
   const cfg = FOOD_CONFIG[rarity];
   const id = 'f_' + (m.nextId++);
-  const pt = getRandomPointInPlayableZone();
   const food = {
     id,
     x: pt.x,
@@ -144,11 +149,11 @@ function spawnFood(room) {
 function spawnBeetle(room) {
   const m = getRoomMobs(room);
   if (m.beetles.length >= BEETLE_TARGET) return;
-  const rarity = randomRarity('beetle', m);
+  const pt = getRandomPointAndRarityInPlayableZone();
+  const rarity = randomRarityFromZone(pt.rarityWeights, 'beetle', m);
   if (rarity === 'super') m.hasNaturalSuperBeetle = true;
   const cfg = BEETLE_CONFIG[rarity];
   const id = 'b_' + (m.nextId++);
-  const pt = getRandomPointInPlayableZone();
   const beetle = {
     id,
     x: pt.x,
