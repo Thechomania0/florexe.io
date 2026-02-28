@@ -63,6 +63,8 @@ export class Game {
     this.serverSquares = [];
     /** Optimistic squares (multiplayer): shown immediately when firing; expired when server snapshot arrives. */
     this.pendingSquares = [];
+    /** Processed kill mobIds (multiplayer) to avoid applying the same kill reward twice (e.g. duplicate 'kill' events). */
+    this.processedKillIds = null;
     /** Map data from server when multiplayer (walls, zones). Client uses this instead of mapData.js. */
     this.serverWalls = null;
     this.serverZones = null;
@@ -260,28 +262,28 @@ export class Game {
     this.beetles = nextBeetles;
   }
 
-  /** Apply kill reward from server (stars, drop, xp, score) and remove mob by id. */
+  /** Apply kill reward from server (stars, drop, xp, score) and remove mob by id. Deduplicates by mobId so one kill = one reward. */
   applyKillReward(payload) {
     if (!payload || !this.player) return;
     const { mobId, mobType, rarity, maxHp, stars, drop, x, y } = payload;
+    if (this.multiplayerSocket && mobId != null) {
+      if (!this.processedKillIds) this.processedKillIds = new Set();
+      if (this.processedKillIds.has(mobId)) return;
+      this.processedKillIds.add(mobId);
+      if (this.processedKillIds.size > 500) {
+        const arr = Array.from(this.processedKillIds);
+        this.processedKillIds = new Set(arr.slice(-400));
+      }
+    }
     this.player.mobKills = this.player.mobKills || {};
     this.player.mobKills[rarity] = (this.player.mobKills[rarity] || 0) + 1;
     this.player.addXp((maxHp || 0) * 0.5);
     this.player.score += maxHp || 0;
     if (typeof stars === 'number' && stars > 0) this.player.stars += stars;
     if (drop && typeof drop === 'object' && drop.rarity) {
-      let dropX = typeof x === 'number' ? x : null;
-      let dropY = typeof y === 'number' ? y : null;
-      if (dropX == null || dropY == null) {
-        const mob = mobType === 'beetle'
-          ? this.beetles.find((b) => b.id === mobId)
-          : this.foods.find((f) => f.id === mobId);
-        if (mob) {
-          dropX = mob.x;
-          dropY = mob.y;
-        }
-      }
-      if (dropX != null && dropY != null) {
+      if (typeof x === 'number' || typeof y === 'number') {
+        const dropX = typeof x === 'number' ? x : 0;
+        const dropY = typeof y === 'number' ? y : 0;
         if (drop.type === 'petal' && drop.subtype === 'egg') {
           this.addDrop(dropX, dropY, { type: 'petal', subtype: 'egg', rarity: drop.rarity }, this.player.id);
         } else if (drop.type === 'body' || drop.type === 'tank') {
@@ -300,6 +302,7 @@ export class Game {
     this.bullets = [];
     this.squares = [];
     this.pendingSquares = [];
+    this.processedKillIds = null;
     this.drops = [];
     const { x: spawnX, y: spawnY } = getSpawnPoint();
     this.player = new Player('player1', spawnX, spawnY, this.gamemode);
@@ -346,6 +349,7 @@ export class Game {
     this.bullets = [];
     this.squares = [];
     this.pendingSquares = [];
+    this.processedKillIds = null;
     this.drops = [];
     this.foods = [];
     this.beetles = [];
@@ -539,12 +543,17 @@ export class Game {
     // Multiplayer: interpolate mob positions toward server to avoid teleporting every tick
     if (this.multiplayerSocket) {
       const LERP = 0.28;
-      const SNAP = 0.8;
+      const SNAP_CLOSE = 0.8;
+      const SNAP_FAR = 200;
       for (const food of this.foods) {
         if (food.serverX != null && food.serverY != null) {
           const dx = food.serverX - food.x;
           const dy = food.serverY - food.y;
-          if (Math.abs(dx) < SNAP && Math.abs(dy) < SNAP) {
+          const distSq = dx * dx + dy * dy;
+          if (distSq < SNAP_CLOSE * SNAP_CLOSE) {
+            food.x = food.serverX;
+            food.y = food.serverY;
+          } else if (distSq > SNAP_FAR * SNAP_FAR) {
             food.x = food.serverX;
             food.y = food.serverY;
           } else {
@@ -557,7 +566,11 @@ export class Game {
         if (beetle.serverX != null && beetle.serverY != null) {
           const dx = beetle.serverX - beetle.x;
           const dy = beetle.serverY - beetle.y;
-          if (Math.abs(dx) < SNAP && Math.abs(dy) < SNAP) {
+          const distSq = dx * dx + dy * dy;
+          if (distSq < SNAP_CLOSE * SNAP_CLOSE) {
+            beetle.x = beetle.serverX;
+            beetle.y = beetle.serverY;
+          } else if (distSq > SNAP_FAR * SNAP_FAR) {
             beetle.x = beetle.serverX;
             beetle.y = beetle.serverY;
           } else {
