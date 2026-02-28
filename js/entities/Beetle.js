@@ -33,8 +33,11 @@ export class Beetle {
     /** Idle state when no player in vision: 'rotate' | 'wait_after_rotate' | 'move' | 'wait_after_move'. */
     this.idlePhase = 'rotate';
     this.idleTimer = 0;
-    this.idleTargetAngle = Math.random() * Math.PI * 2;
     this.idleMoveRemaining = 0;
+    /** Remaining radians to rotate in current idle rotate step. */
+    this.idleRotateRemaining = 0.2 + Math.random() * (Math.PI * 2 - 0.4);
+    /** Next idle rotation is clockwise (true) or counter-clockwise (false). First rotation is CCW. */
+    this.idleRotateClockwise = false;
   }
 
   /** Radius of the oval hitbox in a given direction (angle in radians, in beetle-local space: 0 = along semiMajor). */
@@ -105,7 +108,7 @@ export class Beetle {
 
     this.playerInVision = false;
 
-    // Idle: rotate to random angle (slow) → wait 1–2s → move forward 30–60% of base distance → wait 1–2s → repeat
+    // Idle: rotate (CCW then CW alternating) → wait 1–2s → move forward 30–60% of base distance → wait 1–2s → repeat
     const IDLE_ROTATE_SPEED = 0.5; // radians per second
     const IDLE_MOVE_BASE = 50;
     const IDLE_MOVE_MIN = 0.3;
@@ -113,16 +116,13 @@ export class Beetle {
     const IDLE_SPEED = 40; // world units per second when moving forward in idle
 
     if (this.idlePhase === 'rotate') {
-      let diff = this.idleTargetAngle - this.facingAngle;
-      while (diff > Math.PI) diff -= Math.PI * 2;
-      while (diff < -Math.PI) diff += Math.PI * 2;
       const maxTurn = IDLE_ROTATE_SPEED * dtSec;
-      if (Math.abs(diff) <= maxTurn) {
-        this.facingAngle = this.idleTargetAngle;
+      const turn = Math.min(this.idleRotateRemaining, maxTurn);
+      this.facingAngle += this.idleRotateClockwise ? turn : -turn;
+      this.idleRotateRemaining -= turn;
+      if (this.idleRotateRemaining <= 0) {
         this.idlePhase = 'wait_after_rotate';
         this.idleTimer = 1000 + Math.random() * 1000;
-      } else {
-        this.facingAngle += Math.sign(diff) * maxTurn;
       }
       return;
     }
@@ -153,7 +153,8 @@ export class Beetle {
       this.idleTimer -= dt;
       if (this.idleTimer <= 0) {
         this.idlePhase = 'rotate';
-        this.idleTargetAngle = Math.random() * Math.PI * 2;
+        this.idleRotateClockwise = !this.idleRotateClockwise; // alternate: 2nd CW, 3rd CCW, 4th CW, ...
+        this.idleRotateRemaining = 0.2 + Math.random() * (Math.PI * 2 - 0.4); // random total rotation
       }
     }
   }
