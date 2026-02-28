@@ -203,6 +203,49 @@ export function getRarityWeightsForZone(zoneId) {
   return RARE_EPIC_WEIGHTS;
 }
 
+/** Get spawn point from a zones object (for server map / multiplayer). Returns { x, y } or null. */
+export function getSpawnPointFromZones(zones) {
+  if (!zones || !Array.isArray(zones.grid) || zones.grid.length !== CUSTOM_GRID_SIZE) return null;
+  const wallRects = buildMergedWallFillsFromZones(zones);
+  const inWall = (x, y) => isPointInWallRects(x, y, wallRects);
+
+  const spawnCells = [];
+  for (let i = 0; i < CUSTOM_GRID_SIZE; i++) {
+    for (let j = 0; j < CUSTOM_GRID_SIZE; j++) {
+      if (zones.grid[i] && zones.grid[i][j] === CUSTOM_CELL.SPAWN) spawnCells.push([i, j]);
+    }
+  }
+  if (spawnCells.length > 0) {
+    const margin = CUSTOM_CELL_WORLD * 0.2;
+    for (let k = 0; k < 200; k++) {
+      const [i, j] = spawnCells[Math.floor(Math.random() * spawnCells.length)];
+      const x = CUSTOM_GRID_MIN + (i + 0.5) * CUSTOM_CELL_WORLD + (Math.random() - 0.5) * margin;
+      const y = CUSTOM_GRID_MIN + (j + 0.5) * CUSTOM_CELL_WORLD + (Math.random() - 0.5) * margin;
+      if (!inWall(x, y)) return { x, y };
+    }
+    for (const [i, j] of spawnCells) {
+      const x = CUSTOM_GRID_MIN + (i + 0.5) * CUSTOM_CELL_WORLD;
+      const y = CUSTOM_GRID_MIN + (j + 0.5) * CUSTOM_CELL_WORLD;
+      if (!inWall(x, y)) return { x, y };
+    }
+  }
+  const nonWallCells = [];
+  for (let i = 0; i < CUSTOM_GRID_SIZE; i++) {
+    for (let j = 0; j < CUSTOM_GRID_SIZE; j++) {
+      if (zones.grid[i] && zones.grid[i][j] !== CUSTOM_CELL.WALL) nonWallCells.push([i, j]);
+    }
+  }
+  if (nonWallCells.length > 0) {
+    for (let k = 0; k < 100; k++) {
+      const [i, j] = nonWallCells[Math.floor(Math.random() * nonWallCells.length)];
+      const x = CUSTOM_GRID_MIN + (i + 0.5) * CUSTOM_CELL_WORLD;
+      const y = CUSTOM_GRID_MIN + (j + 0.5) * CUSTOM_CELL_WORLD;
+      if (!inWall(x, y)) return { x, y };
+    }
+  }
+  return null;
+}
+
 export function getSpawnPoint() {
   const zones = getCustomZones();
   const wallRects = getMergedWallFills();

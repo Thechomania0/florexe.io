@@ -1,67 +1,27 @@
 /**
  * Server-authoritative mob state per room. Syncs food and beetle spawn/death across all clients.
  * Mirrors client config (hp, drops) for loot calculation.
- * Spawn zones mirror client mapData zones; wall validation prevents spawning inside walls.
+ * Uses Centralia zones.grid for spawn so mobs align with map pixels/units.
  */
-const { isPointInWall } = require('./map.js');
+const { isPointInWall, getDefaultMap, getRandomPointInPlayableZoneFromZones } = require('./map.js');
+
+// Fallback zones only when Centralia has no zones (should not happen)
 const MAP_HALF = 8000;
-
-// Zone rects (minX, maxX, minY, maxY) - playable areas matching client "Centralia Plains" built-in map
 const ZONE_NURSERY = { minX: -1200, maxX: 1200, minY: -1200, maxY: 1200, rarityWeights: { common: 60, uncommon: 40 } };
-const ZONE_ULTRA_SUPER = { minX: -MAP_HALF, maxX: -3500, minY: 3500, maxY: MAP_HALF, rarityWeights: { ultra: 55, super: 45 } };
-const ZONE_MYTHIC_BL = { minX: -MAP_HALF, maxX: -2500, minY: -MAP_HALF, maxY: -2500, rarityWeights: { mythic: 75, legendary: 25 } };
-const ZONE_MYTHIC_TR = { minX: 2500, maxX: MAP_HALF, minY: 3500, maxY: MAP_HALF, rarityWeights: { mythic: 75, legendary: 25 } };
-const RARE_EPIC_WEIGHTS = { rare: 50, epic: 50 };
-const ZONE_RARE_EPIC_RECTS = [
-  { minX: -3500, maxX: -2500, minY: -2500, maxY: MAP_HALF },
-  { minX: -2500, maxX: 2500, minY: -MAP_HALF, maxY: -2500 },
-  { minX: -2500, maxX: 2500, minY: 1200, maxY: 3500 },
-  { minX: 2500, maxX: MAP_HALF, minY: -MAP_HALF, maxY: 3500 },
-];
 
-const ZONES_FOR_SPAWN = [
-  { rect: ZONE_NURSERY, weight: 3 },
-  { rect: ZONE_ULTRA_SUPER, weight: 2 },
-  { rect: ZONE_MYTHIC_BL, weight: 3 },
-  { rect: ZONE_MYTHIC_TR, weight: 3 },
-  { rect: null, weight: 10 },
-];
-
-/** Returns { x, y, rarityWeights } so spawns use zone-based rarity. Validates against walls so mobs spawn in playable areas. */
+/** Returns { x, y, rarityWeights } so spawns use zone-based rarity. Uses Centralia zones.grid when available. */
 function getRandomPointAndRarityInPlayableZone() {
-  const maxRetries = 50;
-  for (let retry = 0; retry < maxRetries; retry++) {
-    const total = ZONES_FOR_SPAWN.reduce((s, z) => s + z.weight, 0);
-    let r = Math.random() * total;
-    for (const { rect, weight } of ZONES_FOR_SPAWN) {
-      r -= weight;
-      if (r <= 0) {
-        let pt;
-        if (rect) {
-          pt = {
-            x: rect.minX + Math.random() * (rect.maxX - rect.minX),
-            y: rect.minY + Math.random() * (rect.maxY - rect.minY),
-            rarityWeights: rect.rarityWeights,
-          };
-        } else {
-          const z = ZONE_RARE_EPIC_RECTS[Math.floor(Math.random() * ZONE_RARE_EPIC_RECTS.length)];
-          pt = {
-            x: z.minX + Math.random() * (z.maxX - z.minX),
-            y: z.minY + Math.random() * (z.maxY - z.minY),
-            rarityWeights: RARE_EPIC_WEIGHTS,
-          };
-        }
-        if (!isPointInWall(pt.x, pt.y)) return pt;
-        break;
-      }
-    }
+  const map = getDefaultMap();
+  if (map.zones && map.walls && map.walls.length > 0) {
+    const pt = getRandomPointInPlayableZoneFromZones(map.zones, map.walls);
+    if (pt) return pt;
   }
-  const z = ZONE_NURSERY;
-  return {
-    x: z.minX + Math.random() * (z.maxX - z.minX),
-    y: z.minY + Math.random() * (z.maxY - z.minY),
-    rarityWeights: z.rarityWeights,
-  };
+  for (let k = 0; k < 50; k++) {
+    const x = ZONE_NURSERY.minX + Math.random() * (ZONE_NURSERY.maxX - ZONE_NURSERY.minX);
+    const y = ZONE_NURSERY.minY + Math.random() * (ZONE_NURSERY.maxY - ZONE_NURSERY.minY);
+    if (!isPointInWall(x, y)) return { x, y, rarityWeights: ZONE_NURSERY.rarityWeights };
+  }
+  return { x: 0, y: 0, rarityWeights: { common: 60, uncommon: 40 } };
 }
 
 const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic', 'ultra', 'super'];

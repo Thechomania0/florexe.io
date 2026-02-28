@@ -1,5 +1,5 @@
 import { MAP_SIZE, FOOD_SPAWN_HALF, INFERNO_BASE_RADIUS, BODY_UPGRADES } from './config.js';
-import { getSpawnPoint, getRandomPointAndWeights, getWalls, getMergedWallFills, buildMergedWallFillsFromZones, getPlayableBounds, getPlayableBoundsFromZones, WALL_HALF_WIDTH, getWallHalfWidth, resolveWallCollision, resolveWallCollisionRects, isPointInWall, wallsNear } from './mapData.js';
+import { getSpawnPoint, getSpawnPointFromZones, getRandomPointAndWeights, getWalls, getMergedWallFills, buildMergedWallFillsFromZones, getPlayableBounds, getPlayableBoundsFromZones, WALL_HALF_WIDTH, getWallHalfWidth, resolveWallCollision, resolveWallCollisionRects, isPointInWall, isPointInWallRects, wallsNear } from './mapData.js';
 
 const FOOD_TARGET_COUNT = 800;    // 50% of previous 1600 (reduce spawn rate by 50%)
 const FOOD_SPAWN_BATCH = 140;    // 50% of previous 280
@@ -122,10 +122,22 @@ export class Game {
     if (!socket) { this.serverWalls = null; this.serverZones = null; }
   }
 
-  /** Set map data from server (walls, zones) so client uses server map in multiplayer. */
+  /** Set map data from server (walls, zones) so client uses server map in multiplayer. Corrects player spawn if in wall. */
   setMapFromServer(data) {
     if (data && Array.isArray(data.walls)) this.serverWalls = data.walls;
-    if (data && data.zones && Array.isArray(data.zones.grid)) this.serverZones = data.zones;
+    if (data && data.zones && Array.isArray(data.zones.grid)) {
+      this.serverZones = data.zones;
+      const wallRects = buildMergedWallFillsFromZones(this.serverZones);
+      if (this.player && wallRects.length > 0 && isPointInWallRects(this.player.x, this.player.y, wallRects)) {
+        const spawn = getSpawnPointFromZones(this.serverZones);
+        if (spawn) {
+          this.player.x = spawn.x;
+          this.player.y = spawn.y;
+          this.camera.x = spawn.x;
+          this.camera.y = spawn.y;
+        }
+      }
+    }
   }
 
   /** Walls for collision/spawn: server map when multiplayer, else client mapData. */
