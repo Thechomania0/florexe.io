@@ -61,6 +61,8 @@ export class Game {
     /** Server-authoritative bullets and squares (when multiplayer). Replaced from server each tick. */
     this.serverBullets = [];
     this.serverSquares = [];
+    /** Map data from server when multiplayer (walls). Client uses this instead of mapData.js. */
+    this.serverWalls = null;
   }
 
   /** When multiplayer: emit to server. Otherwise add to game.bullets. */
@@ -116,6 +118,22 @@ export class Game {
 
   setMultiplayerSocket(socket) {
     this.multiplayerSocket = socket;
+    if (!socket) this.serverWalls = null;
+  }
+
+  /** Set map data from server (walls) so client uses server map in multiplayer. */
+  setMapFromServer(data) {
+    if (data && Array.isArray(data.walls)) this.serverWalls = data.walls;
+  }
+
+  /** Walls for collision/spawn: server map when multiplayer, else client mapData. */
+  getWallsForGame() {
+    return (this.multiplayerSocket && this.serverWalls) ? this.serverWalls : getWalls();
+  }
+
+  /** Wall fills for rect-based collision. Empty when multiplayer (server map uses segment walls). */
+  getWallFillsForGame() {
+    return (this.multiplayerSocket && this.serverWalls) ? [] : getMergedWallFills();
   }
 
   /** Replace foods and beetles from server snapshot. Each item: { id, x, y, rarity, hp, maxHp, size, weight, natural }. */
@@ -246,8 +264,14 @@ export class Game {
     this.otherPlayers = list.filter((o) => o && typeof o.id !== 'undefined');
   }
 
+  /** Remove a player from otherPlayers (e.g. when they disconnect). */
+  removeOtherPlayer(id) {
+    if (!id) return;
+    this.otherPlayers = this.otherPlayers.filter((o) => o.id !== id);
+  }
+
   spawnFood() {
-    const walls = getWalls();
+    const walls = this.getWallsForGame();
     const maxRetries = 20;
     let x, y, rarityWeights;
     for (let k = 0; k < maxRetries; k++) {
@@ -290,7 +314,7 @@ export class Game {
   }
 
   spawnBeetle() {
-    const walls = getWalls();
+    const walls = this.getWallsForGame();
     const maxRetries = 20;
     let x, y, rarityWeights;
     for (let k = 0; k < maxRetries; k++) {
@@ -368,7 +392,7 @@ export class Game {
     this.player.update(dt, this);
 
     // Wall collision: use rect-based when custom map (exact match to drawn walls), else segment-based
-    const wallFills = getMergedWallFills();
+    const wallFills = this.getWallFillsForGame();
     if (wallFills.length > 0) {
       const margin = this.player.size + 100;
       const minX = this.player.x - margin, maxX = this.player.x + margin;
@@ -395,7 +419,7 @@ export class Game {
         }
       }
     } else {
-      const allWalls = getWalls();
+      const allWalls = this.getWallsForGame();
       const wallHalf = getWallHalfWidth();
       const margin = this.player.size + wallHalf + 200;
       const nearbyWalls = wallsNear(allWalls, this.player.x, this.player.y, margin);
@@ -447,7 +471,7 @@ export class Game {
         }
       }
     } else {
-      allWallsForFood = getWalls();
+      allWallsForFood = this.getWallsForGame();
       wallHalfFood = getWallHalfWidth();
       for (const food of this.foods) {
         const radius = food.size ?? 20;
@@ -728,7 +752,7 @@ export class Game {
         }
       }
     } else {
-      const allWallsSq = getWalls();
+      const allWallsSq = this.getWallsForGame();
       const wallHalfSq = getWallHalfWidth();
       for (const sq of this.squares) {
         const margin = sq.size + wallHalfSq + 100;
@@ -897,7 +921,7 @@ export class Game {
       }
     }
 
-    const wallFills = getMergedWallFills();
+    const wallFills = this.getWallFillsForGame();
     if (wallFills.length > 0) {
       ctx.fillStyle = '#1a1a1a';
       const overlap = 0.5; // overlap rows so no horizontal grid line shows between them
@@ -913,7 +937,7 @@ export class Game {
       ctx.strokeStyle = '#1a1a1a';
       ctx.fillStyle = '#1a1a1a';
       ctx.lineWidth = wallWidth;
-      for (const w of getWalls()) {
+      for (const w of this.getWallsForGame()) {
         ctx.beginPath();
         ctx.moveTo(w.x1, w.y1);
         ctx.lineTo(w.x2, w.y2);
@@ -922,7 +946,7 @@ export class Game {
       ctx.strokeStyle = '#0d0d0d';
       ctx.lineWidth = Math.max(2, 8 / scale);
       ctx.lineCap = 'butt';
-      for (const w of getWalls()) {
+      for (const w of this.getWallsForGame()) {
         ctx.beginPath();
         ctx.moveTo(w.x1, w.y1);
         ctx.lineTo(w.x2, w.y2);

@@ -255,6 +255,12 @@ function startGame(gamemode) {
           gameSocket.on('players', (list) => {
             if (game && gameSocket) game.setOtherPlayers(list.filter((p) => p.id !== gameSocket.id));
           });
+          gameSocket.on('map', (data) => {
+            if (game) game.setMapFromServer(data);
+          });
+          gameSocket.on('playerLeft', (data) => {
+            if (game && data && data.id) game.removeOtherPlayer(data.id);
+          });
           gameSocket.on('mobs', (data) => {
             if (game) game.setMobsFromServer(data);
           });

@@ -1,8 +1,9 @@
 /**
  * Server-authoritative mob state per room. Syncs food and beetle spawn/death across all clients.
  * Mirrors client config (hp, drops) for loot calculation.
- * Spawn zones mirror client mapData zones to avoid spawning in walls.
+ * Spawn zones mirror client mapData zones; wall validation prevents spawning inside walls.
  */
+const { isPointInWall } = require('./map.js');
 const MAP_HALF = 8000;
 
 // Zone rects (minX, maxX, minY, maxY) - playable areas matching client "Centralia Plains" built-in map
@@ -26,33 +27,40 @@ const ZONES_FOR_SPAWN = [
   { rect: null, weight: 10 },
 ];
 
-/** Returns { x, y, rarityWeights } so spawns use zone-based rarity (nursery = common/uncommon, corners = mythic/ultra/super, etc.). */
+/** Returns { x, y, rarityWeights } so spawns use zone-based rarity. Validates against walls so mobs spawn in playable areas. */
 function getRandomPointAndRarityInPlayableZone() {
-  const total = ZONES_FOR_SPAWN.reduce((s, z) => s + z.weight, 0);
-  let r = Math.random() * total;
-  for (const { rect, weight } of ZONES_FOR_SPAWN) {
-    r -= weight;
-    if (r <= 0) {
-      if (rect) {
-        return {
-          x: rect.minX + Math.random() * (rect.maxX - rect.minX),
-          y: rect.minY + Math.random() * (rect.maxY - rect.minY),
-          rarityWeights: rect.rarityWeights,
-        };
+  const maxRetries = 50;
+  for (let retry = 0; retry < maxRetries; retry++) {
+    const total = ZONES_FOR_SPAWN.reduce((s, z) => s + z.weight, 0);
+    let r = Math.random() * total;
+    for (const { rect, weight } of ZONES_FOR_SPAWN) {
+      r -= weight;
+      if (r <= 0) {
+        let pt;
+        if (rect) {
+          pt = {
+            x: rect.minX + Math.random() * (rect.maxX - rect.minX),
+            y: rect.minY + Math.random() * (rect.maxY - rect.minY),
+            rarityWeights: rect.rarityWeights,
+          };
+        } else {
+          const z = ZONE_RARE_EPIC_RECTS[Math.floor(Math.random() * ZONE_RARE_EPIC_RECTS.length)];
+          pt = {
+            x: z.minX + Math.random() * (z.maxX - z.minX),
+            y: z.minY + Math.random() * (z.maxY - z.minY),
+            rarityWeights: RARE_EPIC_WEIGHTS,
+          };
+        }
+        if (!isPointInWall(pt.x, pt.y)) return pt;
+        break;
       }
-      const z = ZONE_RARE_EPIC_RECTS[Math.floor(Math.random() * ZONE_RARE_EPIC_RECTS.length)];
-      return {
-        x: z.minX + Math.random() * (z.maxX - z.minX),
-        y: z.minY + Math.random() * (z.maxY - z.minY),
-        rarityWeights: RARE_EPIC_WEIGHTS,
-      };
     }
   }
-  const z = ZONE_RARE_EPIC_RECTS[0];
+  const z = ZONE_NURSERY;
   return {
     x: z.minX + Math.random() * (z.maxX - z.minX),
     y: z.minY + Math.random() * (z.maxY - z.minY),
-    rarityWeights: RARE_EPIC_WEIGHTS,
+    rarityWeights: z.rarityWeights,
   };
 }
 
