@@ -281,6 +281,14 @@ function startGame(gamemode) {
           gameSocket.on('kill', (payload) => {
             if (game) game.applyKillReward(payload);
           });
+          gameSocket.on('disconnect', () => showDisconnectOverlay(true));
+          gameSocket.on('connect', () => {
+            showDisconnectOverlay(false);
+            if (game?.player && gameSocket?.connected) {
+              const s = game.getPlayerState();
+              if (s) gameSocket.emit('join', { gamemode: game.gamemode, ...s });
+            }
+          });
           gameSocketStateInterval = setInterval(() => {
             if (!game?.player || !gameSocket?.connected) return;
             const s = game.getPlayerState();
@@ -308,6 +316,13 @@ function startGame(gamemode) {
 
 let _keyDown, _keyUp, _wheelZoom, _keydownToggle, _onDragstartClearKeys, _onWindowBlurClearKeys;
 let _autoAttackToastHideTimeout = null;
+
+function showDisconnectOverlay(show) {
+  const el = document.getElementById('disconnectOverlay');
+  if (!el) return;
+  if (show) el.classList.remove('hidden');
+  else el.classList.add('hidden');
+}
 
 function showAutoAttackToast(isOn) {
   const el = document.getElementById('autoAttackToast');

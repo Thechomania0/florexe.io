@@ -455,3 +455,11 @@ io.on('connection', (socket) => {
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`App listening on port ${PORT} (PORT env: ${process.env.PORT || 'not set'})`);
 });
+
+function shutdown(signal) {
+  console.log(`[${signal}] Shutting down...`);
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(1), 10000);
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
