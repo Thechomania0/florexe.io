@@ -727,8 +727,8 @@ body {
 }
 
 #inventoryBoxContent {
-  max-width: min(420px, 90vw);
-  width: min(420px, 90vw);
+  max-width: min(600px, 92vw);
+  width: min(600px, 92vw);
   max-height: 70vh;
   overflow-y: auto;
   overflow-x: hidden;
@@ -837,7 +837,7 @@ body {
 
 #inventoryBoxContent .inventory-column {
   flex: 1;
-  min-width: 0;
+  min-width: 186px;
   max-width: 190px;
   display: flex;
   flex-direction: column;
