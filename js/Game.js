@@ -104,6 +104,16 @@ export class Game {
       const p = this.player;
       const x = typeof sq.x === 'number' && !Number.isNaN(sq.x) ? sq.x : (p ? p.x : 0);
       const y = typeof sq.y === 'number' && !Number.isNaN(sq.y) ? sq.y : (p ? p.y : 0);
+      const maxSq = typeof sq.maxSquares === 'number' && sq.maxSquares > 0 ? sq.maxSquares : 25;
+      const serverCount = (this.serverSquares || []).filter((s) => s.ownerId === this.multiplayerSocket.id && (s.duration || 0) > 0).length;
+      while (this.pendingSquares.length + serverCount >= maxSq && this.pendingSquares.length > 0) {
+        this.pendingSquares.sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
+        const removed = this.pendingSquares.shift();
+        if (removed && p && p.squares) {
+          const idx = p.squares.indexOf(removed.sq);
+          if (idx >= 0) p.squares.splice(idx, 1);
+        }
+      }
       this.multiplayerSocket.emit('square', {
         x,
         y,
@@ -124,7 +134,23 @@ export class Game {
       this.pendingSquares.push({ sq, addedAt: Date.now() });
       return;
     }
-    if (sq) this.squares.push(sq);
+    if (sq) {
+      if (!this.multiplayerSocket) {
+        const maxSq = typeof sq.maxSquares === 'number' && sq.maxSquares > 0 ? sq.maxSquares : 25;
+        let alive = this.squares.filter((s) => !s.isExpired());
+        while (alive.length >= maxSq) {
+          const oldest = this.squares.reduce((acc, s) => (!s.isExpired() && (!acc || s.spawnedAt < acc.spawnedAt) ? s : acc), null);
+          if (!oldest) break;
+          oldest.duration = 0;
+          if (this.player && this.player.squares) {
+            const idx = this.player.squares.indexOf(oldest);
+            if (idx >= 0) this.player.squares.splice(idx, 1);
+          }
+          alive = this.squares.filter((s) => !s.isExpired());
+        }
+      }
+      this.squares.push(sq);
+    }
   }
 
   setBulletsFromServer(list) {
@@ -246,8 +272,10 @@ export class Game {
       const bid = b.id != null ? String(b.id) : null;
       let beetle = bid != null ? existingBeetleById.get(bid) : undefined;
       if (beetle) {
-        beetle.serverX = b.x;
-        beetle.serverY = b.y;
+        const sx = typeof b.x === 'number' ? b.x : (beetle.serverX ?? beetle.x);
+        const sy = typeof b.y === 'number' ? b.y : (beetle.serverY ?? beetle.y);
+        beetle.serverX = sx;
+        beetle.serverY = sy;
         if (typeof b.hp === 'number') {
           const serverHp = Math.min(b.hp, beetle.maxHp);
           beetle.hp = Math.min(beetle.hp, serverHp);
@@ -274,8 +302,8 @@ export class Game {
         );
         beetle.x = typeof b.x === 'number' ? b.x : 0;
         beetle.y = typeof b.y === 'number' ? b.y : 0;
-        beetle.serverX = beetle.x;
-        beetle.serverY = beetle.y;
+        beetle.serverX = typeof b.x === 'number' ? b.x : beetle.x;
+        beetle.serverY = typeof b.y === 'number' ? b.y : beetle.y;
         beetle.hp = typeof b.hp === 'number' ? b.hp : beetle.maxHp;
         beetle.maxHp = typeof b.maxHp === 'number' ? b.maxHp : beetle.maxHp;
         if (typeof b.size === 'number') beetle.size = b.size;
@@ -1037,6 +1065,8 @@ export class Game {
                 damage: bullet.damage,
                 x: this.player.x,
                 y: this.player.y,
+                impactX: bullet.x,
+                impactY: bullet.y,
               });
             } else {
               food.hp -= bullet.damage;
@@ -1061,6 +1091,8 @@ export class Game {
                 damage: bullet.damage,
                 x: this.player.x,
                 y: this.player.y,
+                impactX: bullet.x,
+                impactY: bullet.y,
               });
             } else {
               beetle.hp -= bullet.damage;
@@ -1096,6 +1128,8 @@ export class Game {
                   damage: bullet.damage,
                   x: this.player.x,
                   y: this.player.y,
+                  impactX: bullet.x,
+                  impactY: bullet.y,
                 });
               } else {
                 food.hp -= bullet.damage;
@@ -1119,6 +1153,8 @@ export class Game {
                   damage: bullet.damage,
                   x: this.player.x,
                   y: this.player.y,
+                  impactX: bullet.x,
+                  impactY: bullet.y,
                 });
               } else {
                 beetle.hp -= bullet.damage;
@@ -1149,6 +1185,8 @@ export class Game {
               damage: sqDamage,
               x: this.player.x,
               y: this.player.y,
+              impactX: sq.x,
+              impactY: sq.y,
             });
           } else {
             food.hp -= sqDamage;
@@ -1165,6 +1203,8 @@ export class Game {
               damage: sqDamage,
               x: this.player.x,
               y: this.player.y,
+              impactX: sq.x,
+              impactY: sq.y,
             });
           } else {
             beetle.hp -= sqDamage;

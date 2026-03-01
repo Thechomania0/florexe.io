@@ -95,6 +95,7 @@ function getRoomSquares(room) {
 }
 
 function addBullet(room, data) {
+  const damage = Math.max(1, Number(data.damage) || 20);
   const b = {
     id: 'bullet_' + (nextBulletId++),
     ownerId: data.ownerId,
@@ -102,7 +103,7 @@ function addBullet(room, data) {
     y: data.y,
     angle: data.angle,
     speed: (data.speed || 0.4) * 0.7,
-    damage: data.damage || 20,
+    damage,
     size: (data.size || 6) * 0.7,
     lifetime: data.lifetime != null ? data.lifetime : 3000,
     penetrating: !!data.penetrating,
@@ -144,7 +145,7 @@ function addSquare(room, data, roomPlayers) {
     y,
     vx: data.vx != null ? data.vx : 0,
     vy: data.vy != null ? data.vy : 0,
-    damage: data.damage || 50,
+    damage: Math.max(1, Number(data.damage) || 50),
     hp: data.hp != null ? data.hp : 800,
     size: data.size != null ? data.size : 25,
     duration,
@@ -155,6 +156,7 @@ function addSquare(room, data, roomPlayers) {
     bodyColor: (data.bodyColor && typeof data.bodyColor === 'string') ? data.bodyColor : null,
     rotation: typeof data.rotation === 'number' ? data.rotation : 0,
     angularVelocity: typeof data.angularVelocity === 'number' ? data.angularVelocity : 0,
+    maxSquares: typeof data.maxSquares === 'number' && data.maxSquares > 0 ? data.maxSquares : MAX_SQUARES_PER_PLAYER,
   };
   getRoomSquares(room).push(sq);
   return sq;
@@ -202,7 +204,7 @@ function tick(room, dtMs, roomPlayers) {
         if (bullet.hitTargets.includes(food.id)) continue;
         if (distance(bullet.x, bullet.y, food.x, food.y) < bullet.size + food.size) {
           bullet.hitTargets.push(food.id);
-          const result = hitMob(room, food.id, 'food', bullet.damage, ownerX, ownerY);
+          const result = hitMob(room, food.id, 'food', bullet.damage, bullet.x, bullet.y);
           if (result.killed && result.killPayload) killPayloads.push({ socketId: bullet.ownerId, payload: result.killPayload });
           if (bullet.hp != null) bullet.hp -= 1;
           if (bullet.hp != null && bullet.hp <= 0) bulletsToRemove.add(bullet);
@@ -213,7 +215,7 @@ function tick(room, dtMs, roomPlayers) {
         if (bullet.hitTargets.includes(beetle.id)) continue;
         if (ellipseOverlapsCircle(beetle, bullet.x, bullet.y, bullet.size)) {
           bullet.hitTargets.push(beetle.id);
-          const result = hitMob(room, beetle.id, 'beetle', bullet.damage, ownerX, ownerY);
+          const result = hitMob(room, beetle.id, 'beetle', bullet.damage, bullet.x, bullet.y);
           if (result.killed && result.killPayload) killPayloads.push({ socketId: bullet.ownerId, payload: result.killPayload });
           if (bullet.hp != null) bullet.hp -= 1;
           if (bullet.hp != null && bullet.hp <= 0) bulletsToRemove.add(bullet);
@@ -223,7 +225,7 @@ function tick(room, dtMs, roomPlayers) {
       let hit = false;
       for (const food of m.foods) {
         if (distance(bullet.x, bullet.y, food.x, food.y) < bullet.size + food.size) {
-          const result = hitMob(room, food.id, 'food', bullet.damage, ownerX, ownerY);
+          const result = hitMob(room, food.id, 'food', bullet.damage, bullet.x, bullet.y);
           if (result.killed && result.killPayload) killPayloads.push({ socketId: bullet.ownerId, payload: result.killPayload });
           hit = true;
           break;
@@ -232,7 +234,7 @@ function tick(room, dtMs, roomPlayers) {
       if (!hit) {
         for (const beetle of m.beetles) {
           if (ellipseOverlapsCircle(beetle, bullet.x, bullet.y, bullet.size)) {
-            const result = hitMob(room, beetle.id, 'beetle', bullet.damage, ownerX, ownerY);
+            const result = hitMob(room, beetle.id, 'beetle', bullet.damage, bullet.x, bullet.y);
             if (result.killed && result.killPayload) killPayloads.push({ socketId: bullet.ownerId, payload: result.killPayload });
             hit = true;
             break;
@@ -259,23 +261,38 @@ function tick(room, dtMs, roomPlayers) {
     if (sq.duration <= 0) continue;
     if (now - sq.spawnedAt > maxSquareAgeMs) continue;
     const dmg = (sq.damage || 50) * (dtMs / 1000);
-    const ownerPos = getOwnerPosition(room, sq.ownerId, roomPlayers);
     const foodsSnapshot = [...m.foods];
     const beetlesSnapshot = [...m.beetles];
     for (const food of foodsSnapshot) {
       if (distance(sq.x, sq.y, food.x, food.y) < sq.size + food.size) {
-        const result = hitMob(room, food.id, 'food', dmg, ownerPos.x, ownerPos.y);
+        const result = hitMob(room, food.id, 'food', dmg, sq.x, sq.y);
         if (result.killed && result.killPayload) killPayloads.push({ socketId: sq.ownerId, payload: result.killPayload });
       }
     }
     for (const beetle of beetlesSnapshot) {
       if (ellipseOverlapsCircle(beetle, sq.x, sq.y, sq.size)) {
-        const result = hitMob(room, beetle.id, 'beetle', dmg, ownerPos.x, ownerPos.y);
+        const result = hitMob(room, beetle.id, 'beetle', dmg, sq.x, sq.y);
         if (result.killed && result.killPayload) killPayloads.push({ socketId: sq.ownerId, payload: result.killPayload });
       }
     }
   }
   const newSquares = squares.filter((s) => s.duration > 0 && (now - s.spawnedAt) <= maxSquareAgeMs);
+  // Cull traps over per-owner limit: remove oldest first until at or below limit
+  const byOwner = new Map();
+  for (const s of newSquares) {
+    if (!byOwner.has(s.ownerId)) byOwner.set(s.ownerId, []);
+    byOwner.get(s.ownerId).push(s);
+  }
+  for (const [, list] of byOwner) {
+    list.sort((a, b) => (a.spawnedAt || 0) - (b.spawnedAt || 0));
+    const limit = list[0]?.maxSquares ?? MAX_SQUARES_PER_PLAYER;
+    const toRemove = list.length - limit;
+    if (toRemove <= 0) continue;
+    for (let i = 0; i < toRemove; i++) {
+      const idx = newSquares.indexOf(list[i]);
+      if (idx >= 0) newSquares.splice(idx, 1);
+    }
+  }
   roomSquares.set(room, newSquares);
 
   purgeDeadMobs(room);

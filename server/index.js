@@ -332,10 +332,10 @@ io.on('connection', (socket) => {
     if (!room || !data || typeof data !== 'object') return;
     const mobId = data.mobId;
     const mobType = data.mobType === 'beetle' ? 'beetle' : 'food';
-    const damage = typeof data.damage === 'number' ? Math.max(0, data.damage) : 0;
-    const playerX = typeof data.x === 'number' ? data.x : 0;
-    const playerY = typeof data.y === 'number' ? data.y : 0;
-    const result = hitMob(room, mobId, mobType, damage, playerX, playerY);
+    const damage = Math.max(0, Number(data.damage) || 0);
+    const sourceX = typeof data.impactX === 'number' ? data.impactX : (typeof data.x === 'number' ? data.x : 0);
+    const sourceY = typeof data.impactY === 'number' ? data.impactY : (typeof data.y === 'number' ? data.y : 0);
+    const result = hitMob(room, mobId, mobType, damage, sourceX, sourceY);
     if (result.killed && result.killPayload) {
       socket.emit('kill', result.killPayload);
     }

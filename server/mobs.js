@@ -215,13 +215,14 @@ function hitMob(room, mobId, mobType, damage, playerX, playerY) {
   const m = getRoomMobs(room);
   const maxRange = 2500;
   const sid = mobId != null ? String(mobId) : null;
+  const dmg = Math.max(0, Number(damage)) || 0;
   if (mobType === 'food') {
     const idx = sid != null ? m.foods.findIndex((f) => String(f.id) === sid) : -1;
     if (idx < 0) return { killed: false };
     const food = m.foods[idx];
     const d = Math.hypot(food.x - playerX, food.y - playerY);
     if (d > maxRange) return { killed: false };
-    food.hp -= damage;
+    food.hp -= dmg;
     if (food.hp <= HP_DEAD_EPSILON) {
       recordDeath(room, food.x, food.y);
       m.lastKillTime = Date.now();
@@ -250,7 +251,7 @@ function hitMob(room, mobId, mobType, damage, playerX, playerY) {
     const beetle = m.beetles[idx];
     const d = Math.hypot(beetle.x - playerX, beetle.y - playerY);
     if (d > maxRange) return { killed: false };
-    beetle.hp -= damage;
+    beetle.hp -= dmg;
     if (beetle.hp <= HP_DEAD_EPSILON) {
       recordDeath(room, beetle.x, beetle.y);
       m.lastKillTime = Date.now();
@@ -327,8 +328,20 @@ function updateBeetles(room, roomPlayers, dtMs) {
 function getMobsSnapshot(room) {
   const m = getRoomMobs(room);
   return {
-    foods: m.foods.filter((f) => f.hp > HP_DEAD_EPSILON).map((f) => ({ ...f, hp: f.hp, maxHp: f.maxHp })),
-    beetles: m.beetles.filter((b) => b.hp > HP_DEAD_EPSILON).map((b) => ({ ...b, hp: b.hp, maxHp: b.maxHp })),
+    foods: m.foods.filter((f) => f.hp > HP_DEAD_EPSILON).map((f) => ({
+      ...f,
+      x: Number(f.x),
+      y: Number(f.y),
+      hp: f.hp,
+      maxHp: f.maxHp,
+    })),
+    beetles: m.beetles.filter((b) => b.hp > HP_DEAD_EPSILON).map((b) => ({
+      ...b,
+      x: Number(b.x),
+      y: Number(b.y),
+      hp: b.hp,
+      maxHp: b.maxHp,
+    })),
   };
 }
 
