@@ -2195,9 +2195,8 @@ function handleMenuClick(e) {
   if (gamemodeBtn && !gamemodeBtn.disabled) {
     e.preventDefault();
     const mode = gamemodeBtn.dataset.mode;
-    const solo = gamemodeBtn.dataset.solo === 'true';
-    if (mode === 'heaven') startGame('heaven', { solo });
-    else startGame(mode, { solo });
+    if (mode === 'heaven') startGame('heaven');
+    else startGame(mode);
     return;
   }
   if (e.target.closest('#menuLogoutBtn')) {

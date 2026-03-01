@@ -182,6 +182,9 @@ function tick(room, dtMs, roomPlayers, roomPlayerBodies) {
   runBeetleSquareRepulsion(m.beetles, squares, dtMs);
   removeMobsFullyInWall(room);
 
+  const foodsSnapshot = [...m.foods];
+  const beetlesSnapshot = [...m.beetles];
+
   for (const bullet of bullets) {
     bullet.x += Math.cos(bullet.angle) * bullet.speed * dtMs;
     bullet.y += Math.sin(bullet.angle) * bullet.speed * dtMs;
@@ -190,8 +193,6 @@ function tick(room, dtMs, roomPlayers, roomPlayerBodies) {
       bullet.lifetime = 0;
   }
   const bulletsToRemove = new Set();
-  const foodsSnapshot = [...m.foods];
-  const beetlesSnapshot = [...m.beetles];
   for (const bullet of bullets) {
     if (bullet.lifetime <= 0) {
       bulletsToRemove.add(bullet);
@@ -263,8 +264,6 @@ function tick(room, dtMs, roomPlayers, roomPlayerBodies) {
     if (sq.duration <= 0) continue;
     if (now - sq.spawnedAt > maxSquareAgeMs) continue;
     const dmg = (sq.damage || 50) * (dtMs / 1000);
-    const foodsSnapshot = [...m.foods];
-    const beetlesSnapshot = [...m.beetles];
     for (const food of foodsSnapshot) {
       if (distance(sq.x, sq.y, food.x, food.y) < sq.size + food.size) {
         const result = hitMob(room, food.id, 'food', dmg, sq.x, sq.y);

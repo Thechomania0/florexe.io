@@ -57,6 +57,8 @@ const SPAWN_INTERVAL_MS = 8666;
 const RESPAWN_DELAY_MS = 8000;
 const DEATH_EXCLUSION_MS = 20000;
 const MIN_DEATH_DISTANCE = 800;
+/** Newly spawned replacement mobs ignore damage for this long (avoids any code path chain-killing them). */
+const SPAWN_INVULN_MS = 150;
 /** Treat HP at or below this as dead (avoids floating-point edge cases where common/uncommon mobs survive with ~1e-15 hp under high DPS). */
 const HP_DEAD_EPSILON = 1e-6;
 
@@ -217,6 +219,7 @@ function spawnOneInRarityZone(room, deadRarity, spawnType, deathX, deathY) {
       size: cfg.size,
       weight: cfg.weight,
       natural: true,
+      spawnedAt: Date.now(),
     };
     m.foods.push(food);
     return food;
@@ -239,6 +242,7 @@ function spawnOneInRarityZone(room, deadRarity, spawnType, deathX, deathY) {
       vx: 0,
       vy: 0,
       vision: cfg.vision ?? 1000,
+      spawnedAt: Date.now(),
     };
     m.beetles.push(beetle);
     return beetle;
@@ -281,6 +285,7 @@ function hitMob(room, mobId, mobType, damage, playerX, playerY) {
     const idx = sid != null ? m.foods.findIndex((f) => String(f.id) === sid) : -1;
     if (idx < 0) return { killed: false };
     const food = m.foods[idx];
+    if (food.spawnedAt != null && (Date.now() - food.spawnedAt) < SPAWN_INVULN_MS) return { killed: false };
     const d = Math.hypot(food.x - playerX, food.y - playerY);
     if (d > maxRange) return { killed: false };
     food.hp -= dmg;
@@ -313,6 +318,7 @@ function hitMob(room, mobId, mobType, damage, playerX, playerY) {
     const idx = sid != null ? m.beetles.findIndex((b) => String(b.id) === sid) : -1;
     if (idx < 0) return { killed: false };
     const beetle = m.beetles[idx];
+    if (beetle.spawnedAt != null && (Date.now() - beetle.spawnedAt) < SPAWN_INVULN_MS) return { killed: false };
     const d = Math.hypot(beetle.x - playerX, beetle.y - playerY);
     if (d > maxRange) return { killed: false };
     beetle.hp -= dmg;
