@@ -1,7 +1,7 @@
 /**
  * Server-side bullets and squares (traps). Updated in game tick; collisions with mobs call mobs.hitMob.
  */
-const { getRoomMobs, hitMob, getMobsSnapshot, updateBeetles, removeMobsFullyInWall } = require('./mobs.js');
+const { getRoomMobs, hitMob, getMobsSnapshot, updateBeetles, purgeDeadMobs, removeMobsFullyInWall } = require('./mobs.js');
 const MAP_HALF = 8000;
 
 function distance(ax, ay, bx, by) {
@@ -259,13 +259,15 @@ function tick(room, dtMs, roomPlayers) {
     if (now - sq.spawnedAt > maxSquareAgeMs) continue;
     const dmg = (sq.damage || 50) * (dtMs / 1000);
     const ownerPos = getOwnerPosition(room, sq.ownerId, roomPlayers);
-    for (const food of m.foods) {
+    const foodsSnapshot = [...m.foods];
+    const beetlesSnapshot = [...m.beetles];
+    for (const food of foodsSnapshot) {
       if (distance(sq.x, sq.y, food.x, food.y) < sq.size + food.size) {
         const result = hitMob(room, food.id, 'food', dmg, ownerPos.x, ownerPos.y);
         if (result.killed && result.killPayload) killPayloads.push({ socketId: sq.ownerId, payload: result.killPayload });
       }
     }
-    for (const beetle of m.beetles) {
+    for (const beetle of beetlesSnapshot) {
       if (ellipseOverlapsCircle(beetle, sq.x, sq.y, sq.size)) {
         const result = hitMob(room, beetle.id, 'beetle', dmg, ownerPos.x, ownerPos.y);
         if (result.killed && result.killPayload) killPayloads.push({ socketId: sq.ownerId, payload: result.killPayload });
@@ -274,6 +276,8 @@ function tick(room, dtMs, roomPlayers) {
   }
   const newSquares = squares.filter((s) => s.duration > 0 && (now - s.spawnedAt) <= maxSquareAgeMs);
   roomSquares.set(room, newSquares);
+
+  purgeDeadMobs(room);
 
   return { killPayloads };
 }

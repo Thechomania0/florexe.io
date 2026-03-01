@@ -212,8 +212,9 @@ function rollBeetleDrop(drops) {
 function hitMob(room, mobId, mobType, damage, playerX, playerY) {
   const m = getRoomMobs(room);
   const maxRange = 2500;
+  const sid = mobId != null ? String(mobId) : null;
   if (mobType === 'food') {
-    const idx = m.foods.findIndex((f) => f.id === mobId);
+    const idx = sid != null ? m.foods.findIndex((f) => String(f.id) === sid) : -1;
     if (idx < 0) return { killed: false };
     const food = m.foods[idx];
     const d = Math.hypot(food.x - playerX, food.y - playerY);
@@ -242,7 +243,7 @@ function hitMob(room, mobId, mobType, damage, playerX, playerY) {
     return { killed: false };
   }
   if (mobType === 'beetle') {
-    const idx = m.beetles.findIndex((b) => b.id === mobId);
+    const idx = sid != null ? m.beetles.findIndex((b) => String(b.id) === sid) : -1;
     if (idx < 0) return { killed: false };
     const beetle = m.beetles[idx];
     const d = Math.hypot(beetle.x - playerX, beetle.y - playerY);
@@ -323,9 +324,20 @@ function updateBeetles(room, roomPlayers, dtMs) {
 function getMobsSnapshot(room) {
   const m = getRoomMobs(room);
   return {
-    foods: m.foods.map((f) => ({ ...f })),
-    beetles: m.beetles.map((b) => ({ ...b })),
+    foods: m.foods.filter((f) => f.hp > 0).map((f) => ({ ...f })),
+    beetles: m.beetles.filter((b) => b.hp > 0).map((b) => ({ ...b })),
   };
+}
+
+/** Remove any food or beetle with hp <= 0. Safety net to ensure dead mobs never remain in the server state. */
+function purgeDeadMobs(room) {
+  const m = getRoomMobs(room);
+  for (let i = m.foods.length - 1; i >= 0; i--) {
+    if (m.foods[i].hp <= 0) m.foods.splice(i, 1);
+  }
+  for (let i = m.beetles.length - 1; i >= 0; i--) {
+    if (m.beetles[i].hp <= 0) m.beetles.splice(i, 1);
+  }
 }
 
 /** Last resort: remove any food or beetle whose hitbox is fully inside a wall cell (instant kill, no reward). */
@@ -351,6 +363,7 @@ module.exports = {
   runSpawn,
   hitMob,
   updateBeetles,
+  purgeDeadMobs,
   removeMobsFullyInWall,
   getMobsSnapshot,
   SPAWN_INTERVAL_MS,
