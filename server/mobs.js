@@ -54,6 +54,11 @@ const BEETLE_TARGET = 800;
 const SPAWN_BATCH_FOOD = 140;
 const SPAWN_BATCH_BEETLE = 140;
 const SPAWN_INTERVAL_MS = 8666;
+const RESPAWN_DELAY_MS = 3000;
+const DEATH_EXCLUSION_MS = 8000;
+const MIN_DEATH_DISTANCE = 400;
+
+const roomRecentDeaths = new Map();
 
 function pickRandomWeighted(weights) {
   const entries = Object.entries(weights).filter(([, w]) => w > 0);
@@ -78,9 +83,30 @@ function getRoomMobs(room) {
       spawnTimer: 0,
       hasNaturalSuperFood: false,
       hasNaturalSuperBeetle: false,
+      lastKillTime: 0,
     });
   }
   return roomMobs.get(room);
+}
+
+function recordDeath(room, x, y) {
+  if (!roomRecentDeaths.has(room)) roomRecentDeaths.set(room, []);
+  const list = roomRecentDeaths.get(room);
+  list.push({ x, y, at: Date.now() });
+  const cutoff = Date.now() - DEATH_EXCLUSION_MS;
+  while (list.length > 0 && list[0].at < cutoff) list.shift();
+  if (list.length > 50) list.splice(0, list.length - 30);
+}
+
+function isNearRecentDeath(room, x, y) {
+  const list = roomRecentDeaths.get(room);
+  if (!list || list.length === 0) return false;
+  const now = Date.now();
+  for (const d of list) {
+    if (now - d.at > DEATH_EXCLUSION_MS) continue;
+    if (Math.hypot(x - d.x, y - d.y) < MIN_DEATH_DISTANCE) return true;
+  }
+  return false;
 }
 
 function randomRarityFromZone(rarityWeights, spawnType, m) {
@@ -95,7 +121,15 @@ function randomRarityFromZone(rarityWeights, spawnType, m) {
 function spawnFood(room) {
   const m = getRoomMobs(room);
   if (m.foods.length >= FOOD_TARGET) return;
-  const pt = getRandomPointAndRarityInPlayableZone();
+  const now = Date.now();
+  if (now - (m.lastKillTime || 0) < RESPAWN_DELAY_MS) return;
+  let pt;
+  for (let retry = 0; retry < 25; retry++) {
+    pt = getRandomPointAndRarityInPlayableZone();
+    if (!pt) break;
+    if (!isNearRecentDeath(room, pt.x, pt.y)) break;
+  }
+  if (!pt || isNearRecentDeath(room, pt.x, pt.y)) return;
   const rarity = randomRarityFromZone(pt.rarityWeights, 'food', m);
   if (rarity === 'super') m.hasNaturalSuperFood = true;
   const cfg = FOOD_CONFIG[rarity];
@@ -117,7 +151,15 @@ function spawnFood(room) {
 function spawnBeetle(room) {
   const m = getRoomMobs(room);
   if (m.beetles.length >= BEETLE_TARGET) return;
-  const pt = getRandomPointAndRarityInPlayableZone();
+  const now = Date.now();
+  if (now - (m.lastKillTime || 0) < RESPAWN_DELAY_MS) return;
+  let pt;
+  for (let retry = 0; retry < 25; retry++) {
+    pt = getRandomPointAndRarityInPlayableZone();
+    if (!pt) break;
+    if (!isNearRecentDeath(room, pt.x, pt.y)) break;
+  }
+  if (!pt || isNearRecentDeath(room, pt.x, pt.y)) return;
   const rarity = randomRarityFromZone(pt.rarityWeights, 'beetle', m);
   if (rarity === 'super') m.hasNaturalSuperBeetle = true;
   const cfg = BEETLE_CONFIG[rarity];
@@ -178,6 +220,8 @@ function hitMob(room, mobId, mobType, damage, playerX, playerY) {
     if (d > maxRange) return { killed: false };
     food.hp -= damage;
     if (food.hp <= 0) {
+      recordDeath(room, food.x, food.y);
+      m.lastKillTime = Date.now();
       m.foods.splice(idx, 1);
       const cfg = FOOD_CONFIG[food.rarity] || {};
       const drop = rollDrop(cfg.drops);
@@ -205,6 +249,8 @@ function hitMob(room, mobId, mobType, damage, playerX, playerY) {
     if (d > maxRange) return { killed: false };
     beetle.hp -= damage;
     if (beetle.hp <= 0) {
+      recordDeath(room, beetle.x, beetle.y);
+      m.lastKillTime = Date.now();
       m.beetles.splice(idx, 1);
       const cfg = BEETLE_CONFIG[beetle.rarity] || {};
       const drop = rollBeetleDrop(cfg.drops);

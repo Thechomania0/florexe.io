@@ -439,22 +439,16 @@ export class Game {
     this.otherPlayers = this.otherPlayers.filter((o) => o.id !== id);
   }
 
-  /** Draw one other player's body and gun at current transform (0,0). Uses op.equippedTank, op.equippedBody, op.size so guest sees main account's loadout. */
+  /** Draw one other player's body and gun at current transform (0,0). Uses op.equippedTank, op.equippedBody, op.size. All other players use same blue body color as local player, with gun covered by the blue circle. */
   _drawOtherPlayerBody(ctx, scale, op) {
     const size = op.size ?? 24.5;
     const tankType = op.equippedTank?.subtype;
-    const bodyType = op.equippedBody?.subtype;
-    const bodyRarity = op.equippedBody?.rarity || 'common';
-    const bodyColor = bodyType ? (getRarityColor(bodyRarity)) : '#1ca8c9';
+    const bodyColor = '#1ca8c9';
     const outlineColor = darkenColor(bodyColor, 60);
     const s = size * 2.4;
     const assets = getLoadedTankAssets();
     const gunImg = tankType && assets?.guns ? assets.guns[tankType] : null;
-    const bodyImg = bodyType && assets?.bodies ? (assets.bodies[bodyType] || assets.bodies.default) : null;
 
-    if (bodyType && bodyImg?.complete && bodyImg.naturalWidth > 0 && (bodyType === 'hive' || bodyType === 'cutter') && tankType !== 'riot' && tankType !== 'anchor') {
-      ctx.drawImage(bodyImg, -s, -s, s * 2, s * 2);
-    }
     ctx.fillStyle = bodyColor;
     ctx.strokeStyle = outlineColor;
     ctx.lineWidth = Math.max(1, 3 / scale);
@@ -512,20 +506,6 @@ export class Game {
     } else {
       ctx.fillStyle = '#2a2a2a';
       ctx.fillRect(size, -s * 0.15, s * 0.6, s * 0.3);
-    }
-
-    if (bodyType === 'inferno') {
-      const b = BODY_UPGRADES.inferno;
-      const r = op.equippedBody?.rarity;
-      const mult = r === 'ultra' ? (b.sizeMultUltra ?? 1.07) : r === 'super' ? (b.sizeMultSuper ?? 1.1) : (b.sizeMult ?? 1.05);
-      const radius = INFERNO_BASE_RADIUS * mult;
-      ctx.beginPath();
-      ctx.arc(0, 0, radius, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(200,0,0,0.14)';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(170,0,0,0.175)';
-      ctx.lineWidth = Math.max(1, 3 / scale);
-      ctx.stroke();
     }
   }
 
