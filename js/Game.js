@@ -744,6 +744,17 @@ export class Game {
             beetle.x += dx * LERP;
             beetle.y += dy * LERP;
           }
+          // Facing and pincer from server position toward player (no client-side movement in mp)
+          const px = this.player?.x ?? beetle.serverX;
+          const py = this.player?.y ?? beetle.serverY;
+          const sdx = px - beetle.serverX;
+          const sdy = py - beetle.serverY;
+          const sdist = Math.hypot(sdx, sdy);
+          beetle.playerInVision = !this.player?.dead && this.player?.adminMode !== true && beetle.vision > 0 && sdist <= (beetle.vision ?? 1000) && sdist >= 1e-6;
+          if (beetle.playerInVision) {
+            beetle.facingAngle = Math.atan2(sdy, sdx);
+            beetle.pincerPhase = (beetle.pincerPhase ?? 0) + dt * 0.003;
+          }
         }
       }
       const dtSec = dt / 1000;
@@ -808,15 +819,12 @@ export class Game {
       }
     }
 
-    // Update mobs: when multiplayer only update nearby (server drives position); otherwise update all
-    const player = this.player;
-    const updateMargin = 1400;
-    if (this.multiplayerSocket && player) {
+    // Update mobs: in multiplayer server drives position (interpolation only); no client-side movement
+    if (this.multiplayerSocket) {
+      // Only update food velocity decay (no position change - server authoritative)
       for (const food of this.foods) {
-        if (Math.abs(food.x - player.x) <= updateMargin && Math.abs(food.y - player.y) <= updateMargin) food.update(dt);
-      }
-      for (const beetle of this.beetles) {
-        if (Math.abs(beetle.x - player.x) <= updateMargin && Math.abs(beetle.y - player.y) <= updateMargin) beetle.update(dt, this);
+        food.vx *= Math.pow(0.992, dt / 1000);
+        food.vy *= Math.pow(0.992, dt / 1000);
       }
     } else {
       for (const food of this.foods) food.update(dt);
