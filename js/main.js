@@ -2444,6 +2444,8 @@ function loop(now) {
     game.canvasHeight = ctx.canvas.height;
   }
   if (game && gameSocket) {
+    // Apply server snapshots when available. If no packet this frame we keep last-known state
+    // so rendering never depends on receiving every packet (dropped/delayed = smooth, not missed frames).
     if (pendingMobs) {
       game.setMobsFromServer(pendingMobs);
       pendingMobs = null;
@@ -2461,6 +2463,11 @@ function loop(now) {
       pendingDrones = null;
     }
     if (pendingPlayers) {
+      const me = pendingPlayers.find((p) => p && p.id === gameSocket.id);
+      if (me && game.player && typeof me.hp === 'number') {
+        game.player.hp = me.hp;
+        if (typeof me.maxHp === 'number') game.player.maxHp = me.maxHp;
+      }
       game.setOtherPlayers(pendingPlayers.filter((p) => p && p.id !== gameSocket.id));
       pendingPlayers = null;
     }

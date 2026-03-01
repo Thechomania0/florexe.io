@@ -308,9 +308,8 @@ export class Player {
       this.vy *= scale;
     }
 
-    // Food collision: take damage from food + deal body damage to food + bounceback (as velocity impulse + separation)
-    // Ghost: no collision, pass through food
-    if (!this.ghost) {
+    // Food collision: take damage from food + deal body damage to food + bounceback (solo only; multiplayer = server authority)
+    if (!this.ghost && !game.multiplayerSocket) {
       for (const food of game.foods) {
         const d = distance(this.x, this.y, food.x, food.y);
         const overlap = this.size + food.size - d;
@@ -347,8 +346,8 @@ export class Player {
       }
     }
 
-    // Inferno damage
-    if (this.equippedBody?.subtype === 'inferno') {
+    // Inferno damage (solo only; multiplayer = server authority)
+    if (!game.multiplayerSocket && this.equippedBody?.subtype === 'inferno') {
       const b = BODY_UPGRADES.inferno;
     
       const r = this.equippedBody.rarity;

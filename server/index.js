@@ -255,6 +255,10 @@ const roomPlayerBodies = new Map();
 const roomMobsSeq = new Map();
 const roomSpawnIntervals = new Map();
 const TICK_MS = 5;
+/** World snapshot broadcast: run sim every TICK_MS but only send mobs/bullets/squares/drones at BROADCAST_HZ so clients aren't dependent on every packet. */
+const BROADCAST_HZ = 30;
+const BROADCAST_INTERVAL_MS = Math.round(1000 / BROADCAST_HZ);
+const roomLastBroadcastTime = new Map();
 const roomTickIntervals = new Map();
 
 function getRoomPlayers(room) {
@@ -304,15 +308,21 @@ function startSpawnInterval(room) {
 
 function startGameTick(room) {
   if (roomTickIntervals.has(room)) return;
+  roomLastBroadcastTime.set(room, 0);
   const interval = setInterval(() => {
     const players = getRoomPlayers(room);
     if (players.size === 0) return;
     const result = tick(room, TICK_MS, roomPlayers, roomPlayerBodies);
-    // Snapshot must be after tick so dead mobs are removed and replacements included (#5 respawn doc).
-    io.to(room).emit('mobs', getMobsPayload(room));
-    io.to(room).emit('bullets', getBulletsSnapshot(room));
-    io.to(room).emit('squares', getSquaresSnapshot(room));
-    io.to(room).emit('drones', getDronesSnapshot(room, roomPlayers, roomPlayerBodies));
+    const now = Date.now();
+    const last = roomLastBroadcastTime.get(room) || 0;
+    if (now - last >= BROADCAST_INTERVAL_MS) {
+      roomLastBroadcastTime.set(room, now);
+      io.to(room).emit('mobs', getMobsPayload(room));
+      io.to(room).emit('bullets', getBulletsSnapshot(room));
+      io.to(room).emit('squares', getSquaresSnapshot(room));
+      io.to(room).emit('drones', getDronesSnapshot(room, roomPlayers, roomPlayerBodies));
+      broadcastPlayers(room);
+    }
     for (const { socketId, payload } of result.killPayloads) {
       io.to(socketId).emit('kill', payload);
     }
@@ -356,17 +366,18 @@ io.on('connection', (socket) => {
   socket.on('state', (data) => {
     const room = Array.from(socket.rooms).find(r => r !== socket.id && r.length > 0);
     if (!room) return;
+    const prev = getRoomPlayers(room).get(socket.id) || {};
     const state = data && typeof data === 'object' ? {
-      x: typeof data.x === 'number' ? data.x : 0,
-      y: typeof data.y === 'number' ? data.y : 0,
-      angle: typeof data.angle === 'number' ? data.angle : 0,
-      hp: typeof data.hp === 'number' ? data.hp : 500,
-      maxHp: typeof data.maxHp === 'number' ? data.maxHp : 500,
-      level: typeof data.level === 'number' ? data.level : 1,
-      displayName: typeof data.displayName === 'string' ? data.displayName.slice(0, 50) : 'Player',
-      equippedTank: data.equippedTank && typeof data.equippedTank === 'object' ? data.equippedTank : null,
-      equippedBody: data.equippedBody && typeof data.equippedBody === 'object' ? data.equippedBody : null,
-      size: typeof data.size === 'number' ? data.size : 24.5,
+      x: typeof data.x === 'number' ? data.x : prev.x,
+      y: typeof data.y === 'number' ? data.y : prev.y,
+      angle: typeof data.angle === 'number' ? data.angle : prev.angle,
+      hp: typeof prev.hp === 'number' ? prev.hp : (typeof data.hp === 'number' ? data.hp : 500),
+      maxHp: typeof prev.maxHp === 'number' ? prev.maxHp : (typeof data.maxHp === 'number' ? data.maxHp : 500),
+      level: typeof data.level === 'number' ? data.level : prev.level,
+      displayName: typeof data.displayName === 'string' ? data.displayName.slice(0, 50) : (prev.displayName || 'Player'),
+      equippedTank: data.equippedTank && typeof data.equippedTank === 'object' ? data.equippedTank : prev.equippedTank,
+      equippedBody: data.equippedBody && typeof data.equippedBody === 'object' ? data.equippedBody : prev.equippedBody,
+      size: typeof data.size === 'number' ? data.size : prev.size,
       targetX: typeof data.targetX === 'number' ? data.targetX : null,
       targetY: typeof data.targetY === 'number' ? data.targetY : null,
     } : {};

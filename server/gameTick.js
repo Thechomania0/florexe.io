@@ -1,7 +1,7 @@
 /**
  * Server-side bullets and squares (traps). Updated in game tick; collisions with mobs call mobs.hitMob.
  */
-const { getRoomMobs, hitMob, getMobsSnapshot, updateBeetles, purgeDeadMobs, removeMobsFullyInWall } = require('./mobs.js');
+const { getRoomMobs, hitMob, getMobsSnapshot, updateBeetles, purgeDeadMobs, removeMobsFullyInWall, FOOD_CONFIG, BEETLE_CONFIG } = require('./mobs.js');
 const { ensureOverlordDrones, ensureHiveDrones, updateOverlordDrones, updateHiveDrones } = require('./drones.js');
 const MAP_HALF = 8000;
 
@@ -23,6 +23,15 @@ function ellipseOverlapsCircle(beetle, cx, cy, r) {
 const TRAP_NO_COLLISION_MS = 200;
 const MAX_SEPARATION_PER_FRAME = 5;
 const BEETLE_SQUARE_SEPARATION_MAX = 4;
+
+// Server-authoritative body contact and inferno AOE (mirrors client config)
+const BASE_BODY_DAMAGE = 50;
+const LEVEL_SCALE_PER = 0.10;
+const INFERNO_BASE_RADIUS = 144;
+const INFERNO_DAMAGE_BY_RARITY = { common: 50, uncommon: 75, rare: 100, epic: 125, legendary: 200, mythic: 250, ultra: 500, super: 2000 };
+const INFERNO_SIZE_MULT = 1.05;
+const INFERNO_SIZE_MULT_ULTRA = 1.07;
+const INFERNO_SIZE_MULT_SUPER = 1.10;
 
 function effectiveWeight(w) {
   const n = Math.max(0, Math.min(100, typeof w === 'number' ? w : 1));
@@ -171,6 +180,63 @@ function getOwnerPosition(room, ownerId, roomPlayers) {
   return { x: state.x || 0, y: state.y || 0 };
 }
 
+/** Server-authoritative body contact and inferno AOE damage. */
+function applyPlayerBodyAndInfernoDamage(room, roomPlayers, roomPlayerBodies, foodsSnapshot, beetlesSnapshot, dtMs, killPayloads) {
+  const players = roomPlayers.get(room);
+  const bodies = roomPlayerBodies.get(room);
+  if (!players || !bodies) return;
+  const dtSec = dtMs / 1000;
+  for (const [ownerId, state] of players.entries()) {
+    const body = bodies.get(ownerId);
+    if (!body || typeof body.x !== 'number' || typeof body.y !== 'number') continue;
+    const px = body.x;
+    const py = body.y;
+    const psize = typeof body.size === 'number' ? body.size : 24.5;
+    const level = Math.max(1, typeof state.level === 'number' ? state.level : 1);
+    const levelScale = 1 + LEVEL_SCALE_PER * Math.floor((level - 1) / 10);
+    const bodyDamagePerSec = BASE_BODY_DAMAGE * levelScale;
+    const bodyDmg = bodyDamagePerSec * dtSec;
+
+    for (const food of foodsSnapshot) {
+      if (distance(px, py, food.x, food.y) < psize + food.size) {
+        const result = hitMob(room, food.id, 'food', bodyDmg, px, py);
+        if (result.killed && result.killPayload) killPayloads.push({ socketId: ownerId, payload: result.killPayload });
+        const foodDmg = (FOOD_CONFIG[food.rarity] && FOOD_CONFIG[food.rarity].damage) ? FOOD_CONFIG[food.rarity].damage * dtSec : 10 * dtSec;
+        state.hp = Math.max(0, (state.hp ?? state.maxHp ?? 500) - foodDmg);
+      }
+    }
+    for (const beetle of beetlesSnapshot) {
+      if (ellipseOverlapsCircle(beetle, px, py, psize)) {
+        const result = hitMob(room, beetle.id, 'beetle', bodyDmg, px, py);
+        if (result.killed && result.killPayload) killPayloads.push({ socketId: ownerId, payload: result.killPayload });
+        const beetleDmg = (BEETLE_CONFIG[beetle.rarity] && BEETLE_CONFIG[beetle.rarity].damage) ? BEETLE_CONFIG[beetle.rarity].damage * dtSec : 10 * dtSec;
+        state.hp = Math.max(0, (state.hp ?? state.maxHp ?? 500) - beetleDmg);
+      }
+    }
+
+    const equippedBody = state.equippedBody && typeof state.equippedBody === 'object' ? state.equippedBody : null;
+    if (equippedBody && equippedBody.subtype === 'inferno') {
+      const r = equippedBody.rarity || 'common';
+      const radiusMult = r === 'super' ? INFERNO_SIZE_MULT_SUPER : r === 'ultra' ? INFERNO_SIZE_MULT_ULTRA : INFERNO_SIZE_MULT;
+      const radius = INFERNO_BASE_RADIUS * radiusMult;
+      const infernoDmgPerSec = INFERNO_DAMAGE_BY_RARITY[r] || 50;
+      const infernoDmg = infernoDmgPerSec * dtSec;
+      for (const food of foodsSnapshot) {
+        if (distance(px, py, food.x, food.y) < radius) {
+          const result = hitMob(room, food.id, 'food', infernoDmg, px, py);
+          if (result.killed && result.killPayload) killPayloads.push({ socketId: ownerId, payload: result.killPayload });
+        }
+      }
+      for (const beetle of beetlesSnapshot) {
+        if (ellipseOverlapsCircle(beetle, px, py, radius)) {
+          const result = hitMob(room, beetle.id, 'beetle', infernoDmg, px, py);
+          if (result.killed && result.killPayload) killPayloads.push({ socketId: ownerId, payload: result.killPayload });
+        }
+      }
+    }
+  }
+}
+
 /**
  * Run one game tick for the room (bullets and squares update, collision with mobs). Returns { mobsChanged, killPayloads }.
  */
@@ -308,6 +374,8 @@ function tick(room, dtMs, roomPlayers, roomPlayerBodies) {
 
   updateOverlordDrones(room, roomPlayers, roomPlayerBodies, foodsSnapshot, beetlesSnapshot, dtMs, killPayloads);
   updateHiveDrones(room, roomPlayers, roomPlayerBodies, foodsSnapshot, beetlesSnapshot, dtMs, killPayloads);
+
+  applyPlayerBodyAndInfernoDamage(room, roomPlayers, roomPlayerBodies, foodsSnapshot, beetlesSnapshot, dtMs, killPayloads);
 
   purgeDeadMobs(room);
 

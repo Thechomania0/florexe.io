@@ -1085,17 +1085,7 @@ export class Game {
           if (bullet.hitTargets.has(food)) continue;
           if (distance(bullet.x, bullet.y, food.x, food.y) < bullet.size + food.size) {
             bullet.hitTargets.add(food);
-            if (this.multiplayerSocket && food.id != null) {
-              this.multiplayerSocket.emit('hit', {
-                mobId: food.id,
-                mobType: 'food',
-                damage: bullet.damage,
-                x: this.player.x,
-                y: this.player.y,
-                impactX: bullet.x,
-                impactY: bullet.y,
-              });
-            } else {
+            if (!this.multiplayerSocket) {
               food.hp -= bullet.damage;
               if (food.hp <= 0) this.player.onKill(food, this);
             }
@@ -1111,17 +1101,7 @@ export class Game {
           if (bullet.hitTargets.has(beetle)) continue;
           if (beetle.ellipseOverlapsCircle(bullet.x, bullet.y, bullet.size)) {
             bullet.hitTargets.add(beetle);
-            if (this.multiplayerSocket && beetle.id != null) {
-              this.multiplayerSocket.emit('hit', {
-                mobId: beetle.id,
-                mobType: 'beetle',
-                damage: bullet.damage,
-                x: this.player.x,
-                y: this.player.y,
-                impactX: bullet.x,
-                impactY: bullet.y,
-              });
-            } else {
+            if (!this.multiplayerSocket) {
               beetle.hp -= bullet.damage;
               if (beetle.hp <= 0) this.player.onKill(beetle, this);
             }
@@ -1148,17 +1128,7 @@ export class Game {
         if (!bulletsToRemove.has(bullet)) {
           for (const food of this.foods) {
             if (distance(bullet.x, bullet.y, food.x, food.y) < bullet.size + food.size) {
-              if (this.multiplayerSocket && food.id != null) {
-                this.multiplayerSocket.emit('hit', {
-                  mobId: food.id,
-                  mobType: 'food',
-                  damage: bullet.damage,
-                  x: this.player.x,
-                  y: this.player.y,
-                  impactX: bullet.x,
-                  impactY: bullet.y,
-                });
-              } else {
+              if (!this.multiplayerSocket) {
                 food.hp -= bullet.damage;
                 if (food.hp <= 0) this.player.onKill(food, this);
               }
@@ -1173,17 +1143,7 @@ export class Game {
         if (!bulletsToRemove.has(bullet)) {
           for (const beetle of this.beetles) {
             if (beetle.ellipseOverlapsCircle(bullet.x, bullet.y, bullet.size)) {
-              if (this.multiplayerSocket && beetle.id != null) {
-                this.multiplayerSocket.emit('hit', {
-                  mobId: beetle.id,
-                  mobType: 'beetle',
-                  damage: bullet.damage,
-                  x: this.player.x,
-                  y: this.player.y,
-                  impactX: bullet.x,
-                  impactY: bullet.y,
-                });
-              } else {
+              if (!this.multiplayerSocket) {
                 beetle.hp -= bullet.damage;
                 if (beetle.hp <= 0) this.player.onKill(beetle, this);
               }
@@ -1205,17 +1165,7 @@ export class Game {
       for (const food of this.foods) {
         const d = distance(sq.x, sq.y, food.x, food.y);
         if (d < sq.size + food.size) {
-          if (this.multiplayerSocket && food.id != null) {
-            this.multiplayerSocket.emit('hit', {
-              mobId: food.id,
-              mobType: 'food',
-              damage: sqDamage,
-              x: this.player.x,
-              y: this.player.y,
-              impactX: sq.x,
-              impactY: sq.y,
-            });
-          } else {
+          if (!this.multiplayerSocket) {
             food.hp -= sqDamage;
             if (food.hp <= 0) this.player.onKill(food, this);
           }
@@ -1223,17 +1173,7 @@ export class Game {
       }
       for (const beetle of this.beetles) {
         if (beetle.ellipseOverlapsCircle(sq.x, sq.y, sq.size)) {
-          if (this.multiplayerSocket && beetle.id != null) {
-            this.multiplayerSocket.emit('hit', {
-              mobId: beetle.id,
-              mobType: 'beetle',
-              damage: sqDamage,
-              x: this.player.x,
-              y: this.player.y,
-              impactX: sq.x,
-              impactY: sq.y,
-            });
-          } else {
+          if (!this.multiplayerSocket) {
             beetle.hp -= sqDamage;
             if (beetle.hp <= 0) this.player.onKill(beetle, this);
           }
