@@ -173,12 +173,12 @@ function getOwnerPosition(room, ownerId, roomPlayers) {
 /**
  * Run one game tick for the room (bullets and squares update, collision with mobs). Returns { mobsChanged, killPayloads }.
  */
-function tick(room, dtMs, roomPlayers) {
+function tick(room, dtMs, roomPlayers, roomPlayerBodies) {
   const bullets = getRoomBullets(room);
   const squares = getRoomSquares(room);
   const m = getRoomMobs(room);
   const killPayloads = [];
-  updateBeetles(room, roomPlayers, dtMs);
+  updateBeetles(room, roomPlayerBodies, dtMs);
   runBeetleSquareRepulsion(m.beetles, squares, dtMs);
   removeMobsFullyInWall(room);
 
@@ -346,6 +346,13 @@ function removePlayerEntities(room, ownerId) {
   roomSquares.set(room, newSquares);
 }
 
+/** Remove only squares (traps) owned by ownerId. Used when player unequips Riot/Anchor. */
+function removePlayerSquares(room, ownerId) {
+  const squares = getRoomSquares(room);
+  const newSquares = squares.filter((s) => s.ownerId !== ownerId);
+  roomSquares.set(room, newSquares);
+}
+
 module.exports = {
   getRoomBullets,
   getRoomSquares,
@@ -356,4 +363,5 @@ module.exports = {
   getSquaresSnapshot,
   clearRoom,
   removePlayerEntities,
+  removePlayerSquares,
 };

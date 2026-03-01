@@ -693,7 +693,8 @@ function getItemTooltipContent(item) {
       stats.push({ label: 'Trap HP', value: String(t.squareHp ?? 0), cls: 'stat-positive' });
       const dur = (item.subtype === 'anchor' && r === 'super' && t.squareDurationSuper) ? t.squareDurationSuper : (t.squareDurationSuper && r === 'super' ? t.squareDurationSuper : t.squareDuration);
       stats.push({ label: 'Trap duration', value: (dur / 1000).toFixed(1) + 's', cls: 'stat-positive' });
-      stats.push({ label: 'Max traps', value: String(t.maxSquares ?? 0), cls: 'stat-positive' });
+      const maxTraps = item.subtype === 'riot' ? (t.maxSquaresByRarity?.[r] ?? t.maxSquares) : (t.maxSquares ?? 0);
+      stats.push({ label: 'Max traps', value: String(maxTraps), cls: 'stat-positive' });
     }
     if (item.subtype === 'overlord') {
       const count = r === 'super' ? (t.droneCountSuper ?? t.droneCount) : r === 'ultra' ? (t.droneCountUltra ?? t.droneCount) : t.droneCount;
@@ -858,9 +859,7 @@ function setupHUD(player) {
   function equipItem(p, slotType, itemOrKey) {
     if (slotType === 'tank' && p.adminMode && itemOrKey?.subtype && itemOrKey?.rarity) {
       const old = p.equippedTank;
-      if (old && (old.subtype === 'riot' || old.subtype === 'anchor')) {
-        for (const sq of p.squares) sq.duration = 0;
-      }
+      if (old && (old.subtype === 'riot' || old.subtype === 'anchor') && game) game.clearPlayerTraps(p);
       p.equippedTank = { type: 'tank', subtype: itemOrKey.subtype, rarity: itemOrKey.rarity };
       p.applyStats();
       return;
@@ -874,9 +873,7 @@ function setupHUD(player) {
     if (!item || item.type !== slotType) return;
     if (slotType === 'tank') {
       const old = p.equippedTank;
-      if (old && (old.subtype === 'riot' || old.subtype === 'anchor')) {
-        for (const sq of p.squares) sq.duration = 0;
-      }
+      if (old && (old.subtype === 'riot' || old.subtype === 'anchor') && game) game.clearPlayerTraps(p);
       p.equippedTank = item;
       const idx = p.inventory.indexOf(item);
       if (idx >= 0 && !p.adminMode) p.inventory.splice(idx, 1);
@@ -934,9 +931,7 @@ function setupHUD(player) {
   function unequip(p, slotType) {
     const defaultTank = { type: 'tank', subtype: 'base', rarity: 'common' };
     if (slotType === 'tank' && p.equippedTank) {
-      if (p.equippedTank.subtype === 'riot' || p.equippedTank.subtype === 'anchor') {
-        for (const sq of p.squares) sq.duration = 0;
-      }
+      if ((p.equippedTank.subtype === 'riot' || p.equippedTank.subtype === 'anchor') && game) game.clearPlayerTraps(p);
       if (p.equippedTank.subtype !== 'base' && !p.adminMode) p.inventory.push(p.equippedTank);
       p.equippedTank = defaultTank;
     } else if (slotType === 'body' && p.equippedBody) {

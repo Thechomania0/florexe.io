@@ -175,6 +175,8 @@ export const TANK_UPGRADES = {
     reload: 500,
     reloadByRarity: { common: 500, uncommon: 450, rare: 405, epic: 364, legendary: 328, mythic: 295, ultra: 266, super: 239 },
     maxSquares: 9,
+    /** Max traps per rarity: common=2, +1 per rarity tier (uncommon=3, ..., super=9). */
+    maxSquaresByRarity: { common: 10, uncommon: 12, rare: 14, epic: 16, legendary: 18, mythic: 20, ultra: 24, super: 30 },
     squareSize: 14,
     recoilMovePercent: 0.08,
     trapLaunchSpeed: 0.22,

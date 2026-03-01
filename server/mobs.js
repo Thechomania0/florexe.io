@@ -277,11 +277,11 @@ function hitMob(room, mobId, mobType, damage, playerX, playerY) {
   return { killed: false };
 }
 
-/** Update beetle positions: chase nearest player in vision. Never move into wall cells. Use substeps so beetles can creep toward player when path is partially blocked. */
-function updateBeetles(room, roomPlayers, dtMs) {
+/** Update beetle positions: chase nearest player body (server-side circle) in vision. Never move into wall cells. Use substeps so beetles can creep toward player when path is partially blocked. */
+function updateBeetles(room, roomPlayerBodies, dtMs) {
   const m = getRoomMobs(room);
-  const players = roomPlayers && roomPlayers.get(room);
-  if (!players || players.size === 0) return;
+  const bodies = roomPlayerBodies && roomPlayerBodies.get(room);
+  if (!bodies || bodies.size === 0) return;
   const dtSec = dtMs / 1000;
   const CHASE_SPEED = 120;
   const SUBSTEPS = 4;
@@ -290,9 +290,9 @@ function updateBeetles(room, roomPlayers, dtMs) {
     let nearestDist = vision + 1;
     let tx = null;
     let ty = null;
-    for (const [, state] of players) {
-      const px = Number(state.x) || 0;
-      const py = Number(state.y) || 0;
+    for (const [, body] of bodies) {
+      const px = Number(body.x) || 0;
+      const py = Number(body.y) || 0;
       const d = Math.hypot(beetle.x - px, beetle.y - py);
       if (d <= vision && d >= 1e-6 && d < nearestDist) {
         nearestDist = d;

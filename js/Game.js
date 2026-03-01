@@ -153,6 +153,17 @@ export class Game {
     }
   }
 
+  /** Instantly remove all traps (squares) owned by this player. Call when unequipping Riot or Anchor. */
+  clearPlayerTraps(player) {
+    if (!player || !player.squares) return;
+    const toRemove = new Set(player.squares);
+    for (const sq of toRemove) sq.duration = 0;
+    this.squares = this.squares.filter((s) => !toRemove.has(s));
+    this.pendingSquares = this.pendingSquares.filter((e) => !toRemove.has(e.sq));
+    player.squares = [];
+    if (this.multiplayerSocket?.connected) this.multiplayerSocket.emit('clearSquares');
+  }
+
   setBulletsFromServer(list) {
     this.serverBullets = Array.isArray(list) ? list : [];
   }

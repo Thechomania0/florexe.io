@@ -226,11 +226,14 @@ const {
   getBulletsSnapshot,
   getSquaresSnapshot,
   removePlayerEntities,
+  removePlayerSquares,
 } = require('./gameTick.js');
 const { getDefaultMap } = require('./map.js');
 
 /** Room name from gamemode. state = { x, y, angle, hp, maxHp, level, displayName, equippedTank, equippedBody, size }. */
 const roomPlayers = new Map();
+/** Server-side player bodies: room -> Map(socketId -> { x, y, size }). Updated on join/state so beetles chase exact positions. */
+const roomPlayerBodies = new Map();
 const roomMobsSeq = new Map();
 const roomSpawnIntervals = new Map();
 const TICK_MS = 5;
@@ -239,6 +242,21 @@ const roomTickIntervals = new Map();
 function getRoomPlayers(room) {
   if (!roomPlayers.has(room)) roomPlayers.set(room, new Map());
   return roomPlayers.get(room);
+}
+
+/** Get server-side player bodies (circle position + size) for beetle targeting. Synced from state on join/state. */
+function getRoomPlayerBodies(room) {
+  if (!roomPlayerBodies.has(room)) roomPlayerBodies.set(room, new Map());
+  return roomPlayerBodies.get(room);
+}
+
+/** Update one player's body from state. Call after setting state so beetles use same position. */
+function setPlayerBody(room, socketId, state) {
+  const bodies = getRoomPlayerBodies(room);
+  const x = typeof state.x === 'number' ? state.x : 0;
+  const y = typeof state.y === 'number' ? state.y : 0;
+  const size = typeof state.size === 'number' ? state.size : 24.5;
+  bodies.set(socketId, { x, y, size });
 }
 
 function broadcastPlayers(room) {
@@ -271,7 +289,7 @@ function startGameTick(room) {
   const interval = setInterval(() => {
     const players = getRoomPlayers(room);
     if (players.size === 0) return;
-    const result = tick(room, TICK_MS, roomPlayers);
+    const result = tick(room, TICK_MS, roomPlayers, roomPlayerBodies);
     io.to(room).emit('mobs', getMobsPayload(room));
     io.to(room).emit('bullets', getBulletsSnapshot(room));
     io.to(room).emit('squares', getSquaresSnapshot(room));
@@ -299,6 +317,7 @@ io.on('connection', (socket) => {
     } : {};
     socket.join(room);
     getRoomPlayers(room).set(socket.id, state);
+    setPlayerBody(room, socket.id, state);
     broadcastPlayers(room);
     startSpawnInterval(room);
     startGameTick(room);
@@ -324,6 +343,7 @@ io.on('connection', (socket) => {
       size: typeof data.size === 'number' ? data.size : 24.5,
     } : {};
     getRoomPlayers(room).set(socket.id, state);
+    setPlayerBody(room, socket.id, state);
     broadcastPlayers(room);
   });
 
@@ -393,11 +413,19 @@ io.on('connection', (socket) => {
     io.to(room).emit('squares', getSquaresSnapshot(room));
   });
 
+  socket.on('clearSquares', () => {
+    const room = Array.from(socket.rooms).find(r => r !== socket.id && r.length > 0);
+    if (!room) return;
+    removePlayerSquares(room, socket.id);
+    io.to(room).emit('squares', getSquaresSnapshot(room));
+  });
+
   socket.on('disconnect', () => {
     for (const room of socket.rooms) {
       if (room === socket.id) continue;
       const leftId = socket.id;
       getRoomPlayers(room).delete(leftId);
+      getRoomPlayerBodies(room).delete(leftId);
       removePlayerEntities(room, leftId);
       io.to(room).emit('playerLeft', { id: leftId });
       broadcastPlayers(room);

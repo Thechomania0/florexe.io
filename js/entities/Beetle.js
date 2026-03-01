@@ -219,68 +219,56 @@ export class Beetle {
     }
     ctx.restore();
 
-    const showNameAndRarity = this.rarity !== 'common' && this.rarity !== 'uncommon';
-    // Legendary, mythic, ultra: HP bar length = same as food shape counterpart (septagon, octagon, nonagon)
+    // All beetles: show "Beetle" name, health bar, and rarity (Common, Uncommon, Rare, etc.) at any level
     const barSizeForWidth = (this.rarity === 'legendary' || this.rarity === 'mythic' || this.rarity === 'ultra')
       ? (FOOD_CONFIG[this.rarity]?.size ?? s)
       : s;
     const barW = barSizeForWidth * 2;
-    if (!showNameAndRarity) {
-      const barH = Math.max(3, 5 / scale);
-      const barY = this.y + s + 2;
-      const barX = this.x - barW / 2;
-      drawRoundedHealthBar(ctx, barX, barY, barW, barH, this.hp / this.maxHp, {
-        fillColor: '#81c784',
-        outlineColor: 'rgba(0,0,0,0.8)',
-        lineWidth: Math.max(1, 2.5 / scale),
-      });
-    } else {
-      const barH = Math.max(3, 5 / scale);
-      const fontSize = Math.max(14, 16 / scale);
-      const nameGap = 2;
-      const nameY = this.y + s + nameGap;
-      const barY = nameY + fontSize + 1;
-      const barX = this.x - barW / 2;
-      const shopFont = `700 ${fontSize}px Rajdhani, sans-serif`;
-      const shopOutlineWidth = 2;
-      const letterSpacing = 1;
-      const shapeName = 'Beetle';
-      ctx.font = shopFont;
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = shopOutlineWidth;
-      ctx.lineJoin = 'miter';
-      ctx.miterLimit = 2;
-      let x = barX;
-      for (const char of shapeName) {
-        ctx.strokeText(char, x, nameY);
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillText(char, x, nameY);
-        x += ctx.measureText(char).width + letterSpacing;
-      }
-      drawRoundedHealthBar(ctx, barX, barY, barW, barH, this.hp / this.maxHp, {
-        fillColor: '#81c784',
-        outlineColor: 'rgba(0,0,0,0.8)',
-        lineWidth: Math.max(1, 2.5 / scale),
-      });
-      const rarityLabel = this.rarity.charAt(0).toUpperCase() + this.rarity.slice(1);
-      const textY = barY + barH + 2;
-      const textX = barX + barW;
-      ctx.font = shopFont;
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = shopOutlineWidth;
-      let rx = textX;
-      for (let i = rarityLabel.length - 1; i >= 0; i--) {
-        const char = rarityLabel[i];
-        rx -= ctx.measureText(char).width;
-        ctx.textAlign = 'left';
-        ctx.strokeText(char, rx, textY);
-        ctx.fillStyle = getRarityColor(this.rarity);
-        ctx.fillText(char, rx, textY);
-        rx -= letterSpacing;
-      }
-      ctx.textAlign = 'right';
+    const barH = Math.max(3, 5 / scale);
+    const fontSize = Math.max(14, 16 / scale);
+    const nameGap = 2;
+    const nameY = this.y + s + nameGap;
+    const barY = nameY + fontSize + 1;
+    const barX = this.x - barW / 2;
+    const shopFont = `700 ${fontSize}px Rajdhani, sans-serif`;
+    const shopOutlineWidth = 2;
+    const letterSpacing = 1;
+    const shapeName = 'Beetle';
+    ctx.font = shopFont;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = shopOutlineWidth;
+    ctx.lineJoin = 'miter';
+    ctx.miterLimit = 2;
+    let x = barX;
+    for (const char of shapeName) {
+      ctx.strokeText(char, x, nameY);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(char, x, nameY);
+      x += ctx.measureText(char).width + letterSpacing;
     }
+    drawRoundedHealthBar(ctx, barX, barY, barW, barH, this.hp / this.maxHp, {
+      fillColor: '#81c784',
+      outlineColor: 'rgba(0,0,0,0.8)',
+      lineWidth: Math.max(1, 2.5 / scale),
+    });
+    const rarityLabel = this.rarity.charAt(0).toUpperCase() + this.rarity.slice(1);
+    const textY = barY + barH + 2;
+    const textX = barX + barW;
+    ctx.font = shopFont;
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = shopOutlineWidth;
+    let rx = textX;
+    for (let i = rarityLabel.length - 1; i >= 0; i--) {
+      const char = rarityLabel[i];
+      rx -= ctx.measureText(char).width;
+      ctx.textAlign = 'left';
+      ctx.strokeText(char, rx, textY);
+      ctx.fillStyle = getRarityColor(this.rarity);
+      ctx.fillText(char, rx, textY);
+      rx -= letterSpacing;
+    }
+    ctx.textAlign = 'right';
   }
 }

@@ -57,28 +57,17 @@ export class Food {
     ctx.stroke();
     ctx.restore();
 
-    // ===== Health bar only for triangles and squares, first 10 levels; no name, no rarity =====
+    // ===== Health bar + shape name + rarity for all mobs (any level); triangles/squares show name + rarity too =====
     const isSmallFood = this.sides <= 4; // triangle (3) or square (4)
-    const showSmallFoodBar = playerLevel < 10 && isSmallFood;
+    const showBarAndLabels = isSmallFood || this.maxHp >= 100;
 
-    if (showSmallFoodBar) {
-      const barW = s * 2;
-      const barH = Math.max(3, 5 / scale);
-      const barY = this.y + s + 6;
-      const barX = this.x - barW / 2;
-      drawRoundedHealthBar(ctx, barX, barY, barW, barH, this.hp / this.maxHp, {
-        fillColor: '#81c784',
-        outlineColor: 'rgba(0,0,0,0.8)',
-        lineWidth: Math.max(1, 2.5 / scale),
-      });
-    } else if (!isSmallFood && this.maxHp >= 100) {
-      // Larger shapes (pentagon+): keep existing bar + name + rarity when maxHp >= 100
+    if (showBarAndLabels) {
       const barW = s * 2;
       const barH = Math.max(3, 5 / scale);
       const fontSize = Math.max(14, 16 / scale);
-      const nameGap = 6;
+      const nameGap = isSmallFood ? 2 : 6;
       const nameY = this.y + s + nameGap;
-      const barY = nameY + fontSize + 2;
+      const barY = nameY + fontSize + (isSmallFood ? 1 : 2);
       const barX = this.x - barW / 2;
 
       const shopFont = `700 ${fontSize}px Rajdhani, sans-serif`;
