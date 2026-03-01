@@ -198,8 +198,10 @@ function tick(room, dtMs, roomPlayers, roomPlayerBodies) {
     const ownerPos = getOwnerPosition(room, bullet.ownerId, roomPlayers);
     const ownerX = ownerPos.x;
     const ownerY = ownerPos.y;
+    const foodsSnapshot = [...m.foods];
+    const beetlesSnapshot = [...m.beetles];
     if (bullet.penetrating) {
-      for (const food of m.foods) {
+      for (const food of foodsSnapshot) {
         if (bullet.hp != null && bullet.hp <= 0) break;
         if (bullet.hitTargets.includes(food.id)) continue;
         if (distance(bullet.x, bullet.y, food.x, food.y) < bullet.size + food.size) {
@@ -210,7 +212,7 @@ function tick(room, dtMs, roomPlayers, roomPlayerBodies) {
           if (bullet.hp != null && bullet.hp <= 0) bulletsToRemove.add(bullet);
         }
       }
-      for (const beetle of m.beetles) {
+      for (const beetle of beetlesSnapshot) {
         if (bullet.hp != null && bullet.hp <= 0) break;
         if (bullet.hitTargets.includes(beetle.id)) continue;
         if (ellipseOverlapsCircle(beetle, bullet.x, bullet.y, bullet.size)) {
@@ -223,7 +225,7 @@ function tick(room, dtMs, roomPlayers, roomPlayerBodies) {
       }
     } else {
       let hit = false;
-      for (const food of m.foods) {
+      for (const food of foodsSnapshot) {
         if (distance(bullet.x, bullet.y, food.x, food.y) < bullet.size + food.size) {
           const result = hitMob(room, food.id, 'food', bullet.damage, bullet.x, bullet.y);
           if (result.killed && result.killPayload) killPayloads.push({ socketId: bullet.ownerId, payload: result.killPayload });
@@ -232,7 +234,7 @@ function tick(room, dtMs, roomPlayers, roomPlayerBodies) {
         }
       }
       if (!hit) {
-        for (const beetle of m.beetles) {
+        for (const beetle of beetlesSnapshot) {
           if (ellipseOverlapsCircle(beetle, bullet.x, bullet.y, bullet.size)) {
             const result = hitMob(room, beetle.id, 'beetle', bullet.damage, bullet.x, bullet.y);
             if (result.killed && result.killPayload) killPayloads.push({ socketId: bullet.ownerId, payload: result.killPayload });
