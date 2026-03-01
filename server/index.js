@@ -10,16 +10,23 @@ const PORT = process.env.PORT || 53134;
 const USERS_FILE = path.join(__dirname, 'data', 'users.json');
 const MAPS_FILE = path.join(__dirname, 'data', 'maps.json');
 
-// Allow requests from GitHub Pages (florexe.io) and localhost for progress/auth API
+// Allow requests from GitHub Pages (florexe.io), Railway, and localhost for progress/auth API
 const CORS_ORIGINS = [
   'https://florexe.io',
   'https://www.florexe.io',
   'http://localhost:53134',
   'http://127.0.0.1:53134',
 ];
+function isAllowedOrigin(origin) {
+  if (!origin) return false;
+  if (CORS_ORIGINS.includes(origin)) return true;
+  // Any Railway deployment (production or preview)
+  if (/\.railway\.app$/.test(new URL(origin).hostname)) return true;
+  return false;
+}
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin && CORS_ORIGINS.includes(origin)) {
+  if (origin && isAllowedOrigin(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -446,5 +453,5 @@ io.on('connection', (socket) => {
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`App listening on port ${PORT}`);
+  console.log(`App listening on port ${PORT} (PORT env: ${process.env.PORT || 'not set'})`);
 });

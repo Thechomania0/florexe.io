@@ -39,3 +39,15 @@ Triangles (common) → Squares → Pentagons → Hexagons → Septagons → Octa
 ## Crafting
 
 Combine 5 of the same upgrade (e.g. 5 Common Destroyers). Success rates: Common→Uncommon 60%, then decreasing. On failure, lose 1–4 of the 5 items. Hold **Shift+Click** for mass-craft (future).
+
+## Deploy to Railway (frontend + backend)
+
+One Railway service serves both the static frontend and the Node backend (Express + Socket.io).
+
+1. **Create a project** at [railway.app](https://railway.app) and connect this repo.
+2. **New service** → Deploy from GitHub repo → select this repository. Railway will use the root as the service root and run `npm start` (see `railway.toml`).
+3. **Variables** (optional): set `PORT` if needed; Railway sets it automatically.
+4. **Generate domain**: in the service → Settings → Networking → Generate Domain. You get a URL like `https://florexeio-production.up.railway.app`. Opening that URL serves the game; API and Socket.io use the same origin.
+5. **Custom domain** (optional): add your own domain in Networking and point DNS to Railway. Then update `index.html` or CORS if you use a different front domain.
+
+No separate frontend deploy: the same Node app serves `index.html`, `js/`, `css/`, etc., and the `/api/*` and Socket.io endpoints.

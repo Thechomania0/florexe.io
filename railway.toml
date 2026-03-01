@@ -1,0 +1,10 @@
+# Railway: single service runs both frontend (static) and backend (Express + Socket.io)
+# Root directory is the service root; npm start runs node server/index.js
+
+[build]
+# Default: npm install. No frontend build step.
+
+[deploy]
+startCommand = "npm start"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
