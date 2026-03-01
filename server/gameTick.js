@@ -93,15 +93,22 @@ function addBullet(room, data) {
   return b;
 }
 
-function addSquare(room, data) {
+function addSquare(room, data, roomPlayers) {
   const now = Date.now();
   const rawDuration = data.duration != null ? data.duration : 6000;
   const duration = Math.max(100, Math.min(30000, Number(rawDuration) || 6000));
+  let x = typeof data.x === 'number' ? data.x : null;
+  let y = typeof data.y === 'number' ? data.y : null;
+  if (x == null || y == null || (x === 0 && y === 0)) {
+    const ownerPos = getOwnerPosition(room, data.ownerId, roomPlayers || new Map());
+    x = typeof x === 'number' ? x : (ownerPos.x ?? 0);
+    y = typeof y === 'number' ? y : (ownerPos.y ?? 0);
+  }
   const sq = {
     id: 'sq_' + (nextSquareId++),
     ownerId: data.ownerId,
-    x: data.x,
-    y: data.y,
+    x,
+    y,
     vx: data.vx != null ? data.vx : 0,
     vy: data.vy != null ? data.vy : 0,
     damage: data.damage || 50,

@@ -362,8 +362,8 @@ io.on('connection', (socket) => {
     if (!room || !data || typeof data !== 'object') return;
     addSquare(room, {
       ownerId: socket.id,
-      x: typeof data.x === 'number' ? data.x : 0,
-      y: typeof data.y === 'number' ? data.y : 0,
+      x: data.x,
+      y: data.y,
       vx: data.vx,
       vy: data.vy,
       damage: data.damage,
@@ -374,7 +374,7 @@ io.on('connection', (socket) => {
       weight: data.weight,
       isRiotTrap: data.isRiotTrap,
       bodyColor: data.bodyColor,
-    });
+    }, roomPlayers);
     io.to(room).emit('squares', getSquaresSnapshot(room));
   });
 

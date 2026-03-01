@@ -94,9 +94,12 @@ export class Game {
   /** When multiplayer: emit to server and add to pendingSquares so trap shows immediately. Otherwise add to game.squares. */
   addSquare(sq) {
     if (this.multiplayerSocket && sq) {
+      const p = this.player;
+      const x = typeof sq.x === 'number' && !Number.isNaN(sq.x) ? sq.x : (p ? p.x : 0);
+      const y = typeof sq.y === 'number' && !Number.isNaN(sq.y) ? sq.y : (p ? p.y : 0);
       this.multiplayerSocket.emit('square', {
-        x: sq.x,
-        y: sq.y,
+        x,
+        y,
         vx: sq.vx,
         vy: sq.vy,
         damage: sq.damage,
@@ -121,7 +124,7 @@ export class Game {
   setSquaresFromServer(list) {
     this.serverSquares = Array.isArray(list) ? list : [];
     const now = Date.now();
-    const PENDING_MAX_MS = 250;
+    const PENDING_MAX_MS = 600;
     this.pendingSquares = this.pendingSquares.filter((e) => now - e.addedAt < PENDING_MAX_MS);
   }
 
@@ -1205,9 +1208,15 @@ export class Game {
         ctx.stroke();
         ctx.restore();
       }
-      const squareList = this.serverSquares.filter((sq) =>
-        sq.x >= cam.x - viewW && sq.x <= cam.x + viewW && sq.y >= cam.y - viewH && sq.y <= cam.y + viewH
-      ).slice(0, 200);
+      const squareList = this.serverSquares.filter((sq) => {
+        if (sq.x >= cam.x - viewW && sq.x <= cam.x + viewW && sq.y >= cam.y - viewH && sq.y <= cam.y + viewH) {
+          const isOurs = this.multiplayerSocket && sq.ownerId === this.multiplayerSocket.id;
+          const recent = sq.spawnedAt != null && (Date.now() - sq.spawnedAt) < 600;
+          if (isOurs && recent) return false;
+          return true;
+        }
+        return false;
+      }).slice(0, 200);
       for (const sq of squareList) {
         ctx.save();
         ctx.translate(sq.x, sq.y);
