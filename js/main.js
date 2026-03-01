@@ -1,4 +1,3 @@
-import { Game } from './Game.js';
 import { RARITY_COLORS, CRAFT_CHANCES, RARITIES, TANK_UPGRADES, BODY_UPGRADES, MAP_SIZE, FOOD_CONFIG, INFERNO_BASE_RADIUS, SHOP_ITEM_PRICES } from './config.js';
 import { WALL_HALF_WIDTH, getSpawnPointFromZones, getSpawnPoint } from './mapData.js';
 import { getRarityColor, darkenColor } from './utils.js';
@@ -107,7 +106,20 @@ function startGame(gamemode) {
   requestAnimationFrame(() => {
     requestAnimationFrame(async () => {
       await loadCustomMapFromRepo(gamemode);
-      game = new Game(gamemode);
+      let GameConstructor;
+      try {
+        const GameMod = await import('./Game.js');
+        GameConstructor = GameMod.Game;
+      } catch (e) {
+        const loadingScreenEl = document.getElementById('loading-screen');
+        if (loadingScreenEl) loadingScreenEl.classList.add('hidden');
+        mainMenu.classList.remove('hidden');
+        gameContainer.classList.add('hidden');
+        const msg = (e && e.message) ? e.message : String(e);
+        alert('Could not load game. The server may be unavailable (503). Try again in a moment or refresh the page.');
+        return;
+      }
+      game = new GameConstructor(gamemode);
       const chatEl = document.getElementById('chatMessages');
       game.onSuperSpawn = (mobType) => {
         const label = mobType === 'Food' ? 'Decagon' : mobType;
