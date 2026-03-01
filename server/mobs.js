@@ -3,7 +3,7 @@
  * Mirrors client config (hp, drops) for loot calculation.
  * Uses Centralia zones.grid for spawn so mobs align with map pixels/units.
  */
-const { isPointInWall, getDefaultMap, getRandomPointInPlayableZoneFromZones, isPointInWallCell, isCircleFullyInWall } = require('./map.js');
+const { isPointInWall, getDefaultMap, getRandomPointInPlayableZoneFromZones, getRandomPointInZoneForRarity, isPointInWallCell, isCircleFullyInWall } = require('./map.js');
 
 // Fallback zones only when Centralia has no zones (should not happen)
 const MAP_HALF = 8000;
@@ -184,6 +184,63 @@ function spawnBeetle(room) {
   return beetle;
 }
 
+/** Spawn one replacement mob in the zone matching deadRarity (e.g. rare -> RARE_EPIC zone), at a random point in that zone, not near recent deaths. */
+function spawnOneInRarityZone(room, deadRarity, spawnType) {
+  const m = getRoomMobs(room);
+  const map = getDefaultMap();
+  const walls = map.walls || [];
+  if (spawnType === 'food' && m.foods.length >= FOOD_TARGET) return;
+  if (spawnType === 'beetle' && m.beetles.length >= BEETLE_TARGET) return;
+  let pt;
+  for (let retry = 0; retry < 50; retry++) {
+    pt = getRandomPointInZoneForRarity(deadRarity, walls);
+    if (!pt) break;
+    if (!isNearRecentDeath(room, pt.x, pt.y)) break;
+  }
+  if (!pt || isNearRecentDeath(room, pt.x, pt.y)) return;
+  if (spawnType === 'food') {
+    const rarity = randomRarityFromZone(pt.rarityWeights, 'food', m);
+    if (rarity === 'super') m.hasNaturalSuperFood = true;
+    const cfg = FOOD_CONFIG[rarity];
+    const id = 'f_' + (m.nextId++);
+    const food = {
+      id,
+      x: pt.x,
+      y: pt.y,
+      rarity,
+      hp: cfg.hp,
+      maxHp: cfg.hp,
+      size: cfg.size,
+      weight: cfg.weight,
+      natural: true,
+    };
+    m.foods.push(food);
+    return food;
+  }
+  if (spawnType === 'beetle') {
+    const rarity = randomRarityFromZone(pt.rarityWeights, 'beetle', m);
+    if (rarity === 'super') m.hasNaturalSuperBeetle = true;
+    const cfg = BEETLE_CONFIG[rarity];
+    const id = 'b_' + (m.nextId++);
+    const beetle = {
+      id,
+      x: pt.x,
+      y: pt.y,
+      rarity,
+      hp: cfg.hp,
+      maxHp: cfg.hp,
+      size: cfg.size,
+      weight: cfg.weight,
+      natural: true,
+      vx: 0,
+      vy: 0,
+      vision: cfg.vision ?? 1000,
+    };
+    m.beetles.push(beetle);
+    return beetle;
+  }
+}
+
 function runSpawn(room) {
   const m = getRoomMobs(room);
   for (let i = 0; i < SPAWN_BATCH_FOOD && m.foods.length < FOOD_TARGET; i++) spawnFood(room);
@@ -227,6 +284,7 @@ function hitMob(room, mobId, mobType, damage, playerX, playerY) {
       recordDeath(room, food.x, food.y);
       m.lastKillTime = Date.now();
       m.foods.splice(idx, 1);
+      spawnOneInRarityZone(room, food.rarity, 'food');
       const cfg = FOOD_CONFIG[food.rarity] || {};
       const drop = rollDrop(cfg.drops);
       return {
@@ -256,6 +314,7 @@ function hitMob(room, mobId, mobType, damage, playerX, playerY) {
       recordDeath(room, beetle.x, beetle.y);
       m.lastKillTime = Date.now();
       m.beetles.splice(idx, 1);
+      spawnOneInRarityZone(room, beetle.rarity, 'beetle');
       const cfg = BEETLE_CONFIG[beetle.rarity] || {};
       const drop = rollBeetleDrop(cfg.drops);
       return {

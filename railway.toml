@@ -5,6 +5,6 @@
 # Default: npm install. No frontend build step.
 
 [deploy]
-startCommand = "npm start"
+startCommand = "node server/index.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 60

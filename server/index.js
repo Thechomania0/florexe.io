@@ -5,6 +5,16 @@ const express = require('express');
 const { Server } = require('socket.io');
 const { getProgress, saveProgress } = require('./store.js');
 
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err && err.message ? err.message : err);
+  if (err && err.stack) console.error(err.stack);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[unhandledRejection]', reason);
+  process.exit(1);
+});
+
 const app = express();
 const PORT = process.env.PORT || 53134;
 const USERS_FILE = path.join(__dirname, 'data', 'users.json');
@@ -309,29 +319,34 @@ function startGameTick(room) {
 
 io.on('connection', (socket) => {
   socket.on('join', (data) => {
-    const room = ((data && data.gamemode) ? String(data.gamemode) : 'ffa').toLowerCase();
-    const state = data && typeof data === 'object' ? {
-      x: typeof data.x === 'number' ? data.x : 0,
-      y: typeof data.y === 'number' ? data.y : 0,
-      angle: typeof data.angle === 'number' ? data.angle : 0,
-      hp: typeof data.hp === 'number' ? data.hp : 500,
-      maxHp: typeof data.maxHp === 'number' ? data.maxHp : 500,
-      level: typeof data.level === 'number' ? data.level : 1,
-      displayName: typeof data.displayName === 'string' ? data.displayName.slice(0, 50) : 'Player',
-      equippedTank: data.equippedTank && typeof data.equippedTank === 'object' ? data.equippedTank : null,
-      equippedBody: data.equippedBody && typeof data.equippedBody === 'object' ? data.equippedBody : null,
-      size: typeof data.size === 'number' ? data.size : 24.5,
-    } : {};
-    socket.join(room);
-    getRoomPlayers(room).set(socket.id, state);
-    setPlayerBody(room, socket.id, state);
-    broadcastPlayers(room);
-    startSpawnInterval(room);
-    startGameTick(room);
-    socket.emit('map', getDefaultMap());
-    socket.emit('mobs', getMobsPayload(room));
-    socket.emit('bullets', getBulletsSnapshot(room));
-    socket.emit('squares', getSquaresSnapshot(room));
+    try {
+      const room = ((data && data.gamemode) ? String(data.gamemode) : 'ffa').toLowerCase();
+      const state = data && typeof data === 'object' ? {
+        x: typeof data.x === 'number' ? data.x : 0,
+        y: typeof data.y === 'number' ? data.y : 0,
+        angle: typeof data.angle === 'number' ? data.angle : 0,
+        hp: typeof data.hp === 'number' ? data.hp : 500,
+        maxHp: typeof data.maxHp === 'number' ? data.maxHp : 500,
+        level: typeof data.level === 'number' ? data.level : 1,
+        displayName: typeof data.displayName === 'string' ? data.displayName.slice(0, 50) : 'Player',
+        equippedTank: data.equippedTank && typeof data.equippedTank === 'object' ? data.equippedTank : null,
+        equippedBody: data.equippedBody && typeof data.equippedBody === 'object' ? data.equippedBody : null,
+        size: typeof data.size === 'number' ? data.size : 24.5,
+      } : {};
+      socket.join(room);
+      getRoomPlayers(room).set(socket.id, state);
+      setPlayerBody(room, socket.id, state);
+      broadcastPlayers(room);
+      startSpawnInterval(room);
+      startGameTick(room);
+      socket.emit('map', getDefaultMap());
+      socket.emit('mobs', getMobsPayload(room));
+      socket.emit('bullets', getBulletsSnapshot(room));
+      socket.emit('squares', getSquaresSnapshot(room));
+    } catch (err) {
+      console.error('[join]', err && err.message ? err.message : err);
+      if (err && err.stack) console.error(err.stack);
+    }
   });
 
   socket.on('state', (data) => {
@@ -456,6 +471,13 @@ io.on('connection', (socket) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`App listening on port ${PORT} (PORT env: ${process.env.PORT || 'not set'})`);
+  setImmediate(() => {
+    try {
+      require('./map.js').getDefaultMap();
+    } catch (e) {
+      console.warn('[startup] Map preload:', e && e.message ? e.message : e);
+    }
+  });
 });
 
 function shutdown(signal) {

@@ -71,6 +71,49 @@ function getRandomPointInPlayableZoneFromZones(zones, walls) {
   };
 }
 
+/** Rarity string -> zone cell type for respawn-in-zone. */
+const RARITY_TO_ZONE = {
+  common: CUSTOM_CELL.COMMON_UNCOMMON,
+  uncommon: CUSTOM_CELL.COMMON_UNCOMMON,
+  rare: CUSTOM_CELL.RARE_EPIC,
+  epic: CUSTOM_CELL.RARE_EPIC,
+  legendary: CUSTOM_CELL.LEGENDARY_MYTHIC,
+  mythic: CUSTOM_CELL.LEGENDARY_MYTHIC,
+  ultra: CUSTOM_CELL.ULTRA_SUPER,
+  super: CUSTOM_CELL.ULTRA_SUPER,
+};
+
+/** Pick a random point in the zone that matches the given rarity (e.g. rare -> RARE_EPIC zone). Returns { x, y, rarityWeights } or null. Used for respawn so killed mobs respawn in their rarity area. */
+function getRandomPointInZoneForRarity(rarity, walls) {
+  const map = loadDefaultMap();
+  const zones = map.zones;
+  if (!zones || !Array.isArray(zones.grid) || zones.grid.length !== CUSTOM_GRID_SIZE || !walls) return null;
+  const zoneCell = RARITY_TO_ZONE[rarity] ?? CUSTOM_CELL.COMMON_UNCOMMON;
+  const cells = [];
+  for (let i = 0; i < CUSTOM_GRID_SIZE; i++) {
+    for (let j = 0; j < CUSTOM_GRID_SIZE; j++) {
+      if (zones.grid[i]?.[j] === zoneCell) cells.push({ i, j });
+    }
+  }
+  if (cells.length === 0) return null;
+  const margin = CUSTOM_CELL_WORLD * 0.4;
+  for (let k = 0; k < 100; k++) {
+    const { i, j } = cells[Math.floor(Math.random() * cells.length)];
+    const x = CUSTOM_GRID_MIN + (i + 0.5) * CUSTOM_CELL_WORLD + (Math.random() - 0.5) * margin;
+    const y = CUSTOM_GRID_MIN + (j + 0.5) * CUSTOM_CELL_WORLD + (Math.random() - 0.5) * margin;
+    if (!isPointInWall(x, y, walls)) {
+      const rarityWeights = CUSTOM_RARITY_WEIGHTS[zoneCell] || { common: 60, uncommon: 40 };
+      return { x, y, rarityWeights };
+    }
+  }
+  const { i, j } = cells[0];
+  return {
+    x: CUSTOM_GRID_MIN + (i + 0.5) * CUSTOM_CELL_WORLD,
+    y: CUSTOM_GRID_MIN + (j + 0.5) * CUSTOM_CELL_WORLD,
+    rarityWeights: CUSTOM_RARITY_WEIGHTS[zoneCell] || { common: 60, uncommon: 40 },
+  };
+}
+
 /** Pick spawn point in COMMON_UNCOMMON (common-uncommon) zone so player spawns there each time. Falls back to SPAWN cells then any non-wall. Returns { x, y } or null. */
 function getSpawnPointFromZones(zones, walls) {
   if (!zones || !Array.isArray(zones.grid) || zones.grid.length !== CUSTOM_GRID_SIZE || !walls) return null;
@@ -183,5 +226,6 @@ module.exports = {
   getDefaultMap,
   getBuiltInWalls,
   getRandomPointInPlayableZoneFromZones,
+  getRandomPointInZoneForRarity,
   getSpawnPointFromZones,
 };
