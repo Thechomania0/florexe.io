@@ -130,6 +130,8 @@ function addSquare(room, data, roomPlayers) {
     spawnedAt: now,
     isRiotTrap: !!data.isRiotTrap,
     bodyColor: (data.bodyColor && typeof data.bodyColor === 'string') ? data.bodyColor : null,
+    rotation: typeof data.rotation === 'number' ? data.rotation : 0,
+    angularVelocity: typeof data.angularVelocity === 'number' ? data.angularVelocity : 0,
   };
   getRoomSquares(room).push(sq);
   return sq;
@@ -223,6 +225,8 @@ function tick(room, dtMs, roomPlayers) {
     sq.duration = Math.max(0, sq.duration - dtMs);
     sq.x += sq.vx * (dtMs / 1000);
     sq.y += sq.vy * (dtMs / 1000);
+    sq.rotation = (sq.rotation ?? 0) + (sq.angularVelocity ?? 0) * (dtMs / 1000);
+    sq.angularVelocity = (sq.angularVelocity ?? 0) * 0.98;
   }
   runSquareSquareCollision(squares, dtMs);
   const maxSquareAgeMs = 30000;
@@ -278,6 +282,8 @@ function getSquaresSnapshot(room) {
     rarity: s.rarity,
     spawnedAt: s.spawnedAt,
     bodyColor: s.bodyColor || null,
+    rotation: s.rotation ?? 0,
+    angularVelocity: s.angularVelocity ?? 0,
   }));
 }
 

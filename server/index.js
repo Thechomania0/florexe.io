@@ -382,6 +382,8 @@ io.on('connection', (socket) => {
       weight: data.weight,
       isRiotTrap: data.isRiotTrap,
       bodyColor: data.bodyColor,
+      rotation: typeof data.rotation === 'number' ? data.rotation : 0,
+      angularVelocity: typeof data.angularVelocity === 'number' ? data.angularVelocity : 0,
     }, roomPlayers);
     io.to(room).emit('squares', getSquaresSnapshot(room));
   });

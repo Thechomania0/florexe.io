@@ -112,6 +112,8 @@ export class Game {
         weight: sq.weight,
         isRiotTrap: sq.isRiotTrap,
         bodyColor: sq.bodyColor,
+        rotation: typeof sq.rotation === 'number' ? sq.rotation : 0,
+        angularVelocity: typeof sq.angularVelocity === 'number' ? sq.angularVelocity : 0,
       });
       this.pendingSquares.push({ sq, addedAt: Date.now() });
       return;
@@ -691,6 +693,8 @@ export class Game {
       for (const { sq } of this.pendingSquares) {
         sq.x += (sq.vx || 0) * dtSec;
         sq.y += (sq.vy || 0) * dtSec;
+        sq.rotation = (sq.rotation ?? 0) + (sq.angularVelocity ?? 0) * dtSec;
+        sq.angularVelocity = (sq.angularVelocity ?? 0) * 0.98;
       }
     }
 
@@ -1321,6 +1325,7 @@ export class Game {
       for (const sq of squareList) {
         ctx.save();
         ctx.translate(sq.x, sq.y);
+        ctx.rotate(sq.rotation ?? 0);
         const fillColor = (sq.bodyColor && typeof sq.bodyColor === 'string') ? sq.bodyColor : getRarityColor(sq.rarity || 'common');
         ctx.fillStyle = fillColor;
         ctx.strokeStyle = '#4a4a4a';
@@ -1333,6 +1338,7 @@ export class Game {
         if (sq.x < cam.x - viewW || sq.x > cam.x + viewW || sq.y < cam.y - viewH || sq.y > cam.y + viewH) continue;
         ctx.save();
         ctx.translate(sq.x, sq.y);
+        ctx.rotate(sq.rotation ?? 0);
         const fillColor = (sq.bodyColor && typeof sq.bodyColor === 'string') ? sq.bodyColor : getRarityColor(sq.rarity || 'common');
         ctx.fillStyle = fillColor;
         ctx.strokeStyle = '#4a4a4a';

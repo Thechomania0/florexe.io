@@ -285,7 +285,7 @@ function startGame(gamemode) {
             if (!game?.player || !gameSocket?.connected) return;
             const s = game.getPlayerState();
             if (s) gameSocket.emit('state', s);
-          }, 100);
+          }, 10);
           const joinState = {
             gamemode: game.gamemode,
             x: 0, y: 0, angle: 0,
@@ -2415,27 +2415,48 @@ function drawMinimap() {
   const p = game.player;
   const w = minimapCanvas.width;
   const h = minimapCanvas.height;
-  const half = MAP_SIZE / 2;
-  // Fixed view: entire map (MAP_SIZE x MAP_SIZE). Match game orientation: world +x = right, world +y = down
-  const scale = w / MAP_SIZE;
+
+  const playableBounds = game.getPlayableBoundsForGame();
+  let scale, offsetX, offsetY, offsetCanvasX, offsetCanvasY;
+
+  if (playableBounds) {
+    const { minX, maxX, minY, maxY } = playableBounds;
+    const mapW = maxX - minX;
+    const mapH = maxY - minY;
+    if (mapW > 0 && mapH > 0) {
+      scale = Math.min(w / mapW, h / mapH);
+      offsetX = minX;
+      offsetY = minY;
+      const drawW = mapW * scale;
+      const drawH = mapH * scale;
+      offsetCanvasX = (w - drawW) / 2;
+      offsetCanvasY = (h - drawH) / 2;
+    }
+  }
+  if (scale == null) {
+    const half = MAP_SIZE / 2;
+    scale = w / MAP_SIZE;
+    offsetX = -half;
+    offsetY = -half;
+    offsetCanvasX = 0;
+    offsetCanvasY = 0;
+  }
+
   function toMinimap(wx, wy) {
     return {
-      x: (wx + half) * scale,
-      y: (wy + half) * scale
+      x: offsetCanvasX + (wx - offsetX) * scale,
+      y: offsetCanvasY + (wy - offsetY) * scale
     };
   }
 
   minimapCtx.fillStyle = 'rgba(230, 230, 230, 0.95)';
   minimapCtx.fillRect(0, 0, w, h);
 
-  const playableBounds = game.getPlayableBoundsForGame();
   if (playableBounds) {
     const { minX, maxX, minY, maxY } = playableBounds;
+    const half = MAP_SIZE / 2;
+    const top = -half, bottom = half, left = -half, right = half;
     minimapCtx.fillStyle = 'rgba(30, 30, 30, 0.95)';
-    const top = -half;
-    const bottom = half;
-    const left = -half;
-    const right = half;
     if (top < minY) {
       const a = toMinimap(Math.max(left, minX), top);
       const b = toMinimap(Math.min(right, maxX), Math.min(bottom, minY));
