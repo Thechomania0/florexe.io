@@ -16,7 +16,8 @@
       if (match) {
         window.FLOREXE_API_URL = decodeURIComponent(match[1]);
       } else if (location.hostname === 'florexe.io' || location.hostname === 'www.florexe.io') {
-        window.FLOREXE_API_URL = 'https://florexeio-production.up.railway.app';
+        // Use your Railway backend so multiplayer/API match the Railway app. For the exact same site (same HTML/JS), point florexe.io DNS to Railway.
+        window.FLOREXE_API_URL = 'https://florexeio-production-8124.up.railway.app';
       } else if (location.hostname.endsWith('.railway.app')) {
         // Same origin: frontend and backend both on this Railway URL (multiplayer + API).
         window.FLOREXE_API_URL = location.origin;
