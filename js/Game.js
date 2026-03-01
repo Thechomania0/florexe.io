@@ -9,7 +9,7 @@ const BEETLE_SPAWN_BATCH = 140;    // same as food
 import { Food } from './entities/Food.js';
 import { Beetle } from './entities/Beetle.js';
 import { Bullet } from './entities/Bullet.js';
-import { distance, getRarityColor } from './utils.js';
+import { distance, getRarityColor, darkenColor, drawRoundedHealthBar } from './utils.js';
 import { Player } from './Player.js';
 import { loadTankAssets, getLoadedTankAssets, getBodyIconUrlByRarity, getGunIconUrlByRarity, getPetalIconUrlByRarity } from './TankAssets.js';
 
@@ -65,6 +65,8 @@ export class Game {
     this.pendingSquares = [];
     /** Processed kill mobIds (multiplayer) to avoid applying the same kill reward twice (e.g. duplicate 'kill' events). */
     this.processedKillIds = null;
+    /** Last mobs snapshot sequence (multiplayer); ignore older snapshots to prevent HP respawn glitch. */
+    this.lastMobsSeq = null;
     /** Map data from server when multiplayer (walls, zones). Client uses this instead of mapData.js. */
     this.serverWalls = null;
     this.serverZones = null;
@@ -170,9 +172,13 @@ export class Game {
     return getPlayableBounds();
   }
 
-  /** Replace foods and beetles from server snapshot. Each item: { id, x, y, rarity, hp, maxHp, size, weight, natural }. Merges by id (string) and stores server position for interpolation. Skips mobs we've already processed a kill for (so dead mobs never reappear). */
+  /** Replace foods and beetles from server snapshot. Each item: { id, x, y, rarity, hp, maxHp, size, weight, natural }. Merges by id (string) and stores server position for interpolation. Skips mobs we've already processed a kill for (so dead mobs never reappear). Ignores snapshot if seq <= lastMobsSeq (stale). */
   setMobsFromServer(snapshot) {
     if (!snapshot || typeof snapshot !== 'object') return;
+    if (typeof snapshot.seq === 'number') {
+      if (this.lastMobsSeq != null && snapshot.seq <= this.lastMobsSeq) return;
+      this.lastMobsSeq = snapshot.seq;
+    }
     let foods = Array.isArray(snapshot.foods) ? snapshot.foods : [];
     let beetles = Array.isArray(snapshot.beetles) ? snapshot.beetles : [];
     if (this.processedKillIds && this.processedKillIds.size > 0) {
@@ -310,6 +316,7 @@ export class Game {
     this.squares = [];
     this.pendingSquares = [];
     this.processedKillIds = null;
+    this.lastMobsSeq = null;
     this.drops = [];
     const { x: spawnX, y: spawnY } = getSpawnPoint();
     this.player = new Player('player1', spawnX, spawnY, this.gamemode);
@@ -357,6 +364,7 @@ export class Game {
     this.squares = [];
     this.pendingSquares = [];
     this.processedKillIds = null;
+    this.lastMobsSeq = null;
     this.drops = [];
     this.foods = [];
     this.beetles = [];
@@ -369,6 +377,9 @@ export class Game {
       }
       if (savedState.equippedBody && typeof savedState.equippedBody === 'object') {
         this.player.equippedBody = { ...savedState.equippedBody };
+      }
+      if (typeof savedState.displayName === 'string' && savedState.displayName) {
+        this.player.displayName = savedState.displayName;
       }
       if (typeof savedState.level === 'number' && savedState.level >= 1) {
         this.player.level = Math.min(100, savedState.level);
@@ -424,6 +435,96 @@ export class Game {
   removeOtherPlayer(id) {
     if (!id) return;
     this.otherPlayers = this.otherPlayers.filter((o) => o.id !== id);
+  }
+
+  /** Draw one other player's body and gun at current transform (0,0). Uses op.equippedTank, op.equippedBody, op.size so guest sees main account's loadout. */
+  _drawOtherPlayerBody(ctx, scale, op) {
+    const size = op.size ?? 24.5;
+    const tankType = op.equippedTank?.subtype;
+    const bodyType = op.equippedBody?.subtype;
+    const bodyRarity = op.equippedBody?.rarity || 'common';
+    const bodyColor = bodyType ? (getRarityColor(bodyRarity)) : '#1ca8c9';
+    const outlineColor = darkenColor(bodyColor, 60);
+    const s = size * 2.4;
+    const assets = getLoadedTankAssets();
+    const gunImg = tankType && assets?.guns ? assets.guns[tankType] : null;
+    const bodyImg = bodyType && assets?.bodies ? (assets.bodies[bodyType] || assets.bodies.default) : null;
+
+    if (bodyType && bodyImg?.complete && bodyImg.naturalWidth > 0 && (bodyType === 'hive' || bodyType === 'cutter') && tankType !== 'riot' && tankType !== 'anchor') {
+      ctx.drawImage(bodyImg, -s, -s, s * 2, s * 2);
+    }
+    ctx.fillStyle = bodyColor;
+    ctx.strokeStyle = outlineColor;
+    ctx.lineWidth = Math.max(1, 3 / scale);
+    ctx.beginPath();
+    ctx.arc(0, 0, size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    if (tankType === 'riot') {
+      const forwardOffset = size * 0.28400625;
+      const S = size * 0.96 * 0.792;
+      const h = S * Math.sqrt(3) / 2;
+      const overlap = S * 0.65;
+      const startX = size - S * 0.5;
+      ctx.save();
+      ctx.translate(forwardOffset, 0);
+      ctx.fillStyle = '#9e9e9e';
+      ctx.strokeStyle = '#4a4a4a';
+      ctx.lineWidth = Math.max(1, 2 / scale);
+      for (let i = 2; i >= 0; i--) {
+        const tipX = startX + i * overlap;
+        const baseX = tipX + S;
+        ctx.beginPath();
+        ctx.moveTo(tipX, 0);
+        ctx.lineTo(baseX, -h);
+        ctx.lineTo(baseX, h);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+      ctx.restore();
+    } else if (tankType === 'overlord') {
+      const R = size * 1.3;
+      const w = size;
+      ctx.fillStyle = '#9e9e9e';
+      ctx.strokeStyle = '#4a4a4a';
+      ctx.lineWidth = Math.max(1, 2 / scale);
+      for (let i = 0; i < 4; i++) {
+        ctx.save();
+        ctx.rotate(i * Math.PI / 2);
+        ctx.translate(0, -R);
+        ctx.fillRect(-w / 2, -w / 2, w, w);
+        ctx.strokeRect(-w / 2, -w / 2, w, w);
+        ctx.restore();
+      }
+    } else if (gunImg?.complete && gunImg.naturalWidth > 0) {
+      if (tankType === 'base') {
+        ctx.save();
+        ctx.translate(size * 0.78125, 0);
+        ctx.drawImage(gunImg, -s, -s, s * 2, s * 2);
+        ctx.restore();
+      } else {
+        ctx.drawImage(gunImg, -s, -s, s * 2, s * 2);
+      }
+    } else {
+      ctx.fillStyle = '#2a2a2a';
+      ctx.fillRect(size, -s * 0.15, s * 0.6, s * 0.3);
+    }
+
+    if (bodyType === 'inferno') {
+      const b = BODY_UPGRADES.inferno;
+      const r = op.equippedBody?.rarity;
+      const mult = r === 'ultra' ? (b.sizeMultUltra ?? 1.07) : r === 'super' ? (b.sizeMultSuper ?? 1.1) : (b.sizeMult ?? 1.05);
+      const radius = INFERNO_BASE_RADIUS * mult;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(200,0,0,0.14)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(170,0,0,0.175)';
+      ctx.lineWidth = Math.max(1, 3 / scale);
+      ctx.stroke();
+    }
   }
 
   spawnFood() {
@@ -1255,16 +1356,7 @@ export class Game {
       ctx.save();
       ctx.translate(op.x, op.y);
       ctx.rotate(op.angle);
-      const s = (op.size ?? 24.5) * 2.4;
-      ctx.fillStyle = '#1ca8c9';
-      ctx.strokeStyle = '#4a4a4a';
-      ctx.lineWidth = Math.max(1, 3 / scale);
-      ctx.beginPath();
-      ctx.arc(0, 0, op.size ?? 24.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = '#2a2a2a';
-      ctx.fillRect(op.size ?? 24.5, -s * 0.15, s * 0.6, s * 0.3);
+      this._drawOtherPlayerBody(ctx, scale, op);
       ctx.restore();
       const name = (op.displayName || 'Player').slice(0, 20);
       const fontSize = Math.max(10, 14 / scale);
@@ -1277,6 +1369,12 @@ export class Game {
       const nameY = (op.y ?? 0) - (op.size ?? 24.5) - 8;
       ctx.strokeText(name, op.x ?? 0, nameY);
       ctx.fillText(name, op.x ?? 0, nameY);
+      const barW = (op.size ?? 24.5) * 2.5;
+      const barH = Math.max(5, 6 / scale);
+      const barY = (op.y ?? 0) + (op.size ?? 24.5) + 8;
+      const barX = (op.x ?? 0) - barW / 2;
+      const hpPct = typeof op.hp === 'number' && typeof op.maxHp === 'number' && op.maxHp > 0 ? op.hp / op.maxHp : 1;
+      drawRoundedHealthBar(ctx, barX, barY, barW, barH, hpPct, { fillColor: '#81c784', outlineColor: 'rgba(0,0,0,0.8)', lineWidth: Math.max(1, 2 / scale) });
     }
 
     if (this.player && !this.player.dead) {

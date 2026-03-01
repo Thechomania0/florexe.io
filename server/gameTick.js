@@ -65,6 +65,8 @@ function getRoomBullets(room) {
   return roomBullets.get(room);
 }
 
+const MAX_SQUARES_PER_PLAYER = 25;
+
 function getRoomSquares(room) {
   if (!roomSquares.has(room)) roomSquares.set(room, []);
   return roomSquares.get(room);
@@ -94,6 +96,14 @@ function addBullet(room, data) {
 }
 
 function addSquare(room, data, roomPlayers) {
+  const squares = getRoomSquares(room);
+  const ownerId = data.ownerId;
+  const ownerSquares = squares.filter((s) => s.ownerId === ownerId).sort((a, b) => (a.spawnedAt || 0) - (b.spawnedAt || 0));
+  while (ownerSquares.length >= MAX_SQUARES_PER_PLAYER) {
+    const oldest = ownerSquares.shift();
+    const idx = squares.indexOf(oldest);
+    if (idx >= 0) squares.splice(idx, 1);
+  }
   const now = Date.now();
   const rawDuration = data.duration != null ? data.duration : 6000;
   const duration = Math.max(100, Math.min(30000, Number(rawDuration) || 6000));

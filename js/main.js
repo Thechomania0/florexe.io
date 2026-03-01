@@ -291,11 +291,12 @@ function startGame(gamemode) {
             x: 0, y: 0, angle: 0,
             hp: 500, maxHp: 500,
             level: (savedState && typeof savedState.level === 'number') ? savedState.level : 1,
-            displayName: 'Player',
+            displayName: (savedState && typeof savedState.displayName === 'string' && savedState.displayName) ? savedState.displayName : 'Guest',
             equippedTank: (savedState && savedState.equippedTank) || null,
             equippedBody: (savedState && savedState.equippedBody) || null,
             size: 24.5,
           };
+          if (savedState && typeof savedState === 'object') savedState.displayName = joinState.displayName;
           gameSocket.emit('join', joinState);
         }).catch(() => { game.start(savedState).then(finishStart); });
       } else {

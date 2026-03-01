@@ -229,6 +229,7 @@ const { getDefaultMap } = require('./map.js');
 
 /** Room name from gamemode. state = { x, y, angle, hp, maxHp, level, displayName, equippedTank, equippedBody, size }. */
 const roomPlayers = new Map();
+const roomMobsSeq = new Map();
 const roomSpawnIntervals = new Map();
 const TICK_MS = 50;
 const roomTickIntervals = new Map();
@@ -244,6 +245,13 @@ function broadcastPlayers(room) {
   io.to(room).emit('players', list);
 }
 
+function getMobsPayload(room) {
+  const snapshot = getMobsSnapshot(room);
+  const seq = (roomMobsSeq.get(room) || 0) + 1;
+  roomMobsSeq.set(room, seq);
+  return { ...snapshot, seq };
+}
+
 function startSpawnInterval(room) {
   if (roomSpawnIntervals.has(room)) return;
   const m = getRoomMobs(room);
@@ -251,7 +259,7 @@ function startSpawnInterval(room) {
   while (m.beetles.length < Math.min(BEETLE_TARGET, 200)) runSpawn(room);
   const interval = setInterval(() => {
     runSpawn(room);
-    io.to(room).emit('mobs', getMobsSnapshot(room));
+    io.to(room).emit('mobs', getMobsPayload(room));
   }, SPAWN_INTERVAL_MS);
   roomSpawnIntervals.set(room, interval);
 }
@@ -262,7 +270,7 @@ function startGameTick(room) {
     const players = getRoomPlayers(room);
     if (players.size === 0) return;
     const result = tick(room, TICK_MS, roomPlayers);
-    io.to(room).emit('mobs', getMobsSnapshot(room));
+    io.to(room).emit('mobs', getMobsPayload(room));
     io.to(room).emit('bullets', getBulletsSnapshot(room));
     io.to(room).emit('squares', getSquaresSnapshot(room));
     for (const { socketId, payload } of result.killPayloads) {
@@ -293,7 +301,7 @@ io.on('connection', (socket) => {
     startSpawnInterval(room);
     startGameTick(room);
     socket.emit('map', getDefaultMap());
-    socket.emit('mobs', getMobsSnapshot(room));
+    socket.emit('mobs', getMobsPayload(room));
     socket.emit('bullets', getBulletsSnapshot(room));
     socket.emit('squares', getSquaresSnapshot(room));
   });
@@ -329,7 +337,7 @@ io.on('connection', (socket) => {
     if (result.killed && result.killPayload) {
       socket.emit('kill', result.killPayload);
     }
-    io.to(room).emit('mobs', getMobsSnapshot(room));
+    io.to(room).emit('mobs', getMobsPayload(room));
   });
 
   socket.on('shoot', (data) => {
