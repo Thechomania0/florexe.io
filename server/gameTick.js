@@ -190,6 +190,8 @@ function tick(room, dtMs, roomPlayers, roomPlayerBodies) {
       bullet.lifetime = 0;
   }
   const bulletsToRemove = new Set();
+  const foodsSnapshot = [...m.foods];
+  const beetlesSnapshot = [...m.beetles];
   for (const bullet of bullets) {
     if (bullet.lifetime <= 0) {
       bulletsToRemove.add(bullet);
@@ -198,8 +200,6 @@ function tick(room, dtMs, roomPlayers, roomPlayerBodies) {
     const ownerPos = getOwnerPosition(room, bullet.ownerId, roomPlayers);
     const ownerX = ownerPos.x;
     const ownerY = ownerPos.y;
-    const foodsSnapshot = [...m.foods];
-    const beetlesSnapshot = [...m.beetles];
     if (bullet.penetrating) {
       for (const food of foodsSnapshot) {
         if (bullet.hp != null && bullet.hp <= 0) break;

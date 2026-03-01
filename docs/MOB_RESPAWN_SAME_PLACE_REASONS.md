@@ -6,16 +6,9 @@ Below are **all plausible reasons** the game can show a mob dying and another ap
 
 ## 1. **Same-tick re-hit (server): bullet loop uses live arrays** — **MOST LIKELY**
 
-**What happens:** In `server/gameTick.js`, bullet–mob collision loops over **the live** `m.foods` and `m.beetles`. When a mob is killed, `hitMob`:
+**What happens:** In `server/gameTick.js`, bullet–mob collision was using a snapshot of `m.foods` and `m.beetles`, but the snapshot was taken **inside** the `for (const bullet of bullets)` loop. So for each bullet we got a fresh copy that included any mob just spawned by a previous bullet in the same tick. With many projectiles (e.g. a dense barrage), bullet 1 kills the mob and spawns a replacement; bullets 2, 3, … then hit that replacement, it dies and spawns again, and so on in one tick → "instant respawn in the same place" at machine-gun rate.
 
-- Removes it from the array (`splice`)
-- Calls `spawnOneInRarityZone`, which **pushes a new mob** into the same array
-
-So within the **same** `for (const food of m.foods)` (or beetles) loop, the iterator can later see that **newly spawned** mob. If the bullet is penetrating and still overlapping that position (or the replacement spawns in the same zone cell and is still inside the bullet), the bullet hits the replacement in the **same tick**, kills it, and spawns another. That can repeat in one tick → looks like "instant respawn in the same place."
-
-**Why it looks like "same place":** The replacement is chosen by `getRandomPointInZoneForRarity(deadRarity)`. For a given rarity the zone can be small or a single cell, so the new position is often the same or very close to the death position. So the "respawn" is both instant (same tick) and in the same place (same zone cell).
-
-**Fix:** Run bullet–mob collision against **snapshots** of the mob lists (e.g. `const foodsSnapshot = [...m.foods]`), like the square–mob code already does. Then newly spawned mobs are not considered in the same tick and cannot be re-hit immediately.
+**Fix (implemented):** Take the mob snapshot **once** before the bullet loop (`const foodsSnapshot = [...m.foods]; const beetlesSnapshot = [...m.beetles];`), not inside it. Then all bullets in that tick only see mobs that existed at the start of the tick; replacements cannot be hit until the next tick.
 
 ---
 
@@ -99,7 +92,7 @@ So within the **same** `for (const food of m.foods)` (or beetles) loop, the iter
 
 | # | Cause | Likely? | Fix / mitigation |
 |---|--------|--------|-------------------|
-| 1 | Same-tick re-hit: bullet loop uses live `m.foods`/`m.beetles`, replacement can be hit in same tick | **Yes** | Use snapshot arrays for bullet–mob collision (like square–mob) |
+| 1 | Same-tick re-hit: snapshot was **per bullet** so replacement could be hit by next bullets in same tick | **Yes** | **Done:** Take snapshot once before bullet loop, not inside it |
 | 2 | Zone has one or few cells → same cell every time | Possible | **Done:** exclude death point + minDist in getRandomPointInZoneForRarity; no fallback when exclude set |
 | 3 | Replacement spawn doesn't exclude death position | Possible | **Done:** spawnOneInRarityZone(deathX, deathY), map rejects points &lt; MIN_DEATH_DISTANCE |
 | 4 | Trap kills replacement next tick (replacement in same cell) | Follow-up of 1–3 | Addressed by #2–3 (replacement spawns away from death) |
