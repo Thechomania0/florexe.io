@@ -233,7 +233,7 @@ const { getDefaultMap } = require('./map.js');
 const roomPlayers = new Map();
 const roomMobsSeq = new Map();
 const roomSpawnIntervals = new Map();
-const TICK_MS = 50;
+const TICK_MS = 5;
 const roomTickIntervals = new Map();
 
 function getRoomPlayers(room) {

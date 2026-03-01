@@ -57,6 +57,8 @@ const SPAWN_INTERVAL_MS = 8666;
 const RESPAWN_DELAY_MS = 8000;
 const DEATH_EXCLUSION_MS = 20000;
 const MIN_DEATH_DISTANCE = 800;
+/** Treat HP at or below this as dead (avoids floating-point edge cases where common/uncommon mobs survive with ~1e-15 hp under high DPS). */
+const HP_DEAD_EPSILON = 1e-6;
 
 const roomRecentDeaths = new Map();
 
@@ -220,7 +222,7 @@ function hitMob(room, mobId, mobType, damage, playerX, playerY) {
     const d = Math.hypot(food.x - playerX, food.y - playerY);
     if (d > maxRange) return { killed: false };
     food.hp -= damage;
-    if (food.hp <= 0) {
+    if (food.hp <= HP_DEAD_EPSILON) {
       recordDeath(room, food.x, food.y);
       m.lastKillTime = Date.now();
       m.foods.splice(idx, 1);
@@ -249,7 +251,7 @@ function hitMob(room, mobId, mobType, damage, playerX, playerY) {
     const d = Math.hypot(beetle.x - playerX, beetle.y - playerY);
     if (d > maxRange) return { killed: false };
     beetle.hp -= damage;
-    if (beetle.hp <= 0) {
+    if (beetle.hp <= HP_DEAD_EPSILON) {
       recordDeath(room, beetle.x, beetle.y);
       m.lastKillTime = Date.now();
       m.beetles.splice(idx, 1);
@@ -324,19 +326,19 @@ function updateBeetles(room, roomPlayers, dtMs) {
 function getMobsSnapshot(room) {
   const m = getRoomMobs(room);
   return {
-    foods: m.foods.filter((f) => f.hp > 0).map((f) => ({ ...f })),
-    beetles: m.beetles.filter((b) => b.hp > 0).map((b) => ({ ...b })),
+    foods: m.foods.filter((f) => f.hp > HP_DEAD_EPSILON).map((f) => ({ ...f })),
+    beetles: m.beetles.filter((b) => b.hp > HP_DEAD_EPSILON).map((b) => ({ ...b })),
   };
 }
 
-/** Remove any food or beetle with hp <= 0. Safety net to ensure dead mobs never remain in the server state. */
+/** Remove any food or beetle with hp <= HP_DEAD_EPSILON. Safety net to ensure dead mobs never remain in the server state. */
 function purgeDeadMobs(room) {
   const m = getRoomMobs(room);
   for (let i = m.foods.length - 1; i >= 0; i--) {
-    if (m.foods[i].hp <= 0) m.foods.splice(i, 1);
+    if (m.foods[i].hp <= HP_DEAD_EPSILON) m.foods.splice(i, 1);
   }
   for (let i = m.beetles.length - 1; i >= 0; i--) {
-    if (m.beetles[i].hp <= 0) m.beetles.splice(i, 1);
+    if (m.beetles[i].hp <= HP_DEAD_EPSILON) m.beetles.splice(i, 1);
   }
 }
 

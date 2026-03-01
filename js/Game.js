@@ -701,10 +701,10 @@ export class Game {
       if (s) this.multiplayerSocket.emit('state', s);
     }
 
-    // Multiplayer: interpolate mob positions toward server to avoid teleporting every tick
+    // Multiplayer: interpolate mob positions toward server (fast sync for 5ms server tick)
     if (this.multiplayerSocket) {
-      const LERP = 0.28;
-      const SNAP_CLOSE = 0.8;
+      const LERP = 0.55;
+      const SNAP_CLOSE = 3;
       const SNAP_FAR = 80;
       for (const food of this.foods) {
         if (food.serverX != null && food.serverY != null) {
