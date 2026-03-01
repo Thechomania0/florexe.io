@@ -306,7 +306,7 @@ function startGame(gamemode) {
   });
 }
 
-let _keyDown, _keyUp, _wheelZoom, _keydownToggle, _onDragstartClearKeys;
+let _keyDown, _keyUp, _wheelZoom, _keydownToggle, _onDragstartClearKeys, _onWindowBlurClearKeys;
 let _autoAttackToastHideTimeout = null;
 
 function showAutoAttackToast(isOn) {
@@ -326,16 +326,23 @@ function setupPlayerInput(player) {
   if (_keyUp) document.removeEventListener('keyup', _keyUp);
   if (_keydownToggle) document.removeEventListener('keydown', _keydownToggle);
   if (_onDragstartClearKeys) document.removeEventListener('dragstart', _onDragstartClearKeys);
+  if (_onWindowBlurClearKeys) window.removeEventListener('blur', _onWindowBlurClearKeys);
 
   const keyHandler = (e, down) => {
-    if (document.activeElement?.id === 'chatInput') return;
+    const chatFocused = document.activeElement?.id === 'chatInput';
     const p = game?.player;
     if (!p) return;
-    const k = e.key.toLowerCase();
+    const k = e.key?.toLowerCase();
     if (['w', 'a', 's', 'd'].includes(k)) {
-      e.preventDefault();
+      if (chatFocused) {
+        document.getElementById('chatInput')?.blur();
+        if (down) e.preventDefault();
+      }
+      if (down) e.preventDefault();
       p.keys[k] = down;
+      return;
     }
+    if (chatFocused) return;
   };
 
   _keyDown = (e) => keyHandler(e, true);
@@ -412,6 +419,17 @@ function setupPlayerInput(player) {
   };
   document.addEventListener('dragstart', _onDragstartClearKeys);
 
+  _onWindowBlurClearKeys = () => {
+    const p = game?.player;
+    if (p && p.keys) {
+      p.keys.w = false;
+      p.keys.a = false;
+      p.keys.s = false;
+      p.keys.d = false;
+    }
+  };
+  window.addEventListener('blur', _onWindowBlurClearKeys);
+
   const inventoryBoxTab = document.getElementById('inventoryBoxTab');
   if (inventoryBoxTab) {
     inventoryBoxTab.onclick = () => {
@@ -448,6 +466,7 @@ function setupPlayerInput(player) {
   document.addEventListener('mousemove', updateMouseFromEvent);
 
   canvas.addEventListener('mousedown', (e) => {
+    if (document.activeElement?.id === 'chatInput') document.getElementById('chatInput')?.blur();
     if (e.button === 0 && game?.player) game.player.mouseRightDown = true;
   });
   canvas.addEventListener('mouseup', (e) => {
