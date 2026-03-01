@@ -2,6 +2,7 @@
  * Server-side bullets and squares (traps). Updated in game tick; collisions with mobs call mobs.hitMob.
  */
 const { getRoomMobs, hitMob, getMobsSnapshot, updateBeetles, purgeDeadMobs, removeMobsFullyInWall } = require('./mobs.js');
+const { ensureOverlordDrones, ensureHiveDrones, updateOverlordDrones, updateHiveDrones } = require('./drones.js');
 const MAP_HALF = 8000;
 
 function distance(ax, ay, bx, by) {
@@ -185,6 +186,15 @@ function tick(room, dtMs, roomPlayers, roomPlayerBodies) {
   const foodsSnapshot = [...m.foods];
   const beetlesSnapshot = [...m.beetles];
 
+  const players = roomPlayers.get(room);
+  const bodies = roomPlayerBodies.get(room);
+  if (players && bodies) {
+    for (const [ownerId, state] of players.entries()) {
+      ensureOverlordDrones(room, ownerId, state, bodies);
+      ensureHiveDrones(room, ownerId, state, bodies);
+    }
+  }
+
   for (const bullet of bullets) {
     bullet.x += Math.cos(bullet.angle) * bullet.speed * dtMs;
     bullet.y += Math.sin(bullet.angle) * bullet.speed * dtMs;
@@ -295,6 +305,9 @@ function tick(room, dtMs, roomPlayers, roomPlayerBodies) {
     }
   }
   roomSquares.set(room, newSquares);
+
+  updateOverlordDrones(room, roomPlayers, roomPlayerBodies, foodsSnapshot, beetlesSnapshot, dtMs, killPayloads);
+  updateHiveDrones(room, roomPlayers, roomPlayerBodies, foodsSnapshot, beetlesSnapshot, dtMs, killPayloads);
 
   purgeDeadMobs(room);
 

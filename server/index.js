@@ -245,6 +245,7 @@ const {
   removePlayerEntities,
   removePlayerSquares,
 } = require('./gameTick.js');
+const { ensureOverlordDrones, ensureHiveDrones, getDronesSnapshot, removePlayerDrones } = require('./drones.js');
 const { getDefaultMap } = require('./map.js');
 
 /** Room name from gamemode. state = { x, y, angle, hp, maxHp, level, displayName, equippedTank, equippedBody, size }. */
@@ -311,6 +312,7 @@ function startGameTick(room) {
     io.to(room).emit('mobs', getMobsPayload(room));
     io.to(room).emit('bullets', getBulletsSnapshot(room));
     io.to(room).emit('squares', getSquaresSnapshot(room));
+    io.to(room).emit('drones', getDronesSnapshot(room, roomPlayers, roomPlayerBodies));
     for (const { socketId, payload } of result.killPayloads) {
       io.to(socketId).emit('kill', payload);
     }
@@ -344,6 +346,7 @@ io.on('connection', (socket) => {
       socket.emit('mobs', getMobsPayload(room));
       socket.emit('bullets', getBulletsSnapshot(room));
       socket.emit('squares', getSquaresSnapshot(room));
+      socket.emit('drones', getDronesSnapshot(room, roomPlayers, roomPlayerBodies));
     } catch (err) {
       console.error('[join]', err && err.message ? err.message : err);
       if (err && err.stack) console.error(err.stack);
@@ -364,6 +367,8 @@ io.on('connection', (socket) => {
       equippedTank: data.equippedTank && typeof data.equippedTank === 'object' ? data.equippedTank : null,
       equippedBody: data.equippedBody && typeof data.equippedBody === 'object' ? data.equippedBody : null,
       size: typeof data.size === 'number' ? data.size : 24.5,
+      targetX: typeof data.targetX === 'number' ? data.targetX : null,
+      targetY: typeof data.targetY === 'number' ? data.targetY : null,
     } : {};
     getRoomPlayers(room).set(socket.id, state);
     setPlayerBody(room, socket.id, state);
@@ -450,6 +455,7 @@ io.on('connection', (socket) => {
       getRoomPlayers(room).delete(leftId);
       getRoomPlayerBodies(room).delete(leftId);
       removePlayerEntities(room, leftId);
+      removePlayerDrones(room, leftId);
       io.to(room).emit('playerLeft', { id: leftId });
       broadcastPlayers(room);
       io.to(room).emit('bullets', getBulletsSnapshot(room));

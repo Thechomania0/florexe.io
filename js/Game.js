@@ -9,7 +9,7 @@ const BEETLE_SPAWN_BATCH = 140;    // same as food
 import { Food } from './entities/Food.js';
 import { Beetle } from './entities/Beetle.js';
 import { Bullet } from './entities/Bullet.js';
-import { distance, getRarityColor, darkenColor, drawRoundedHealthBar } from './utils.js';
+import { distance, angleBetween, getRarityColor, darkenColor, drawRoundedHealthBar } from './utils.js';
 import { Player } from './Player.js';
 import { loadTankAssets, getLoadedTankAssets, getBodyIconUrlByRarity, getGunIconUrlByRarity, getPetalIconUrlByRarity } from './TankAssets.js';
 
@@ -61,6 +61,8 @@ export class Game {
     /** Server-authoritative bullets and squares (when multiplayer). Replaced from server each tick. */
     this.serverBullets = [];
     this.serverSquares = [];
+    /** Server-authoritative drones (overlord + hive) when multiplayer. Replaced from server each tick. */
+    this.serverDrones = [];
     /** Optimistic squares (multiplayer): shown immediately when firing; expired when server snapshot arrives. */
     this.pendingSquares = [];
     /** Optimistic bullets (multiplayer): shown immediately when shooting; removed after short time or when expired. */
@@ -175,9 +177,17 @@ export class Game {
     this.pendingSquares = this.pendingSquares.filter((e) => now - e.addedAt < PENDING_MAX_MS);
   }
 
+  setServerDrones(list) {
+    this.serverDrones = Array.isArray(list) ? list : [];
+  }
+
   setMultiplayerSocket(socket) {
     this.multiplayerSocket = socket;
     if (!socket) { this.serverWalls = null; this.serverZones = null; }
+    if (this.player) {
+      this.player.overlordDrones = [];
+      this.player.drones = [];
+    }
   }
 
   /** Set map data from server (walls, zones) so client uses server map in multiplayer. Corrects player spawn if in wall. */
@@ -468,6 +478,9 @@ export class Game {
   getPlayerState() {
     const p = this.player;
     if (!p) return null;
+    const scale = this.scale || 1;
+    const worldTargetX = typeof p.mouseX === 'number' ? (this.camera.x + p.mouseX / scale) : null;
+    const worldTargetY = typeof p.mouseY === 'number' ? (this.camera.y + p.mouseY / scale) : null;
     return {
       x: p.x,
       y: p.y,
@@ -479,6 +492,8 @@ export class Game {
       equippedTank: p.equippedTank && typeof p.equippedTank === 'object' ? p.equippedTank : null,
       equippedBody: p.equippedBody && typeof p.equippedBody === 'object' ? p.equippedBody : null,
       size: p.size,
+      targetX: worldTargetX,
+      targetY: worldTargetY,
     };
   }
 
@@ -1566,6 +1581,43 @@ export class Game {
     }
 
     if (this.player && !this.player.dead) {
+      if (this.multiplayerSocket && this.serverDrones.length > 0) {
+        const TWO_THIRDS_PI = (2 * Math.PI) / 3;
+        for (const d of this.serverDrones) {
+          const x = d.x ?? 0;
+          const y = d.y ?? 0;
+          const size = d.size ?? 10;
+          if (d.type === 'overlord') {
+            const recharging = d.rechargeUntil != null && Date.now() < d.rechargeUntil;
+            ctx.fillStyle = recharging ? '#0066aa' : '#00aacc';
+            ctx.strokeStyle = recharging ? '#004466' : '#0088aa';
+            ctx.lineWidth = 2 / scale;
+            ctx.beginPath();
+            const toward = angleBetween(x, y, d.targetX ?? x, d.targetY ?? y);
+            ctx.moveTo(x + Math.cos(toward) * size, y + Math.sin(toward) * size);
+            ctx.lineTo(x + Math.cos(toward + TWO_THIRDS_PI) * size, y + Math.sin(toward + TWO_THIRDS_PI) * size);
+            ctx.lineTo(x + Math.cos(toward + 2 * TWO_THIRDS_PI) * size, y + Math.sin(toward + 2 * TWO_THIRDS_PI) * size);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+          } else {
+            ctx.fillStyle = '#1ca8c9';
+            ctx.strokeStyle = darkenColor('#1ca8c9', 50);
+            ctx.lineWidth = 1.5 / scale;
+            ctx.beginPath();
+            for (let i = 0; i < 4; i++) {
+              const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+              const px = x + Math.cos(a) * size;
+              const py = y + Math.sin(a) * size;
+              if (i === 0) ctx.moveTo(px, py);
+              else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+          }
+        }
+      }
       this.player.draw(ctx, scale);
     }
 
