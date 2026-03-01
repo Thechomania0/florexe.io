@@ -326,8 +326,8 @@ function updateBeetles(room, roomPlayers, dtMs) {
 function getMobsSnapshot(room) {
   const m = getRoomMobs(room);
   return {
-    foods: m.foods.filter((f) => f.hp > HP_DEAD_EPSILON).map((f) => ({ ...f })),
-    beetles: m.beetles.filter((b) => b.hp > HP_DEAD_EPSILON).map((b) => ({ ...b })),
+    foods: m.foods.filter((f) => f.hp > HP_DEAD_EPSILON).map((f) => ({ ...f, hp: f.hp, maxHp: f.maxHp })),
+    beetles: m.beetles.filter((b) => b.hp > HP_DEAD_EPSILON).map((b) => ({ ...b, hp: b.hp, maxHp: b.maxHp })),
   };
 }
 

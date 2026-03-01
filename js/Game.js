@@ -199,7 +199,10 @@ export class Game {
         food.serverY = f.y;
         food.vx = 0;
         food.vy = 0;
-        if (typeof f.hp === 'number') food.hp = Math.min(f.hp, food.maxHp);
+        if (typeof f.hp === 'number') {
+          const serverHp = Math.min(f.hp, food.maxHp);
+          food.hp = Math.min(food.hp, serverHp);
+        }
         if (typeof f.maxHp === 'number') food.maxHp = f.maxHp;
         if (typeof f.size === 'number') food.size = f.size;
         if (typeof f.weight === 'number') food.weight = f.weight;
@@ -239,7 +242,10 @@ export class Game {
       if (beetle) {
         beetle.serverX = b.x;
         beetle.serverY = b.y;
-        if (typeof b.hp === 'number') beetle.hp = Math.min(b.hp, beetle.maxHp);
+        if (typeof b.hp === 'number') {
+          const serverHp = Math.min(b.hp, beetle.maxHp);
+          beetle.hp = Math.min(beetle.hp, serverHp);
+        }
         if (typeof b.maxHp === 'number') beetle.maxHp = b.maxHp;
         if (typeof b.size === 'number') beetle.size = b.size;
         const hitboxScale = (b.rarity === 'mythic' || b.rarity === 'legendary') ? 0.4 : 1;
