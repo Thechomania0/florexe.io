@@ -439,23 +439,49 @@ export class Game {
     this.otherPlayers = this.otherPlayers.filter((o) => o.id !== id);
   }
 
-  /** Draw one other player's body and gun at current transform (0,0). Uses op.equippedTank, op.equippedBody, op.size. All other players use same blue body color as local player, with gun covered by the blue circle. */
+  /** Draw one other player's body and gun at current transform (0,0). Uses op.equippedTank, op.equippedBody, op.size. All other players use same blue body color as local player, with gun covered by the blue circle. Inferno and Ziggurat bodies render their full visuals. */
   _drawOtherPlayerBody(ctx, scale, op) {
     const size = op.size ?? 24.5;
     const tankType = op.equippedTank?.subtype;
+    const bodySubtype = op.equippedBody?.subtype;
     const bodyColor = '#1ca8c9';
     const outlineColor = darkenColor(bodyColor, 60);
     const s = size * 2.4;
     const assets = getLoadedTankAssets();
     const gunImg = tankType && assets?.guns ? assets.guns[tankType] : null;
 
-    ctx.fillStyle = bodyColor;
-    ctx.strokeStyle = outlineColor;
-    ctx.lineWidth = Math.max(1, 3 / scale);
-    ctx.beginPath();
-    ctx.arc(0, 0, size, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
+    // Inferno body: grey circles + red core
+    if (bodySubtype === 'inferno') {
+      ctx.fillStyle = '#6a6a6a';
+      ctx.strokeStyle = '#4a4a4a';
+      ctx.lineWidth = Math.max(1, 1 / scale);
+      ctx.beginPath();
+      ctx.arc(0, 0, size * 0.65, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#b0b0b0';
+      ctx.strokeStyle = '#6a6a6a';
+      ctx.lineWidth = Math.max(1, 0.75 / scale);
+      ctx.beginPath();
+      ctx.arc(0, 0, size * 0.52, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#c00';
+      ctx.strokeStyle = '#800';
+      ctx.lineWidth = Math.max(1, 0.5 / scale);
+      ctx.beginPath();
+      ctx.arc(0, 0, size * 0.26, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = bodyColor;
+      ctx.strokeStyle = outlineColor;
+      ctx.lineWidth = Math.max(1, 3 / scale);
+      ctx.beginPath();
+      ctx.arc(0, 0, size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
 
     if (tankType === 'riot') {
       const forwardOffset = size * 0.28400625;
@@ -506,6 +532,33 @@ export class Game {
     } else {
       ctx.fillStyle = '#2a2a2a';
       ctx.fillRect(size, -s * 0.15, s * 0.6, s * 0.3);
+    }
+
+    // Inferno outer ring (damaging aura)
+    if (bodySubtype === 'inferno') {
+      const b = BODY_UPGRADES.inferno;
+      const r = op.equippedBody?.rarity;
+      const mult = r === 'ultra' ? b.sizeMultUltra : r === 'super' ? b.sizeMultSuper : b.sizeMult;
+      const radius = INFERNO_BASE_RADIUS * mult;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(200,0,0,0.14)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(170,0,0,0.175)';
+      ctx.lineWidth = Math.max(1, 3 / scale);
+      ctx.stroke();
+    }
+
+    // Blue circle above gun and body (except Inferno and Ziggurat)
+    if (bodySubtype !== 'inferno' && bodySubtype !== 'ziggurat') {
+      const overlayR = size * 1.6;
+      ctx.fillStyle = bodyColor;
+      ctx.strokeStyle = outlineColor;
+      ctx.lineWidth = Math.max(1, 3 / scale);
+      ctx.beginPath();
+      ctx.arc(0, 0, overlayR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
     }
   }
 

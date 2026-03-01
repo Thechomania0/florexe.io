@@ -54,9 +54,9 @@ const BEETLE_TARGET = 800;
 const SPAWN_BATCH_FOOD = 140;
 const SPAWN_BATCH_BEETLE = 140;
 const SPAWN_INTERVAL_MS = 8666;
-const RESPAWN_DELAY_MS = 3000;
-const DEATH_EXCLUSION_MS = 8000;
-const MIN_DEATH_DISTANCE = 400;
+const RESPAWN_DELAY_MS = 8000;
+const DEATH_EXCLUSION_MS = 20000;
+const MIN_DEATH_DISTANCE = 800;
 
 const roomRecentDeaths = new Map();
 
@@ -95,7 +95,7 @@ function recordDeath(room, x, y) {
   list.push({ x, y, at: Date.now() });
   const cutoff = Date.now() - DEATH_EXCLUSION_MS;
   while (list.length > 0 && list[0].at < cutoff) list.shift();
-  if (list.length > 50) list.splice(0, list.length - 30);
+  if (list.length > 80) list.splice(0, list.length - 50);
 }
 
 function isNearRecentDeath(room, x, y) {
@@ -124,7 +124,7 @@ function spawnFood(room) {
   const now = Date.now();
   if (now - (m.lastKillTime || 0) < RESPAWN_DELAY_MS) return;
   let pt;
-  for (let retry = 0; retry < 25; retry++) {
+  for (let retry = 0; retry < 50; retry++) {
     pt = getRandomPointAndRarityInPlayableZone();
     if (!pt) break;
     if (!isNearRecentDeath(room, pt.x, pt.y)) break;
@@ -154,7 +154,7 @@ function spawnBeetle(room) {
   const now = Date.now();
   if (now - (m.lastKillTime || 0) < RESPAWN_DELAY_MS) return;
   let pt;
-  for (let retry = 0; retry < 25; retry++) {
+  for (let retry = 0; retry < 50; retry++) {
     pt = getRandomPointAndRarityInPlayableZone();
     if (!pt) break;
     if (!isNearRecentDeath(room, pt.x, pt.y)) break;
