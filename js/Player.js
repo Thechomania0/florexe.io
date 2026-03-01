@@ -377,8 +377,7 @@ export class Player {
       }
     }
 
-    // Hive drones (solo only; multiplayer uses server drones)
-    if (!game.multiplayerSocket) {
+    // Hive drones
     const DRONE_RESPAWN_DELAY_MS = 0;
 
     if (this.equippedBody?.subtype === 'hive') {
@@ -412,7 +411,6 @@ export class Player {
     const hiveCountBefore = this.drones.length;
     this.drones = this.drones.filter(d => d.hp > 0);
     if (this.drones.length < hiveCountBefore) this.lastHiveDroneDeathTime = Date.now();
-    }
 
     // Tank shooting
     if (this.equippedTank) {
@@ -639,7 +637,6 @@ export class Player {
 
 
 
-    if (!game.multiplayerSocket) {
     if (this.equippedTank?.subtype === 'overlord') {
       const OverlordDroneClass = _OverlordDroneModule?.OverlordDrone;
       if (!OverlordDroneClass) {
@@ -681,7 +678,6 @@ export class Player {
     } else {
       this.overlordDrones = [];
       this.overlordDroneRespawnUntil = 0;
-    }
     }
 
     // Update squares

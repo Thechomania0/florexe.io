@@ -19,7 +19,6 @@ let gameSocketStateInterval = null;
 let pendingMobs = null;
 let pendingBullets = null;
 let pendingSquares = null;
-let pendingDrones = null;
 let pendingPlayers = null;
 
 let canvas, ctx, mainMenu, gameContainer, minimapCanvas, minimapCtx;
@@ -298,9 +297,6 @@ function startGame(gamemode, opts) {
           });
           gameSocket.on('squares', (data) => {
             if (game) pendingSquares = data;
-          });
-          gameSocket.on('drones', (data) => {
-            if (game) pendingDrones = data;
           });
           gameSocket.on('kill', (payload) => {
             if (game) game.applyKillReward(payload);
@@ -2457,10 +2453,6 @@ function loop(now) {
     if (pendingSquares) {
       game.setSquaresFromServer(pendingSquares);
       pendingSquares = null;
-    }
-    if (pendingDrones) {
-      game.setServerDrones(pendingDrones);
-      pendingDrones = null;
     }
     if (pendingPlayers) {
       const me = pendingPlayers.find((p) => p && p.id === gameSocket.id);
