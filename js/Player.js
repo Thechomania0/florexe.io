@@ -3,8 +3,20 @@ import { INFERNO_BASE_RADIUS, BODY_UPGRADES, TANK_UPGRADES, FOOD_CONFIG, BEETLE_
 import { Bullet } from './entities/Bullet.js';
 import { Square } from './entities/Square.js';
 import { Drone } from './entities/Drone.js';
-import { OverlordDrone } from './entities/OverlordDrone.js';
-import { darkenColor } from './utils.js';  
+import { darkenColor } from './utils.js';
+
+/** Lazy-load OverlordDrone so main menu works even if this file fails (e.g. 503). */
+let _OverlordDroneModule = null;
+async function getOverlordDrone() {
+  if (_OverlordDroneModule) return _OverlordDroneModule.OverlordDrone;
+  try {
+    _OverlordDroneModule = await import('./entities/OverlordDrone.js');
+    return _OverlordDroneModule.OverlordDrone;
+  } catch (e) {
+    console.warn('[OverlordDrone] Failed to load:', e);
+    return null;
+  }
+}  
 
 const BASE_HP = 500;
 const BASE_BODY_DAMAGE = 50;
@@ -620,6 +632,10 @@ export class Player {
 
 
     if (this.equippedTank?.subtype === 'overlord') {
+      const OverlordDroneClass = _OverlordDroneModule?.OverlordDrone;
+      if (!OverlordDroneClass) {
+        getOverlordDrone(); // lazy load (will be ready next frame if successful)
+      } else {
       const t = TANK_UPGRADES.overlord;
       const r = this.equippedTank.rarity;
       const count = r === 'super' ? (t.droneCountSuper ?? t.droneCount)
@@ -632,12 +648,12 @@ export class Player {
           while (this.overlordDrones.length < count) {
             const slot = this.overlordDrones.length % 4;
             this.overlordRecoil[slot] = 10;
-            this.overlordDrones.push(new OverlordDrone(this, this.overlordDrones.length, count, dmg));
+            this.overlordDrones.push(new OverlordDroneClass(this, this.overlordDrones.length, count, dmg));
           }
         } else if (now >= this.overlordDroneRespawnUntil) {
           const slot = this.overlordDrones.length % 4;
           this.overlordRecoil[slot] = 10;
-          this.overlordDrones.push(new OverlordDrone(this, this.overlordDrones.length, count, dmg));
+          this.overlordDrones.push(new OverlordDroneClass(this, this.overlordDrones.length, count, dmg));
           this.overlordDroneRespawnUntil = now + 2000;
         }
       }
@@ -652,6 +668,7 @@ export class Player {
       const overlordCountBefore = this.overlordDrones.length;
       this.overlordDrones = this.overlordDrones.filter(od => od.hp > 0);
       if (this.overlordDrones.length < overlordCountBefore) this.overlordDroneRespawnUntil = now + 2000;
+      }
     } else {
       this.overlordDrones = [];
       this.overlordDroneRespawnUntil = 0;
