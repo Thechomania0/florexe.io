@@ -451,16 +451,19 @@ export class Game {
   /** Draw one other player's body and gun at current transform (0,0). Uses op.equippedTank, op.equippedBody, op.size. */
   _drawOtherPlayerBody(ctx, scale, op) {
     const size = this._getOtherPlayerDisplaySize(op);
+    const isGuestViewer = (this.player?.displayName || '').toString().startsWith('Guest');
+    const gunScale = isGuestViewer ? 0.5 : 1.5;
     const tankType = op.equippedTank?.subtype;
     const bodySubtype = op.equippedBody?.subtype;
     const bodyColor = '#1ca8c9';
     const outlineColor = darkenColor(bodyColor, 60);
-    const s = size * 2.4;
+    const s = size * 2.4 * gunScale;
     const assets = getLoadedTankAssets();
     const gunImg = tankType && assets?.guns ? assets.guns[tankType] : null;
 
-    // Inferno body: grey circles + red core
-    if (bodySubtype === 'inferno') {
+    // Body: guest viewer sees blue; main viewer sees Inferno/Ziggurat specials
+    const useBlueBody = isGuestViewer;
+    if (!useBlueBody && bodySubtype === 'inferno') {
       ctx.fillStyle = '#6a6a6a';
       ctx.strokeStyle = '#4a4a4a';
       ctx.lineWidth = Math.max(1, 1 / scale);
@@ -494,7 +497,7 @@ export class Game {
 
     if (tankType === 'riot') {
       const forwardOffset = size * 0.28400625;
-      const S = size * 0.96 * 0.792;
+      const S = size * 0.96 * 0.792 * gunScale;
       const h = S * Math.sqrt(3) / 2;
       const overlap = S * 0.65;
       const startX = size - S * 0.5;
@@ -516,8 +519,8 @@ export class Game {
       }
       ctx.restore();
     } else if (tankType === 'overlord') {
-      const R = size * 1.3;
-      const w = size;
+      const R = size * 1.3 * gunScale;
+      const w = size * gunScale;
       ctx.fillStyle = '#9e9e9e';
       ctx.strokeStyle = '#4a4a4a';
       ctx.lineWidth = Math.max(1, 2 / scale);
@@ -532,7 +535,7 @@ export class Game {
     } else if (gunImg?.complete && gunImg.naturalWidth > 0) {
       if (tankType === 'base') {
         ctx.save();
-        ctx.translate(size * 0.78125, 0);
+        ctx.translate(size * 0.78125 * gunScale, 0);
         ctx.drawImage(gunImg, -s, -s, s * 2, s * 2);
         ctx.restore();
       } else {
@@ -540,11 +543,11 @@ export class Game {
       }
     } else {
       ctx.fillStyle = '#2a2a2a';
-      ctx.fillRect(size, -s * 0.15, s * 0.6, s * 0.3);
+      ctx.fillRect(size * gunScale, -s * 0.15, s * 0.6, s * 0.3);
     }
 
-    // Inferno outer ring (damaging aura)
-    if (bodySubtype === 'inferno') {
+    // Inferno outer ring (damaging aura) - skip when guest viewer (blue body)
+    if (!useBlueBody && bodySubtype === 'inferno') {
       const b = BODY_UPGRADES.inferno;
       const r = op.equippedBody?.rarity;
       const mult = r === 'ultra' ? b.sizeMultUltra : r === 'super' ? b.sizeMultSuper : b.sizeMult;
