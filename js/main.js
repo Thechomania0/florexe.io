@@ -285,7 +285,7 @@ function startGame(gamemode) {
             if (!game?.player || !gameSocket?.connected) return;
             const s = game.getPlayerState();
             if (s) gameSocket.emit('state', s);
-          }, 10);
+          }, 100);
           const joinState = {
             gamemode: game.gamemode,
             x: 0, y: 0, angle: 0,

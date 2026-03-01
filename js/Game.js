@@ -441,9 +441,16 @@ export class Game {
     this.otherPlayers = this.otherPlayers.filter((o) => o.id !== id);
   }
 
-  /** Draw one other player's body and gun at current transform (0,0). Uses op.equippedTank, op.equippedBody, op.size. All other players use same blue body color as local player, with gun covered by the blue circle. Inferno and Ziggurat bodies render their full visuals. */
+  /** Display size for other players: guest viewer sees +50%, main viewer sees -50%. */
+  _getOtherPlayerDisplaySize(op) {
+    const base = op.size ?? 24.5;
+    const isGuestViewer = (this.player?.displayName || '').toString().startsWith('Guest');
+    return base * (isGuestViewer ? 1.5 : 0.5);
+  }
+
+  /** Draw one other player's body and gun at current transform (0,0). Uses op.equippedTank, op.equippedBody, op.size. */
   _drawOtherPlayerBody(ctx, scale, op) {
-    const size = op.size ?? 24.5;
+    const size = this._getOtherPlayerDisplaySize(op);
     const tankType = op.equippedTank?.subtype;
     const bodySubtype = op.equippedBody?.subtype;
     const bodyColor = '#1ca8c9';
@@ -684,6 +691,12 @@ export class Game {
     if (!this.running || !this.player) return;
 
     this.player.update(dt, this);
+
+    // Multiplayer: emit state every frame for real-time movement (synced with game loop)
+    if (this.multiplayerSocket?.connected && this.player) {
+      const s = this.getPlayerState();
+      if (s) this.multiplayerSocket.emit('state', s);
+    }
 
     // Multiplayer: interpolate mob positions toward server to avoid teleporting every tick
     if (this.multiplayerSocket) {
@@ -1404,6 +1417,7 @@ export class Game {
       this._drawOtherPlayerBody(ctx, scale, op);
       ctx.restore();
       const name = (op.displayName || 'Player').slice(0, 20);
+      const opSize = this._getOtherPlayerDisplaySize(op);
       const fontSize = Math.max(10, 14 / scale);
       ctx.font = `bold ${fontSize}px Rajdhani, sans-serif`;
       ctx.textAlign = 'center';
@@ -1411,12 +1425,12 @@ export class Game {
       ctx.fillStyle = '#fff';
       ctx.strokeStyle = '#000';
       ctx.lineWidth = 2 / scale;
-      const nameY = (op.y ?? 0) - (op.size ?? 24.5) - 8;
+      const nameY = (op.y ?? 0) - opSize - 8;
       ctx.strokeText(name, op.x ?? 0, nameY);
       ctx.fillText(name, op.x ?? 0, nameY);
-      const barW = (op.size ?? 24.5) * 2.5;
+      const barW = opSize * 2.5;
       const barH = Math.max(5, 6 / scale);
-      const barY = (op.y ?? 0) + (op.size ?? 24.5) + 8;
+      const barY = (op.y ?? 0) + opSize + 8;
       const barX = (op.x ?? 0) - barW / 2;
       const hpPct = typeof op.hp === 'number' && typeof op.maxHp === 'number' && op.maxHp > 0 ? op.hp / op.maxHp : 1;
       drawRoundedHealthBar(ctx, barX, barY, barW, barH, hpPct, { fillColor: '#81c784', outlineColor: 'rgba(0,0,0,0.8)', lineWidth: Math.max(1, 2 / scale) });

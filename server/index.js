@@ -65,6 +65,8 @@ function saveUsers(users) {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..')));
 
+app.get('/health', (req, res) => res.status(200).send('ok'));
+
 app.get('/api/username/check', (req, res) => {
   const username = (req.query.username || '').trim().toLowerCase();
   if (!username) return res.json({ taken: false });
@@ -412,6 +414,6 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`App listening at http://localhost:${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`App listening on port ${PORT}`);
 });
