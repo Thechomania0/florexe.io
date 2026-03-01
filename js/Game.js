@@ -167,11 +167,15 @@ export class Game {
     return getPlayableBounds();
   }
 
-  /** Replace foods and beetles from server snapshot. Each item: { id, x, y, rarity, hp, maxHp, size, weight, natural }. Merges by id (string) and stores server position for interpolation. Uses server hp only when number to avoid HP regenerating. */
+  /** Replace foods and beetles from server snapshot. Each item: { id, x, y, rarity, hp, maxHp, size, weight, natural }. Merges by id (string) and stores server position for interpolation. Skips mobs we've already processed a kill for (so dead mobs never reappear). */
   setMobsFromServer(snapshot) {
     if (!snapshot || typeof snapshot !== 'object') return;
-    const foods = Array.isArray(snapshot.foods) ? snapshot.foods : [];
-    const beetles = Array.isArray(snapshot.beetles) ? snapshot.beetles : [];
+    let foods = Array.isArray(snapshot.foods) ? snapshot.foods : [];
+    let beetles = Array.isArray(snapshot.beetles) ? snapshot.beetles : [];
+    if (this.processedKillIds && this.processedKillIds.size > 0) {
+      foods = foods.filter((f) => f.id == null || !this.processedKillIds.has(String(f.id)));
+      beetles = beetles.filter((b) => b.id == null || !this.processedKillIds.has(String(b.id)));
+    }
 
     const existingFoodById = new Map();
     for (const f of this.foods) if (f.id != null) existingFoodById.set(String(f.id), f);
@@ -190,7 +194,7 @@ export class Game {
         if (typeof f.weight === 'number') food.weight = f.weight;
         const dx = (typeof f.x === 'number' ? f.x : food.x) - food.x;
         const dy = (typeof f.y === 'number' ? f.y : food.y) - food.y;
-        if (dx * dx + dy * dy > 400 * 400) {
+        if (dx * dx + dy * dy > 80 * 80) {
           food.x = typeof f.x === 'number' ? f.x : food.x;
           food.y = typeof f.y === 'number' ? f.y : food.y;
         }
@@ -233,7 +237,7 @@ export class Game {
         if (typeof b.weight === 'number') beetle.weight = b.weight;
         const dx = (typeof b.x === 'number' ? b.x : beetle.x) - beetle.x;
         const dy = (typeof b.y === 'number' ? b.y : beetle.y) - beetle.y;
-        if (dx * dx + dy * dy > 400 * 400) {
+        if (dx * dx + dy * dy > 80 * 80) {
           beetle.x = typeof b.x === 'number' ? b.x : beetle.x;
           beetle.y = typeof b.y === 'number' ? b.y : beetle.y;
         }
@@ -544,7 +548,7 @@ export class Game {
     if (this.multiplayerSocket) {
       const LERP = 0.28;
       const SNAP_CLOSE = 0.8;
-      const SNAP_FAR = 200;
+      const SNAP_FAR = 80;
       for (const food of this.foods) {
         if (food.serverX != null && food.serverY != null) {
           const dx = food.serverX - food.x;
