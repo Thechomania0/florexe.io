@@ -283,8 +283,9 @@ export class Game {
     const { mobId, mobType, rarity, maxHp, stars, drop, x, y } = payload;
     if (this.multiplayerSocket && mobId != null) {
       if (!this.processedKillIds) this.processedKillIds = new Set();
-      if (this.processedKillIds.has(mobId)) return;
-      this.processedKillIds.add(mobId);
+      const sid = String(mobId);
+      if (this.processedKillIds.has(sid)) return;
+      this.processedKillIds.add(sid);
       if (this.processedKillIds.size > 500) {
         const arr = Array.from(this.processedKillIds);
         this.processedKillIds = new Set(arr.slice(-400));
@@ -306,10 +307,11 @@ export class Game {
         }
       }
     }
-    if (mobType === 'beetle') {
-      this.beetles = this.beetles.filter((beetle) => beetle.id !== mobId);
-    } else {
-      this.foods = this.foods.filter((food) => food.id !== mobId);
+    const sid = mobId != null ? String(mobId) : null;
+    if (mobType === 'beetle' && sid) {
+      this.beetles = this.beetles.filter((b) => String(b.id) !== sid);
+    } else if (sid) {
+      this.foods = this.foods.filter((f) => String(f.id) !== sid);
     }
   }
 
@@ -892,11 +894,15 @@ export class Game {
       }
     }
 
-    // Beetle–shape (square) collision: push beetles out of overlapping squares (square position still adjusted in Square.update)
+    // Beetle–shape (square) collision: push beetles out of overlapping squares
+    const squaresForCollision = this.multiplayerSocket
+      ? [...this.serverSquares, ...this.pendingSquares.map((p) => p.sq)]
+      : this.squares;
     for (const beetle of this.beetles) {
       if (beetle.hp <= 0) continue;
-      for (const sq of this.squares) {
-        const overlap = beetle.getEllipseOverlap(sq.x, sq.y, sq.size);
+      for (const sq of squaresForCollision) {
+        if (!sq || typeof sq.x !== 'number' || typeof sq.y !== 'number') continue;
+        const overlap = beetle.getEllipseOverlap(sq.x, sq.y, sq.size ?? 14);
         if (overlap > 0) {
           const d = distance(beetle.x, beetle.y, sq.x, sq.y);
           const nx = d > 0 ? (beetle.x - sq.x) / d : 1;

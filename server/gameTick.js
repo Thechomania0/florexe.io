@@ -20,7 +20,8 @@ function ellipseOverlapsCircle(beetle, cx, cy, r) {
 }
 
 const TRAP_NO_COLLISION_MS = 200;
-const MAX_SEPARATION_PER_FRAME = 2.5;
+const MAX_SEPARATION_PER_FRAME = 5;
+const BEETLE_SQUARE_SEPARATION_MAX = 4;
 
 function effectiveWeight(w) {
   const n = Math.max(0, Math.min(100, typeof w === 'number' ? w : 1));
@@ -50,6 +51,27 @@ function runSquareSquareCollision(squares, dtMs) {
         sq.y += ny * moveThis;
         other.x -= nx * moveOther;
         other.y -= ny * moveOther;
+      }
+    }
+  }
+}
+
+/** Push beetles out of overlapping squares so they can escape trap clusters. */
+function runBeetleSquareRepulsion(beetles, squares, dtMs) {
+  const scale = Math.min(1, dtMs / 50);
+  for (const beetle of beetles) {
+    const hitboxScale = (beetle.rarity === 'mythic' || beetle.rarity === 'legendary') ? 0.4 : 1;
+    const semiMajor = (beetle.size != null ? beetle.size * (25.5 / 64) : 20) * hitboxScale;
+    for (const sq of squares) {
+      const d = distance(beetle.x, beetle.y, sq.x, sq.y);
+      const minDist = semiMajor + (sq.size ?? 14);
+      const overlap = minDist - d;
+      if (overlap > 0 && d >= 1e-9) {
+        const nx = (beetle.x - sq.x) / d;
+        const ny = (beetle.y - sq.y) / d;
+        const separation = Math.min(overlap / 2, BEETLE_SQUARE_SEPARATION_MAX * scale);
+        beetle.x += nx * separation;
+        beetle.y += ny * separation;
       }
     }
   }
@@ -154,6 +176,7 @@ function tick(room, dtMs, roomPlayers) {
   const m = getRoomMobs(room);
   const killPayloads = [];
   updateBeetles(room, roomPlayers, dtMs);
+  runBeetleSquareRepulsion(m.beetles, squares, dtMs);
   removeMobsFullyInWall(room);
 
   for (const bullet of bullets) {
