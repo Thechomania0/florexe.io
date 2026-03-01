@@ -184,16 +184,20 @@ function spawnBeetle(room) {
   return beetle;
 }
 
-/** Spawn one replacement mob in the zone matching deadRarity (e.g. rare -> RARE_EPIC zone), at a random point in that zone, not near recent deaths. */
-function spawnOneInRarityZone(room, deadRarity, spawnType) {
+/** Spawn one replacement mob in the zone matching deadRarity, at a random point in that zone, at least MIN_DEATH_DISTANCE from (deathX, deathY) when provided. */
+function spawnOneInRarityZone(room, deadRarity, spawnType, deathX, deathY) {
   const m = getRoomMobs(room);
   const map = getDefaultMap();
   const walls = map.walls || [];
   if (spawnType === 'food' && m.foods.length >= FOOD_TARGET) return;
   if (spawnType === 'beetle' && m.beetles.length >= BEETLE_TARGET) return;
+  const excludeOptions =
+    typeof deathX === 'number' && typeof deathY === 'number'
+      ? { excludeX: deathX, excludeY: deathY, minDistFromExclude: MIN_DEATH_DISTANCE }
+      : undefined;
   let pt;
-  for (let retry = 0; retry < 50; retry++) {
-    pt = getRandomPointInZoneForRarity(deadRarity, walls);
+  for (let retry = 0; retry < 80; retry++) {
+    pt = getRandomPointInZoneForRarity(deadRarity, walls, excludeOptions);
     if (!pt) break;
     if (!isNearRecentDeath(room, pt.x, pt.y)) break;
   }
@@ -283,8 +287,10 @@ function hitMob(room, mobId, mobType, damage, playerX, playerY) {
     if (food.hp <= HP_DEAD_EPSILON) {
       recordDeath(room, food.x, food.y);
       m.lastKillTime = Date.now();
+      const deathX = food.x;
+      const deathY = food.y;
       m.foods.splice(idx, 1);
-      spawnOneInRarityZone(room, food.rarity, 'food');
+      spawnOneInRarityZone(room, food.rarity, 'food', deathX, deathY);
       const cfg = FOOD_CONFIG[food.rarity] || {};
       const drop = rollDrop(cfg.drops);
       return {
@@ -313,8 +319,10 @@ function hitMob(room, mobId, mobType, damage, playerX, playerY) {
     if (beetle.hp <= HP_DEAD_EPSILON) {
       recordDeath(room, beetle.x, beetle.y);
       m.lastKillTime = Date.now();
+      const deathX = beetle.x;
+      const deathY = beetle.y;
       m.beetles.splice(idx, 1);
-      spawnOneInRarityZone(room, beetle.rarity, 'beetle');
+      spawnOneInRarityZone(room, beetle.rarity, 'beetle', deathX, deathY);
       const cfg = BEETLE_CONFIG[beetle.rarity] || {};
       const drop = rollBeetleDrop(cfg.drops);
       return {

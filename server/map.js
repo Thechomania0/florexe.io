@@ -83,8 +83,9 @@ const RARITY_TO_ZONE = {
   super: CUSTOM_CELL.ULTRA_SUPER,
 };
 
-/** Pick a random point in the zone that matches the given rarity (e.g. rare -> RARE_EPIC zone). Returns { x, y, rarityWeights } or null. Used for respawn so killed mobs respawn in their rarity area. */
-function getRandomPointInZoneForRarity(rarity, walls) {
+/** Pick a random point in the zone that matches the given rarity (e.g. rare -> RARE_EPIC zone). Returns { x, y, rarityWeights } or null. Used for respawn so killed mobs respawn in their rarity area.
+ * options: { excludeX, excludeY, minDistFromExclude } — when set, only return a point at least minDistFromExclude away from (excludeX, excludeY) to avoid spawning on death spot. */
+function getRandomPointInZoneForRarity(rarity, walls, options) {
   const map = loadDefaultMap();
   const zones = map.zones;
   if (!zones || !Array.isArray(zones.grid) || zones.grid.length !== CUSTOM_GRID_SIZE || !walls) return null;
@@ -97,15 +98,22 @@ function getRandomPointInZoneForRarity(rarity, walls) {
   }
   if (cells.length === 0) return null;
   const margin = CUSTOM_CELL_WORLD * 0.4;
-  for (let k = 0; k < 100; k++) {
+  const excludeX = options && typeof options.excludeX === 'number' ? options.excludeX : null;
+  const excludeY = options && typeof options.excludeY === 'number' ? options.excludeY : null;
+  const minDist = (options && typeof options.minDistFromExclude === 'number' && options.minDistFromExclude > 0) ? options.minDistFromExclude : 0;
+  const hasExclude = excludeX != null && excludeY != null && minDist > 0;
+  const maxTries = hasExclude ? 200 : 100;
+  for (let k = 0; k < maxTries; k++) {
     const { i, j } = cells[Math.floor(Math.random() * cells.length)];
     const x = CUSTOM_GRID_MIN + (i + 0.5) * CUSTOM_CELL_WORLD + (Math.random() - 0.5) * margin;
     const y = CUSTOM_GRID_MIN + (j + 0.5) * CUSTOM_CELL_WORLD + (Math.random() - 0.5) * margin;
     if (!isPointInWall(x, y, walls)) {
+      if (hasExclude && Math.hypot(x - excludeX, y - excludeY) < minDist) continue;
       const rarityWeights = CUSTOM_RARITY_WEIGHTS[zoneCell] || { common: 60, uncommon: 40 };
       return { x, y, rarityWeights };
     }
   }
+  if (hasExclude) return null;
   const { i, j } = cells[0];
   return {
     x: CUSTOM_GRID_MIN + (i + 0.5) * CUSTOM_CELL_WORLD,

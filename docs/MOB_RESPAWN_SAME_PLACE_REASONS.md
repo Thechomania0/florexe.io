@@ -25,7 +25,7 @@ So within the **same** `for (const food of m.foods)` (or beetles) loop, the iter
 
 **Worse:** The fallback after 100 failed wall checks is the **center of `cells[0]`**. So if the zone is a single valid cell, every replacement can get that exact point.
 
-**Mitigation:** Enlarge rarity zones in the map data so each rarity has many cells, and/or add a minimum distance from the death position when choosing the respawn point (e.g. pass death coords and reject points too close).
+**Mitigation (implemented):** Replacement spawn now passes the death position as an exclude point with `minDistFromExclude: MIN_DEATH_DISTANCE`. `getRandomPointInZoneForRarity` accepts optional `options: { excludeX, excludeY, minDistFromExclude }` and only returns a point at least that far from the death spot. When exclude is set, the fallback to `cells[0]` is disabled (returns null) so we never spawn on the death spot. Retries increased to 200 when exclude is used.
 
 ---
 
@@ -33,7 +33,7 @@ So within the **same** `for (const food of m.foods)` (or beetles) loop, the iter
 
 **What happens:** `spawnOneInRarityZone` uses `getRandomPointInZoneForRarity` (random point in zone) and `isNearRecentDeath(room, x, y)` to avoid **other** recent deaths. It does **not** explicitly force the new spawn to be "far from **this** death." So the random point in the zone can still be the same cell (or very close) to where the mob just died.
 
-**Mitigation:** When spawning the replacement, pass the death position and require a minimum distance (e.g. `MIN_DEATH_DISTANCE`) from it, or exclude that cell from the random choice.
+**Mitigation (implemented):** `spawnOneInRarityZone(room, deadRarity, spawnType, deathX, deathY)` now takes the death position. It passes `{ excludeX: deathX, excludeY: deathY, minDistFromExclude: MIN_DEATH_DISTANCE }` to `getRandomPointInZoneForRarity`, so the replacement is always at least 800 units from the death. `hitMob` captures `food.x`/`food.y` (and beetle) before splicing and passes them in.
 
 ---
 
@@ -49,9 +49,7 @@ So within the **same** `for (const food of m.foods)` (or beetles) loop, the iter
 
 **What happens:** Client receives `kill` (remove mob A) and later receives a **stale** `mobs` snapshot that still contains mob A (from before the kill). If the client applied the snapshot **after** the kill and didn't filter correctly, it could re-add A at the same position → looks like respawn.
 
-**Current mitigation:** `lastMobsSeq` ignores older snapshots; `processedKillIds` filters out killed mobs from snapshot. So this is only plausible if there's a bug in ordering (e.g. snapshot emitted before kill but delivered after) or in the filter logic.
-
-**Check:** Ensure `mobs` is emitted **after** `tick()` (so snapshot reflects post-kill state) and that client always applies `mobs` with `seq` and `processedKillIds` before applying `kill` when ordering is ambiguous.
+**Current mitigation (implemented):** Server takes mobs snapshot **after** `tick()` (comment in `startGameTick`). Client uses `lastMobsSeq` to ignore older snapshots and `processedKillIds` to filter out killed mobs from snapshot. `applyKillReward` removes the mob by id immediately. Emit order: mobs → bullets → squares → kill, so snapshot always reflects post-tick state.
 
 ---
 
@@ -102,10 +100,10 @@ So within the **same** `for (const food of m.foods)` (or beetles) loop, the iter
 | # | Cause | Likely? | Fix / mitigation |
 |---|--------|--------|-------------------|
 | 1 | Same-tick re-hit: bullet loop uses live `m.foods`/`m.beetles`, replacement can be hit in same tick | **Yes** | Use snapshot arrays for bullet–mob collision (like square–mob) |
-| 2 | Zone has one or few cells → same cell every time | Possible | Bigger zones; avoid single-cell zones for a rarity |
-| 3 | Replacement spawn doesn't exclude death position | Possible | Require min distance from death or exclude death cell |
-| 4 | Trap kills replacement next tick (replacement in same cell) | Follow-up of 1–3 | Same as 1–3 |
-| 5 | Client applies old snapshot after kill | Unlikely | Ensure snapshot after tick; client seq/kill filter |
+| 2 | Zone has one or few cells → same cell every time | Possible | **Done:** exclude death point + minDist in getRandomPointInZoneForRarity; no fallback when exclude set |
+| 3 | Replacement spawn doesn't exclude death position | Possible | **Done:** spawnOneInRarityZone(deathX, deathY), map rejects points &lt; MIN_DEATH_DISTANCE |
+| 4 | Trap kills replacement next tick (replacement in same cell) | Follow-up of 1–3 | Addressed by #2–3 (replacement spawns away from death) |
+| 5 | Client applies old snapshot after kill | Unlikely | **Done:** snapshot after tick (comment); emit order mobs then kill; client seq + processedKillIds |
 | 6 | Duplicate hit same mob | No | Already handled (one kill per id) |
 | 7 | getRandomPointInZoneForRarity null → no spawn | No (would be no respawn) | Fix map/zones if needed |
 | 8 | Client merge by index | No | Client uses id |

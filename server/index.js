@@ -307,6 +307,7 @@ function startGameTick(room) {
     const players = getRoomPlayers(room);
     if (players.size === 0) return;
     const result = tick(room, TICK_MS, roomPlayers, roomPlayerBodies);
+    // Snapshot must be after tick so dead mobs are removed and replacements included (#5 respawn doc).
     io.to(room).emit('mobs', getMobsPayload(room));
     io.to(room).emit('bullets', getBulletsSnapshot(room));
     io.to(room).emit('squares', getSquaresSnapshot(room));
