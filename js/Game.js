@@ -485,13 +485,14 @@ export class Game {
   /** Update list of other players from server (each has id, x, y, angle, hp, maxHp, level, displayName, equippedTank, equippedBody, size). */
   setOtherPlayers(list) {
     if (!Array.isArray(list)) return;
-    this.otherPlayers = list.filter((o) => o && typeof o.id !== 'undefined');
+    this.otherPlayers = list.filter((o) => o && typeof o.id !== 'undefined').map((o) => ({ ...o, id: String(o.id) }));
   }
 
   /** Remove a player from otherPlayers (e.g. when they disconnect). */
   removeOtherPlayer(id) {
-    if (!id) return;
-    this.otherPlayers = this.otherPlayers.filter((o) => o.id !== id);
+    if (id == null) return;
+    const sid = String(id);
+    this.otherPlayers = this.otherPlayers.filter((o) => o && String(o.id) !== sid);
   }
 
   /** Display size for other players: guest viewer sees +50%, main viewer sees -50%. */

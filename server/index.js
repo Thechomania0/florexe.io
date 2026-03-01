@@ -427,10 +427,10 @@ io.on('connection', (socket) => {
     io.to(room).emit('squares', getSquaresSnapshot(room));
   });
 
-  socket.on('disconnect', () => {
-    for (const room of socket.rooms) {
-      if (room === socket.id) continue;
-      const leftId = socket.id;
+  socket.on('disconnecting', () => {
+    const leftId = socket.id;
+    const rooms = Array.from(socket.rooms).filter((r) => r !== leftId);
+    for (const room of rooms) {
       getRoomPlayers(room).delete(leftId);
       getRoomPlayerBodies(room).delete(leftId);
       removePlayerEntities(room, leftId);
@@ -450,6 +450,8 @@ io.on('connection', (socket) => {
       }
     }
   });
+
+  socket.on('disconnect', () => {});
 });
 
 server.listen(PORT, '0.0.0.0', () => {
