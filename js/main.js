@@ -16,6 +16,11 @@ let lastTime = 0;
 let animationId = null;
 let gameSocket = null;
 let gameSocketStateInterval = null;
+/** Pending server payloads: applied once per frame to avoid freezing (server sends 200/sec). */
+let pendingMobs = null;
+let pendingBullets = null;
+let pendingSquares = null;
+let pendingPlayers = null;
 
 let canvas, ctx, mainMenu, gameContainer, minimapCanvas, minimapCtx;
 
@@ -256,7 +261,7 @@ function startGame(gamemode) {
           gameSocket = io(window.FLOREXE_API_URL, { transports: ['websocket', 'polling'] });
           game.setMultiplayerSocket(gameSocket);
           gameSocket.on('players', (list) => {
-            if (game && gameSocket) game.setOtherPlayers(list.filter((p) => p.id !== gameSocket.id));
+            if (game && gameSocket) pendingPlayers = list;
           });
           gameSocket.on('map', (data) => {
             if (!game) return;
@@ -270,13 +275,13 @@ function startGame(gamemode) {
             if (game && data && data.id) game.removeOtherPlayer(data.id);
           });
           gameSocket.on('mobs', (data) => {
-            if (game) game.setMobsFromServer(data);
+            if (game) pendingMobs = data;
           });
           gameSocket.on('bullets', (data) => {
-            if (game) game.setBulletsFromServer(data);
+            if (game) pendingBullets = data;
           });
           gameSocket.on('squares', (data) => {
-            if (game) game.setSquaresFromServer(data);
+            if (game) pendingSquares = data;
           });
           gameSocket.on('kill', (payload) => {
             if (game) game.applyKillReward(payload);
@@ -2420,6 +2425,24 @@ function loop(now) {
   if (game && ctx?.canvas) {
     game.canvasWidth = ctx.canvas.width;
     game.canvasHeight = ctx.canvas.height;
+  }
+  if (game && gameSocket) {
+    if (pendingMobs) {
+      game.setMobsFromServer(pendingMobs);
+      pendingMobs = null;
+    }
+    if (pendingBullets) {
+      game.setBulletsFromServer(pendingBullets);
+      pendingBullets = null;
+    }
+    if (pendingSquares) {
+      game.setSquaresFromServer(pendingSquares);
+      pendingSquares = null;
+    }
+    if (pendingPlayers) {
+      game.setOtherPlayers(pendingPlayers.filter((p) => p && p.id !== gameSocket.id));
+      pendingPlayers = null;
+    }
   }
   game?.update(dt);
   game?.draw(ctx);
