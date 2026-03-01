@@ -431,8 +431,12 @@ export class Player {
           const offY = (this.riotBurstIndex - 1) * stackSpacing;
           const perpX = -Math.sin(this.angle);
           const perpY = Math.cos(this.angle);
-          const px = this.x + Math.cos(this.angle) * barrelTip + perpX * offY;
-          const py = this.y + Math.sin(this.angle) * barrelTip + perpY * offY;
+          const worldMouseX = cam.x + mx / scale;
+          const worldMouseY = cam.y + my / scale;
+          const distToMouse = Math.hypot(worldMouseX - this.x, worldMouseY - this.y);
+          const spawnDist = Math.min(barrelTip, Math.max(0, distToMouse - 5));
+          const px = this.x + Math.cos(this.angle) * spawnDist + perpX * offY;
+          const py = this.y + Math.sin(this.angle) * spawnDist + perpY * offY;
           const vx = Math.cos(this.angle) * 0.22;
           const vy = Math.sin(this.angle) * 0.22;
           const trapWeight = t.weightByRarity?.[r] ?? 1;
