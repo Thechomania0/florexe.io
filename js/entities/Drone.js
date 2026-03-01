@@ -11,6 +11,8 @@ export class Drone {
     this.damage = damage;
     this.range = range;
     this.size = 6;
+    /** Hitbox radius to match square outline: inradius = half-diagonal / sqrt(2) = size / sqrt(2). */
+    this.collisionRadius = this.size / Math.SQRT2;
     this.speed = 104 * 1.4 * 1.4; // +40% twice (~96% total)
     this.target = null;
     this.maxHp = HIVE_DRONE_HP;
@@ -62,7 +64,7 @@ export class Drone {
     for (const food of entities) {
       if (food.hp <= 0) continue;
       const d = distance(this.x, this.y, food.x, food.y);
-      const minDist = this.size + (food.size || 20);
+      const minDist = this.collisionRadius + (food.size || 20);
       if (d < minDist) {
         this.hp -= (food.damage ?? 10) * (dt / 1000);
         const dmg = this.damage * (dt / 1000);
@@ -87,7 +89,8 @@ export class Drone {
     for (const other of overlordDrones) {
       if (!other || other.hp <= 0) continue;
       const d = distance(this.x, this.y, other.x, other.y);
-      const minDist = this.size + other.size;
+      const otherR = other.collisionRadius ?? other.size;
+      const minDist = this.collisionRadius + otherR;
       if (d > 0 && d < minDist) {
         const overlap = minDist - d;
         const nx = (this.x - other.x) / d;
@@ -103,7 +106,7 @@ export class Drone {
     for (const other of others) {
       if (other === this) continue;
       const d = distance(this.x, this.y, other.x, other.y);
-      const minDist = this.size + other.size;
+      const minDist = this.collisionRadius + (other.collisionRadius ?? other.size);
       if (d > 0 && d < minDist) {
         const overlap = minDist - d;
         const nx = (this.x - other.x) / d;

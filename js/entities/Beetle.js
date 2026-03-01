@@ -1,4 +1,4 @@
-import { BEETLE_CONFIG, BEETLE_VISION } from '../config.js';
+import { BEETLE_CONFIG, BEETLE_VISION, FOOD_CONFIG } from '../config.js';
 import { drawPolygon, getRarityColor, drawRoundedHealthBar } from '../utils.js';
 import { darkenColor } from '../utils.js';
 
@@ -220,10 +220,14 @@ export class Beetle {
     ctx.restore();
 
     const showNameAndRarity = this.rarity !== 'common' && this.rarity !== 'uncommon';
+    // Legendary, mythic, ultra: HP bar length = same as food shape counterpart (septagon, octagon, nonagon)
+    const barSizeForWidth = (this.rarity === 'legendary' || this.rarity === 'mythic' || this.rarity === 'ultra')
+      ? (FOOD_CONFIG[this.rarity]?.size ?? s)
+      : s;
+    const barW = barSizeForWidth * 2;
     if (!showNameAndRarity) {
-      const barW = s * 2;
       const barH = Math.max(3, 5 / scale);
-      const barY = this.y + s + 6;
+      const barY = this.y + s + 2;
       const barX = this.x - barW / 2;
       drawRoundedHealthBar(ctx, barX, barY, barW, barH, this.hp / this.maxHp, {
         fillColor: '#81c784',
@@ -231,12 +235,11 @@ export class Beetle {
         lineWidth: Math.max(1, 2.5 / scale),
       });
     } else {
-      const barW = s * 2;
       const barH = Math.max(3, 5 / scale);
       const fontSize = Math.max(14, 16 / scale);
-      const nameGap = 6;
+      const nameGap = 2;
       const nameY = this.y + s + nameGap;
-      const barY = nameY + fontSize + 2;
+      const barY = nameY + fontSize + 1;
       const barX = this.x - barW / 2;
       const shopFont = `700 ${fontSize}px Rajdhani, sans-serif`;
       const shopOutlineWidth = 2;

@@ -361,6 +361,8 @@ io.on('connection', (socket) => {
           weight: b.weight,
           maxRange: b.maxRange,
           hp: b.hp,
+          originX: b.originX,
+          originY: b.originY,
         });
       }
     }
@@ -383,6 +385,7 @@ io.on('connection', (socket) => {
       rarity: data.rarity,
       weight: data.weight,
       isRiotTrap: data.isRiotTrap,
+      maxSquares: data.maxSquares,
       bodyColor: data.bodyColor,
       rotation: typeof data.rotation === 'number' ? data.rotation : 0,
       angularVelocity: typeof data.angularVelocity === 'number' ? data.angularVelocity : 0,

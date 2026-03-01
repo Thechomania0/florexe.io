@@ -108,8 +108,8 @@ function addBullet(room, data) {
     penetrating: !!data.penetrating,
     weight: data.weight != null ? data.weight : 1,
     maxRange: data.maxRange != null ? data.maxRange : null,
-    originX: data.x,
-    originY: data.y,
+    originX: data.originX != null ? data.originX : data.x,
+    originY: data.originY != null ? data.originY : data.y,
     hp: data.hp != null ? data.hp : null,
     hitTargets: [],
   };
@@ -120,8 +120,9 @@ function addBullet(room, data) {
 function addSquare(room, data, roomPlayers) {
   const squares = getRoomSquares(room);
   const ownerId = data.ownerId;
+  const maxForOwner = typeof data.maxSquares === 'number' && data.maxSquares > 0 ? data.maxSquares : MAX_SQUARES_PER_PLAYER;
   const ownerSquares = squares.filter((s) => s.ownerId === ownerId).sort((a, b) => (a.spawnedAt || 0) - (b.spawnedAt || 0));
-  while (ownerSquares.length >= MAX_SQUARES_PER_PLAYER) {
+  while (ownerSquares.length >= maxForOwner) {
     const oldest = ownerSquares.shift();
     const idx = squares.indexOf(oldest);
     if (idx >= 0) squares.splice(idx, 1);

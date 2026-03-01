@@ -15,6 +15,8 @@ export class OverlordDrone {
     const r = owner.equippedTank?.subtype === 'overlord' ? (owner.equippedTank.rarity || 'common') : 'common';
     const mult = (t.droneSizeByRarity && t.droneSizeByRarity[r]) ?? 1;
     this.size = (t.droneSizeBase ?? 10) * mult;
+    /** Hitbox radius to match triangle outline: inradius = circumradius/2 for equilateral triangle. */
+    this.collisionRadius = this.size / 2;
     this.speed = 104 * 1.4 * 1.4; // +40% twice (~96% total)
     this.maxHp = damage;
     this.hp = damage;
@@ -96,7 +98,7 @@ export class OverlordDrone {
       if (food.hp <= 0) continue;
       const foodSize = food.size ?? 20;
       const d = distance(this.x, this.y, food.x, food.y);
-      const minDist = this.size * 1.5 + foodSize;
+      const minDist = this.collisionRadius + foodSize;
       if (d < minDist) {
         this.hp -= (food.damage ?? 10) * (dt / 1000);
         food.hp -= this.damage * (dt / 1000);
@@ -117,7 +119,8 @@ export class OverlordDrone {
     for (const other of hiveDrones) {
       if (!other || other.hp <= 0) continue;
       const d = distance(this.x, this.y, other.x, other.y);
-      const minDist = this.size + other.size;
+      const otherR = other.collisionRadius ?? other.size;
+      const minDist = this.collisionRadius + otherR;
       if (d > 0 && d < minDist) {
         const overlap = minDist - d;
         const nx = (this.x - other.x) / d;
@@ -132,7 +135,7 @@ export class OverlordDrone {
     for (const other of otherDrones) {
       if (other === this) continue;
       const d = distance(this.x, this.y, other.x, other.y);
-      const minDist = this.size + other.size;
+      const minDist = this.collisionRadius + (other.collisionRadius ?? other.size);
       if (d > 0 && d < minDist) {
         const overlap = minDist - d;
         const nx = (this.x - other.x) / d;

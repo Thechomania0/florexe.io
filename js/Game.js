@@ -63,6 +63,8 @@ export class Game {
     this.serverSquares = [];
     /** Optimistic squares (multiplayer): shown immediately when firing; expired when server snapshot arrives. */
     this.pendingSquares = [];
+    /** Optimistic bullets (multiplayer): shown immediately when shooting; removed after short time or when expired. */
+    this.pendingBullets = [];
     /** Processed kill mobIds (multiplayer) to avoid applying the same kill reward twice (e.g. duplicate 'kill' events). */
     this.processedKillIds = null;
     /** Last mobs snapshot sequence (multiplayer); ignore older snapshots to prevent HP respawn glitch. */
@@ -75,6 +77,7 @@ export class Game {
   /** When multiplayer: emit to server. Otherwise add to game.bullets. */
   addBullet(bullet) {
     if (this.multiplayerSocket && bullet) {
+      this.pendingBullets.push({ bullet, addedAt: Date.now() });
       this.multiplayerSocket.emit('shoot', {
         x: bullet.x,
         y: bullet.y,
@@ -87,6 +90,8 @@ export class Game {
         weight: bullet.weight,
         maxRange: bullet.maxRange != null ? bullet.maxRange : undefined,
         hp: bullet.hp != null ? bullet.hp : undefined,
+        originX: bullet.originX ?? bullet.x,
+        originY: bullet.originY ?? bullet.y,
       });
       return;
     }
@@ -111,6 +116,7 @@ export class Game {
         rarity: sq.rarity,
         weight: sq.weight,
         isRiotTrap: sq.isRiotTrap,
+        maxSquares: typeof sq.maxSquares === 'number' ? sq.maxSquares : undefined,
         bodyColor: sq.bodyColor,
         rotation: typeof sq.rotation === 'number' ? sq.rotation : 0,
         angularVelocity: typeof sq.angularVelocity === 'number' ? sq.angularVelocity : 0,
@@ -325,6 +331,7 @@ export class Game {
     this.bullets = [];
     this.squares = [];
     this.pendingSquares = [];
+    this.pendingBullets = [];
     this.processedKillIds = null;
     this.lastMobsSeq = null;
     this.drops = [];
@@ -373,6 +380,7 @@ export class Game {
     this.bullets = [];
     this.squares = [];
     this.pendingSquares = [];
+    this.pendingBullets = [];
     this.processedKillIds = null;
     this.lastMobsSeq = null;
     this.drops = [];
@@ -744,15 +752,19 @@ export class Game {
             beetle.x += dx * LERP;
             beetle.y += dy * LERP;
           }
-          // Facing and pincer from server position toward player (no client-side movement in mp)
-          const px = this.player?.x ?? beetle.serverX;
-          const py = this.player?.y ?? beetle.serverY;
+          // Facing and pincer: from drawn position (beetle.x, beetle.y) toward player so sprite matches where beetle is drawn
+          const px = this.player?.x ?? beetle.x;
+          const py = this.player?.y ?? beetle.y;
           const sdx = px - beetle.serverX;
           const sdy = py - beetle.serverY;
           const sdist = Math.hypot(sdx, sdy);
           beetle.playerInVision = !this.player?.dead && this.player?.adminMode !== true && beetle.vision > 0 && sdist <= (beetle.vision ?? 1000) && sdist >= 1e-6;
           if (beetle.playerInVision) {
-            beetle.facingAngle = Math.atan2(sdy, sdx);
+            const fdx = px - beetle.x;
+            const fdy = py - beetle.y;
+            if (fdx * fdx + fdy * fdy >= 1e-12) {
+              beetle.facingAngle = Math.atan2(fdy, fdx);
+            }
             beetle.pincerPhase = (beetle.pincerPhase ?? 0) + dt * 0.003;
           }
         }
@@ -764,6 +776,44 @@ export class Game {
         sq.rotation = (sq.rotation ?? 0) + (sq.angularVelocity ?? 0) * dtSec;
         sq.angularVelocity = (sq.angularVelocity ?? 0) * 0.98;
       }
+      // Square–square collision for pending traps (and vs server squares) so riot traps don't stack
+      const PENDING_TRAP_SEP = 2.5;
+      const effW = (w) => Math.max(1, Math.min(100, typeof w === 'number' ? w : 1));
+      const myId = this.multiplayerSocket?.id;
+      const serverSqs = (myId && this.serverSquares) ? this.serverSquares.filter((s) => s.ownerId === myId && (s.duration || 0) > 0) : [];
+      for (const { sq } of this.pendingSquares) {
+        const pw = effW(sq.weight);
+        const list = [
+          ...this.pendingSquares.filter((e) => e.sq !== sq).map((e) => e.sq),
+          ...serverSqs,
+        ];
+        for (const other of list) {
+          const ox = other.x ?? 0;
+          const oy = other.y ?? 0;
+          const osize = other.size ?? 14;
+          const d = distance(sq.x, sq.y, ox, oy);
+          const overlap = sq.size + osize - d;
+          if (overlap > 0 && d >= 1e-9) {
+            const nx = (sq.x - ox) / d;
+            const ny = (sq.y - oy) / d;
+            const po = effW(other.weight);
+            const total = pw + po;
+            const sep = Math.min(overlap / 2, PENDING_TRAP_SEP);
+            const moveThis = sep * (po / total);
+            sq.x += nx * moveThis;
+            sq.y += ny * moveThis;
+          }
+        }
+      }
+      // Update pending bullets (show immediately when shooting; server is authoritative for damage)
+      const PENDING_BULLET_MAX_MS = 400;
+      const nowBullet = Date.now();
+      for (const { bullet } of this.pendingBullets) {
+        bullet.update(dt);
+      }
+      this.pendingBullets = this.pendingBullets.filter(
+        (e) => e.bullet.lifetime > 0 && nowBullet - e.addedAt < PENDING_BULLET_MAX_MS
+      );
     }
 
     // Wall collision: use rect-based when custom map (exact match to drawn walls), else segment-based
@@ -782,11 +832,12 @@ export class Game {
       }
       // Overlord drones: same rect-based wall collision
       for (const od of this.player.overlordDrones || []) {
-        const dm = od.size + 100;
+        const odR = od.collisionRadius ?? od.size;
+        const dm = odR + 100;
         const drMinX = od.x - dm, drMaxX = od.x + dm, drMinY = od.y - dm, drMaxY = od.y + dm;
         const droneRects = wallFills.filter(r => r.x2 >= drMinX && r.x1 <= drMaxX && r.y2 >= drMinY && r.y1 <= drMaxY);
         for (let pass = 0; pass < 3; pass++) {
-          const resolved = resolveWallCollisionRects(od.x, od.y, od.size, droneRects);
+          const resolved = resolveWallCollisionRects(od.x, od.y, odR, droneRects);
           if (resolved) {
             od.x = resolved.x;
             od.y = resolved.y;
@@ -807,10 +858,11 @@ export class Game {
       }
       // Overlord drones: same segment-based wall collision
       for (const od of this.player.overlordDrones || []) {
-        const droneMargin = od.size + wallHalf + 200;
+        const odR = od.collisionRadius ?? od.size;
+        const droneMargin = odR + wallHalf + 200;
         const droneNearby = wallsNear(allWalls, od.x, od.y, droneMargin);
         for (let pass = 0; pass < 3; pass++) {
-          const resolved = resolveWallCollision(od.x, od.y, od.size, droneNearby);
+          const resolved = resolveWallCollision(od.x, od.y, odR, droneNearby);
           if (resolved) {
             od.x = resolved.x;
             od.y = resolved.y;
@@ -831,7 +883,8 @@ export class Game {
       for (const beetle of this.beetles) beetle.update(dt, this);
     }
 
-    // Wall collision for food/shapes: keep them inside playable area
+    // Wall collision for food/shapes: keep them inside playable area (skip in multiplayer - server is authoritative)
+    if (!this.multiplayerSocket) {
     const wallFillsForFood = getMergedWallFills();
     let allWallsForFood, wallHalfFood;
     if (wallFillsForFood.length > 0) {
@@ -897,11 +950,13 @@ export class Game {
             beetle.vx *= 0.7;
             beetle.vy *= 0.7;
           } else break;
-        }
       }
     }
+    }
+    }
 
-    // Beetle–beetle collision: push overlapping beetles apart (ellipse approximated by semiMajor circle for pairwise distance)
+    // Beetle–beetle collision: push overlapping beetles apart (skip in multiplayer - server authoritative)
+    if (!this.multiplayerSocket) {
     const BEETLE_SEPARATION_MAX = 2.5;
     for (let i = 0; i < this.beetles.length; i++) {
       const a = this.beetles[i];
@@ -923,11 +978,11 @@ export class Game {
         }
       }
     }
+    }
 
-    // Beetle–shape (square) collision: push beetles out of overlapping squares
-    const squaresForCollision = this.multiplayerSocket
-      ? [...this.serverSquares, ...this.pendingSquares.map((p) => p.sq)]
-      : this.squares;
+    // Beetle–shape (square) collision: push beetles out of overlapping squares (skip in multiplayer - server authoritative)
+    if (!this.multiplayerSocket) {
+    const squaresForCollision = this.squares;
     for (const beetle of this.beetles) {
       if (beetle.hp <= 0) continue;
       for (const sq of squaresForCollision) {
@@ -942,6 +997,7 @@ export class Game {
           beetle.y += ny * separation;
         }
       }
+    }
     }
 
     const bulletsToRemove = new Set();
@@ -1381,6 +1437,10 @@ export class Game {
         ctx.fill();
         ctx.stroke();
         ctx.restore();
+      }
+      for (const { bullet } of this.pendingBullets) {
+        if (bullet.lifetime <= 0) continue;
+        bullet.draw(ctx, scale);
       }
       const squareList = this.serverSquares.filter((sq) => {
         if (sq.x >= cam.x - viewW && sq.x <= cam.x + viewW && sq.y >= cam.y - viewH && sq.y <= cam.y + viewH) {

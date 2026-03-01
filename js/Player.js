@@ -379,7 +379,7 @@ export class Player {
     }
 
     // Hive drones
-    const DRONE_RESPAWN_DELAY_MS = 2000;
+    const DRONE_RESPAWN_DELAY_MS = 0;
 
     if (this.equippedBody?.subtype === 'hive') {
       const b = BODY_UPGRADES.hive;
@@ -436,6 +436,10 @@ export class Player {
           canFire = this.riotBurstIndex === 0 ? elapsed >= pauseAfterBurstMs : elapsed >= burstDelay;
         }
         if (canFire && (this.mouseRightDown || this.autoAttack)) {
+          const alive = game.multiplayerSocket
+            ? game.serverSquares.filter(s => s.ownerId === game.multiplayerSocket.id && (s.duration || 0) > 0).length
+            : this.squares.filter(s => !s.isExpired()).length;
+          if (alive >= t.maxSquares) return;
           const dmg = (t.damageByRarity?.[r] || 50) * this.attackMult;
           const dur = r === 'super' ? t.squareDurationSuper : t.squareDuration;
           const barrelTip = 55;
@@ -453,6 +457,7 @@ export class Player {
           const vy = Math.sin(this.angle) * 0.22;
           const trapWeight = t.weightByRarity?.[r] ?? 1;
           const sq = new Square(px, py, dmg, t.squareHp, t.squareSize, dur, this.id, r, vx, vy, '#1ca8c9', false, 180, true, trapWeight);
+          sq.maxSquares = t.maxSquares;
           sq.rotation = Math.random() * Math.PI * 2;
           sq.angularVelocity = (Math.random() - 0.5) * 0.1;
           this.squares.push(sq);
@@ -614,6 +619,7 @@ export class Player {
               trapWeight,
               0
             );
+            sq.maxSquares = t.maxSquares;
 
             this.squares.push(sq);
             game.addSquare(sq);
