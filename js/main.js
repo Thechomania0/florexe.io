@@ -89,7 +89,8 @@ async function loadCustomMapFromRepo(gamemode) {
   } catch (e) {}
 }
 
-function startGame(gamemode) {
+function startGame(gamemode, opts) {
+  const soloMode = !!(opts && opts.solo);
   mainMenu = mainMenu || document.getElementById('main-menu');
   gameContainer = gameContainer || document.getElementById('game-container');
   if (!mainMenu || !gameContainer) return;
@@ -266,7 +267,9 @@ function startGame(gamemode) {
         loop(performance.now());
       }
 
-      if (window.FLOREXE_API_URL) {
+      if (soloMode || !window.FLOREXE_API_URL) {
+        game.start(savedState).then(finishStart);
+      } else {
         import('https://cdn.socket.io/4.7.2/socket.io.esm.min.js').then((mod) => {
           const io = mod.io || mod.default;
           if (!io || gameSocket) { game.start(savedState).then(finishStart); return; }
@@ -324,8 +327,6 @@ function startGame(gamemode) {
           if (savedState && typeof savedState === 'object') savedState.displayName = joinState.displayName;
           gameSocket.emit('join', joinState);
         }).catch(() => { game.start(savedState).then(finishStart); });
-      } else {
-        game.start(savedState).then(finishStart);
       }
     });
   });
@@ -2194,8 +2195,9 @@ function handleMenuClick(e) {
   if (gamemodeBtn && !gamemodeBtn.disabled) {
     e.preventDefault();
     const mode = gamemodeBtn.dataset.mode;
-    if (mode === 'heaven') startGame('heaven');
-    else startGame(mode);
+    const solo = gamemodeBtn.dataset.solo === 'true';
+    if (mode === 'heaven') startGame('heaven', { solo });
+    else startGame(mode, { solo });
     return;
   }
   if (e.target.closest('#menuLogoutBtn')) {
