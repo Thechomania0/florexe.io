@@ -369,7 +369,7 @@ io.on('connection', (socket) => {
       y: typeof data.y === 'number' ? data.y : prev.y,
       angle: typeof data.angle === 'number' ? data.angle : prev.angle,
       hp: typeof prev.hp === 'number' ? prev.hp : (typeof data.hp === 'number' ? data.hp : 500),
-      maxHp: typeof prev.maxHp === 'number' ? prev.maxHp : (typeof data.maxHp === 'number' ? data.maxHp : 500),
+      maxHp: (typeof data.maxHp === 'number' ? Math.max(1, data.maxHp) : prev.maxHp) || 500,
       level: typeof data.level === 'number' ? data.level : prev.level,
       displayName: typeof data.displayName === 'string' ? data.displayName.slice(0, 50) : (prev.displayName || 'Player'),
       equippedTank: data.equippedTank && typeof data.equippedTank === 'object' ? data.equippedTank : prev.equippedTank,

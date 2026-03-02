@@ -86,6 +86,90 @@ function runBeetleSquareRepulsion(beetles, squares, dtMs) {
   }
 }
 
+const MOB_SEPARATION_MAX = 2.5;
+
+function getBeetleSemiMajor(beetle) {
+  const hitboxScale = (beetle.rarity === 'mythic' || beetle.rarity === 'legendary') ? 0.4 : 1;
+  return (beetle.size != null ? beetle.size * (25.5 / 64) : 20) * hitboxScale;
+}
+
+/** Push overlapping foods (shapes) apart. */
+function runFoodFoodSeparation(foods) {
+  for (let i = 0; i < foods.length; i++) {
+    const a = foods[i];
+    if (a.hp <= 0) continue;
+    const ra = a.size ?? 20;
+    for (let j = i + 1; j < foods.length; j++) {
+      const b = foods[j];
+      if (b.hp <= 0) continue;
+      const rb = b.size ?? 20;
+      const d = distance(a.x, a.y, b.x, b.y);
+      const minDist = ra + rb;
+      const overlap = minDist - d;
+      if (overlap > 0 && d >= 1e-9) {
+        const nx = (a.x - b.x) / d;
+        const ny = (a.y - b.y) / d;
+        const separation = Math.min(overlap / 2, MOB_SEPARATION_MAX);
+        a.x += nx * separation;
+        a.y += ny * separation;
+        b.x -= nx * separation;
+        b.y -= ny * separation;
+      }
+    }
+  }
+}
+
+/** Push overlapping food and beetle apart. */
+function runFoodBeetleSeparation(foods, beetles) {
+  for (const food of foods) {
+    if (food.hp <= 0) continue;
+    const fr = food.size ?? 20;
+    for (const beetle of beetles) {
+      if (beetle.hp <= 0) continue;
+      if (!ellipseOverlapsCircle(beetle, food.x, food.y, fr)) continue;
+      const d = distance(beetle.x, beetle.y, food.x, food.y);
+      const semiMajor = getBeetleSemiMajor(beetle);
+      const minDist = semiMajor + fr;
+      const overlap = minDist - (d >= 1e-9 ? d : 0);
+      if (overlap > 0 && d >= 1e-9) {
+        const nx = (beetle.x - food.x) / d;
+        const ny = (beetle.y - food.y) / d;
+        const separation = Math.min(overlap / 2, MOB_SEPARATION_MAX);
+        beetle.x += nx * separation;
+        beetle.y += ny * separation;
+        food.x -= nx * separation;
+        food.y -= ny * separation;
+      }
+    }
+  }
+}
+
+/** Push overlapping beetles apart. */
+function runBeetleBeetleSeparation(beetles) {
+  for (let i = 0; i < beetles.length; i++) {
+    const a = beetles[i];
+    if (a.hp <= 0) continue;
+    const sa = getBeetleSemiMajor(a);
+    for (let j = i + 1; j < beetles.length; j++) {
+      const b = beetles[j];
+      if (b.hp <= 0) continue;
+      const sb = getBeetleSemiMajor(b);
+      const d = distance(a.x, a.y, b.x, b.y);
+      const minDist = sa + sb;
+      const overlap = minDist - d;
+      if (overlap > 0 && d >= 1e-9) {
+        const nx = (a.x - b.x) / d;
+        const ny = (a.y - b.y) / d;
+        const separation = Math.min(overlap / 2, MOB_SEPARATION_MAX);
+        a.x += nx * separation;
+        a.y += ny * separation;
+        b.x -= nx * separation;
+        b.y -= ny * separation;
+      }
+    }
+  }
+}
+
 const roomBullets = new Map();
 const roomSquares = new Map();
 let nextBulletId = 1;
@@ -246,6 +330,9 @@ function tick(room, dtMs, roomPlayers, roomPlayerBodies) {
   const killPayloads = [];
   updateBeetles(room, roomPlayerBodies, dtMs);
   runBeetleSquareRepulsion(m.beetles, squares, dtMs);
+  runFoodFoodSeparation(m.foods);
+  runFoodBeetleSeparation(m.foods, m.beetles);
+  runBeetleBeetleSeparation(m.beetles);
   removeMobsFullyInWall(room);
 
   const foodsSnapshot = [...m.foods];

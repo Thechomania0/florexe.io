@@ -995,8 +995,52 @@ export class Game {
     }
     }
 
-    // Beetle–beetle collision: push overlapping beetles apart (skip in multiplayer - server authoritative)
-    if (!this.multiplayerSocket) {
+    // Food–food (shape–shape) collision: push overlapping shapes apart
+    const FOOD_SEPARATION_MAX = 2.5;
+    for (let i = 0; i < this.foods.length; i++) {
+      const a = this.foods[i];
+      if (a.hp <= 0) continue;
+      const ra = a.size ?? 20;
+      for (let j = i + 1; j < this.foods.length; j++) {
+        const b = this.foods[j];
+        if (b.hp <= 0) continue;
+        const rb = b.size ?? 20;
+        const d = distance(a.x, a.y, b.x, b.y);
+        const minDist = ra + rb;
+        const overlap = minDist - d;
+        if (overlap > 0 && d >= 1e-9) {
+          const nx = (a.x - b.x) / d;
+          const ny = (a.y - b.y) / d;
+          const separation = Math.min(overlap / 2, FOOD_SEPARATION_MAX);
+          a.x += nx * separation;
+          a.y += ny * separation;
+          b.x -= nx * separation;
+          b.y -= ny * separation;
+        }
+      }
+    }
+
+    // Food–beetle collision: push overlapping shape and beetle apart
+    for (const food of this.foods) {
+      if (food.hp <= 0) continue;
+      const fr = food.size ?? 20;
+      for (const beetle of this.beetles) {
+        if (beetle.hp <= 0) continue;
+        const overlap = beetle.getEllipseOverlap(food.x, food.y, fr);
+        if (overlap > 0) {
+          const d = distance(beetle.x, beetle.y, food.x, food.y);
+          const nx = d >= 1e-9 ? (beetle.x - food.x) / d : 1;
+          const ny = d >= 1e-9 ? (beetle.y - food.y) / d : 0;
+          const separation = Math.min(overlap / 2, FOOD_SEPARATION_MAX);
+          beetle.x += nx * separation;
+          beetle.y += ny * separation;
+          food.x -= nx * separation;
+          food.y -= ny * separation;
+        }
+      }
+    }
+
+    // Beetle–beetle collision: push overlapping beetles apart
     const BEETLE_SEPARATION_MAX = 2.5;
     for (let i = 0; i < this.beetles.length; i++) {
       const a = this.beetles[i];
@@ -1018,10 +1062,8 @@ export class Game {
         }
       }
     }
-    }
 
-    // Beetle–shape (square) collision: push beetles out of overlapping squares (skip in multiplayer - server authoritative)
-    if (!this.multiplayerSocket) {
+    // Beetle–shape (square/trap) collision: push beetles out of overlapping squares
     const squaresForCollision = this.squares;
     for (const beetle of this.beetles) {
       if (beetle.hp <= 0) continue;
@@ -1037,7 +1079,6 @@ export class Game {
           beetle.y += ny * separation;
         }
       }
-    }
     }
 
     const bulletsToRemove = new Set();

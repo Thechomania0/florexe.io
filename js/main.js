@@ -363,19 +363,15 @@ function setupPlayerInput(player) {
 
   const keyHandler = (e, down) => {
     const chatFocused = document.activeElement?.id === 'chatInput';
+    if (chatFocused) return;
     const p = game?.player;
     if (!p) return;
     const k = e.key?.toLowerCase();
     if (['w', 'a', 's', 'd'].includes(k)) {
-      if (chatFocused) {
-        document.getElementById('chatInput')?.blur();
-        if (down) e.preventDefault();
-      }
       if (down) e.preventDefault();
       p.keys[k] = down;
       return;
     }
-    if (chatFocused) return;
   };
 
   _keyDown = (e) => keyHandler(e, true);
@@ -2456,15 +2452,26 @@ function loop(now) {
     }
     if (pendingPlayers) {
       const me = pendingPlayers.find((p) => p && p.id === gameSocket.id);
-      if (me && game.player && typeof me.hp === 'number') {
-        game.player.hp = me.hp;
-        if (typeof me.maxHp === 'number') game.player.maxHp = me.maxHp;
+      if (me && game.player) {
+        if (typeof me.hp === 'number') game.player.hp = Math.max(0, me.hp);
+        if (typeof me.maxHp === 'number') game.player.maxHp = Math.max(1, me.maxHp);
+        game.player.hp = Math.min(game.player.hp, game.player.maxHp);
+        if (game.player.hp <= 0) game.player.dead = true;
+        const hpEl = document.getElementById('hpBar');
+        const hpTextEl = document.getElementById('hpText');
+        if (hpEl && hpTextEl) {
+          const p = game.player;
+          const hpPct = p.maxHp > 0 ? (p.hp / p.maxHp) * 100 : 100;
+          hpEl.style.width = `${hpPct}%`;
+          hpTextEl.textContent = `HP ${formatScore(p.hp)}/${formatScore(p.maxHp)}`;
+        }
       }
       game.setOtherPlayers(pendingPlayers.filter((p) => p && p.id !== gameSocket.id));
       pendingPlayers = null;
     }
   }
   game?.update(dt);
+  if (game?.player && game.player.hp <= 0) game.player.dead = true;
   game?.draw(ctx);
 
   updateVisionZoomLabel();
