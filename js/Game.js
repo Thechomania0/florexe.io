@@ -1287,6 +1287,45 @@ export class Game {
         p.addLoot(drop.item.type, drop.item.subtype, drop.item.rarity);
         return false;
       });
+
+      // Pickup by bullets, drones, and traps: any player-owned projectile or trap in range collects the drop
+      this.drops = this.drops.filter((drop) => {
+        if (drop.ownerId !== p.id) return true;
+        const dx = drop.x;
+        const dy = drop.y;
+        const dropR = drop.size ?? 24 * 0.7;
+        for (const bullet of this.bullets) {
+          if (bullet.ownerId !== p.id) continue;
+          const r = (bullet.size ?? 6) + dropR;
+          if (distance(bullet.x, bullet.y, dx, dy) <= r) {
+            p.addLoot(drop.item.type, drop.item.subtype, drop.item.rarity);
+            return false;
+          }
+        }
+        for (const sq of this.squares) {
+          if (sq.ownerId !== p.id || sq.isExpired?.()) continue;
+          const r = (sq.size ?? 25) + dropR;
+          if (distance(sq.x, sq.y, dx, dy) <= r) {
+            p.addLoot(drop.item.type, drop.item.subtype, drop.item.rarity);
+            return false;
+          }
+        }
+        for (const drone of p.drones || []) {
+          const r = (drone.collisionRadius ?? drone.size ?? 6) + dropR;
+          if (distance(drone.x, drone.y, dx, dy) <= r) {
+            p.addLoot(drop.item.type, drop.item.subtype, drop.item.rarity);
+            return false;
+          }
+        }
+        for (const od of p.overlordDrones || []) {
+          const r = (od.collisionRadius ?? od.size ?? 10) + dropR;
+          if (distance(od.x, od.y, dx, dy) <= r) {
+            p.addLoot(drop.item.type, drop.item.subtype, drop.item.rarity);
+            return false;
+          }
+        }
+        return true;
+      });
     }
 
     // Despawn old uncollected drops by rarity tier
