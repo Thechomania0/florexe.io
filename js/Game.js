@@ -1072,8 +1072,11 @@ export class Game {
 
     const bulletsToRemove = new Set();
     if (this.multiplayerSocket) {
-      this.bullets = mergeBulletsForSimulation(this.pendingBullets, this.serverBullets);
-      this.squares = mergeSquaresForSimulation(this.pendingSquares, this.serverSquares);
+      const myId = this.multiplayerSocket.id;
+      const myBullets = (this.serverBullets || []).filter((b) => b.ownerId === myId);
+      const mySquares = (this.serverSquares || []).filter((s) => s.ownerId === myId);
+      this.bullets = mergeBulletsForSimulation(this.pendingBullets, myBullets);
+      this.squares = mergeSquaresForSimulation(this.pendingSquares, mySquares);
     }
     for (const bullet of this.bullets) {
       bullet.update(dt);
@@ -1491,6 +1494,7 @@ export class Game {
       const cam = this.camera;
       const viewW = (ctx.canvas.width / scale) * 0.6;
       const viewH = (ctx.canvas.height / scale) * 0.6;
+      const myId = this.multiplayerSocket.id;
       for (const sq of this.squares) {
         if (sq.x < cam.x - viewW || sq.x > cam.x + viewW || sq.y < cam.y - viewH || sq.y > cam.y + viewH) continue;
         if (typeof sq.draw === 'function') {
@@ -1524,6 +1528,33 @@ export class Game {
           ctx.stroke();
           ctx.restore();
         }
+      }
+      for (const sq of (this.serverSquares || []).filter((s) => s.ownerId !== myId)) {
+        if (sq.x < cam.x - viewW || sq.x > cam.x + viewW || sq.y < cam.y - viewH || sq.y > cam.y + viewH) continue;
+        if ((sq.duration ?? 0) <= 0) continue;
+        ctx.save();
+        ctx.translate(sq.x, sq.y);
+        ctx.rotate(sq.rotation ?? 0);
+        const fillColor = (sq.bodyColor && typeof sq.bodyColor === 'string') ? sq.bodyColor : getRarityColor(sq.rarity || 'common');
+        ctx.fillStyle = fillColor;
+        ctx.strokeStyle = '#4a4a4a';
+        ctx.lineWidth = 2 / scale;
+        ctx.fillRect(-sq.size, -sq.size, sq.size * 2, sq.size * 2);
+        ctx.strokeRect(-sq.size, -sq.size, sq.size * 2, sq.size * 2);
+        ctx.restore();
+      }
+      for (const b of (this.serverBullets || []).filter((b) => b.ownerId !== myId)) {
+        if (b.x < cam.x - viewW || b.x > cam.x + viewW || b.y < cam.y - viewH || b.y > cam.y + viewH) continue;
+        if ((b.lifetime ?? 0) <= 0) continue;
+        ctx.save();
+        ctx.fillStyle = '#1ca8c9';
+        ctx.strokeStyle = '#4a4a4a';
+        ctx.lineWidth = Math.max(1, 3 / scale);
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, (b.size || 6) * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
       }
     } else {
     for (const sq of this.squares) {
