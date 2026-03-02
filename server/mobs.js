@@ -38,14 +38,14 @@ const FOOD_CONFIG = {
 };
 
 const BEETLE_CONFIG = {
-  common: { hp: 10, size: 24, weight: 1, vision: 200, drops: { common: 0.8, uncommon: 0.2 }, stars: 0 },
-  uncommon: { hp: 40, size: 36, weight: 10, vision: 250, drops: { common: 0.5, uncommon: 0.5 }, stars: 0 },
-  rare: { hp: 150, size: 48, weight: 20, vision: 300, drops: { uncommon: 0.8, rare: 0.2 }, stars: 0 },
-  epic: { hp: 1000, size: 60, weight: 30, vision: 400, drops: { uncommon: 0.06, rare: 0.8, epic: 0.14 }, stars: 0 },
-  legendary: { hp: 8000, size: 84, weight: 40, vision: 600, drops: { rare: 0.1, epic: 0.8, legendary: 0.1 }, stars: 0 },
-  mythic: { hp: 25000, size: 108, weight: 60, vision: 800, drops: { epic: 0.07, legendary: 0.9, mythic: 0.03 }, stars: 0 },
-  ultra: { hp: 300000, size: 170, weight: 80, vision: 1000, drops: { legendary: 0.845, mythic: 0.15, ultra: 0.005 }, stars: 0 },
-  super: { hp: 20000000, size: 405, weight: 99, vision: 1200, drops: { mythic: 0.77, ultra: 0.23 }, stars: 5000 },
+  common: { hp: 10, size: 24, weight: 1, vision: 500, drops: { common: 0.8, uncommon: 0.2 }, stars: 0 },
+  uncommon: { hp: 40, size: 36, weight: 10, vision: 550, drops: { common: 0.5, uncommon: 0.5 }, stars: 0 },
+  rare: { hp: 150, size: 48, weight: 20, vision: 600, drops: { uncommon: 0.8, rare: 0.2 }, stars: 0 },
+  epic: { hp: 1000, size: 60, weight: 30, vision: 700, drops: { uncommon: 0.06, rare: 0.8, epic: 0.14 }, stars: 0 },
+  legendary: { hp: 8000, size: 84, weight: 40, vision: 900, drops: { rare: 0.1, epic: 0.8, legendary: 0.1 }, stars: 0 },
+  mythic: { hp: 25000, size: 108, weight: 60, vision: 1100, drops: { epic: 0.07, legendary: 0.9, mythic: 0.03 }, stars: 0 },
+  ultra: { hp: 300000, size: 170, weight: 80, vision: 1300, drops: { legendary: 0.845, mythic: 0.15, ultra: 0.005 }, stars: 0 },
+  super: { hp: 20000000, size: 405, weight: 99, vision: 1500, drops: { mythic: 0.77, ultra: 0.23 }, stars: 5000 },
 };
 
 const SPAWN_WEIGHTS = { common: 100, uncommon: 50, rare: 25, epic: 12, legendary: 6, mythic: 3, ultra: 1, super: 0.1 };

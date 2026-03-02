@@ -85,17 +85,17 @@ export const FOOD_CONFIG = {
 
 /** Beetle mob: same rarities and spawn logic as food (copy). Edit later for different stats. */
 /** vision: radius (world units) at which beetle can see and chase the player. Each rarity has its own vision range. */
-export const BEETLE_VISION = 1000; // fallback if config.vision is missing
+export const BEETLE_VISION = 1300; // fallback if config.vision is missing
 
 export const BEETLE_CONFIG = {
-  common: { damage: 10, hp: 10, size: 24, weight: 1, vision: 200, drops: { common: 0.8, uncommon: 0.2 } },
-  uncommon: { damage: 100, hp: 40, size: 36, weight: 10, vision: 250, drops: { common: 0.5, uncommon: 0.5 } },
-  rare: { damage: 500, hp: 150, size: 48, weight: 20, vision: 300, drops: { uncommon: 0.8, rare: 0.2 } },
-  epic: { damage: 700, hp: 1000, size: 60, weight: 30, vision: 400, drops: { uncommon: 0.06, rare: 0.8, epic: 0.14 } },
-  legendary: { damage: 1000, hp: 8000, size: 84, weight: 40, vision: 600, drops: { rare: 0.1, epic: 0.8, legendary: 0.1 } },
-  mythic: { damage: 2000, hp: 25000, size: 108, weight: 60, vision: 800, drops: { epic: 0.07, legendary: 0.9, mythic: 0.03 } },
-  ultra: { damage: 3000, hp: 300000, size: 170, weight: 80, vision: 1000, drops: { legendary: 0.845, mythic: 0.15, ultra: 0.005 } },
-  super: { damage: 7000, hp: 20000000, size: 405, weight: 99, vision: 1200, drops: { mythic: 0.77, ultra: 0.23 }, stars: 5000 },
+  common: { damage: 10, hp: 10, size: 24, weight: 1, vision: 500, drops: { common: 0.8, uncommon: 0.2 } },
+  uncommon: { damage: 100, hp: 40, size: 36, weight: 10, vision: 550, drops: { common: 0.5, uncommon: 0.5 } },
+  rare: { damage: 500, hp: 150, size: 48, weight: 20, vision: 600, drops: { uncommon: 0.8, rare: 0.2 } },
+  epic: { damage: 700, hp: 1000, size: 60, weight: 30, vision: 700, drops: { uncommon: 0.06, rare: 0.8, epic: 0.14 } },
+  legendary: { damage: 1000, hp: 8000, size: 84, weight: 40, vision: 900, drops: { rare: 0.1, epic: 0.8, legendary: 0.1 } },
+  mythic: { damage: 2000, hp: 25000, size: 108, weight: 60, vision: 1100, drops: { epic: 0.07, legendary: 0.9, mythic: 0.03 } },
+  ultra: { damage: 3000, hp: 300000, size: 170, weight: 80, vision: 1300, drops: { legendary: 0.845, mythic: 0.15, ultra: 0.005 } },
+  super: { damage: 7000, hp: 20000000, size: 405, weight: 99, vision: 1500, drops: { mythic: 0.77, ultra: 0.23 }, stars: 5000 },
 };
 
 // Body upgrades
