@@ -2453,8 +2453,9 @@ function loop(now) {
     if (pendingPlayers) {
       const me = pendingPlayers.find((p) => p && p.id === gameSocket.id);
       if (me && game.player) {
+        // Recompute maxHp from config (level + body) so "full HP" always follows the database value (500 base, 6.8k etc). Server is authoritative for current hp only.
+        game.player.applyStats();
         if (typeof me.hp === 'number') game.player.hp = Math.max(0, me.hp);
-        if (typeof me.maxHp === 'number') game.player.maxHp = Math.max(1, me.maxHp);
         game.player.hp = Math.min(game.player.hp, game.player.maxHp);
         if (game.player.hp <= 0) game.player.dead = true;
         const hpEl = document.getElementById('hpBar');
