@@ -308,8 +308,8 @@ export class Player {
       this.vy *= scale;
     }
 
-    // Food collision: take damage from food + deal body damage to food + bounceback (solo only; multiplayer = server authority)
-    if (!this.ghost && !game.multiplayerSocket) {
+    // Food collision: take damage from food + deal body damage to food + bounceback (front-end: runs in solo and multiplayer)
+    if (!this.ghost) {
       for (const food of game.foods) {
         const d = distance(this.x, this.y, food.x, food.y);
         const overlap = this.size + food.size - d;
@@ -346,8 +346,8 @@ export class Player {
       }
     }
 
-    // Inferno damage (solo only; multiplayer = server authority)
-    if (!game.multiplayerSocket && this.equippedBody?.subtype === 'inferno') {
+    // Inferno damage (front-end: runs in solo and multiplayer)
+    if (this.equippedBody?.subtype === 'inferno') {
       const b = BODY_UPGRADES.inferno;
     
       const r = this.equippedBody.rarity;
@@ -680,11 +680,7 @@ export class Player {
       this.overlordDroneRespawnUntil = 0;
     }
 
-    // Update squares
-    for (const sq of this.squares) {
-      sq.update(dt, game);
-    }
-    this.squares = this.squares.filter(s => !s.isExpired());
+    // Squares (traps) are updated in Game.update: position, runSquareSquareCollision, then trap–food/beetle and damage. Do not update here to avoid double work and freeze with many Riot traps.
 
     // Integrate velocity into position (ice-slide: all movement uses velocity)
     this.x += this.vx * dt;

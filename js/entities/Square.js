@@ -57,6 +57,12 @@ export class Square {
   }
 
   update(dt, game) {
+    this.updatePosition(dt);
+    this.updateCollision(game);
+  }
+
+  /** Position, duration, velocity only. Called first for all squares so runSquareSquareCollision uses current positions. */
+  updatePosition(dt) {
     this.duration -= dt;
 
     if (this.launchDuration > 0) {
@@ -76,64 +82,17 @@ export class Square {
     if (this.canRotate) {
       this.rotation += 0.02 * dt;
     }
+  }
 
+  /** Trap–square, trap–food, trap–beetle. Call after runSquareSquareCollision. */
+  updateCollision(game) {
     const now = Date.now();
     const collisionEnabled = now - this.spawnedAt >= TRAP_NO_COLLISION_MS;
 
     if (collisionEnabled) {
-      for (const other of game.squares) {
-        if (other === this) continue;
-        if (now - other.spawnedAt < TRAP_NO_COLLISION_MS) continue; // skip others in no-collision window
-        const d = distance(this.x, this.y, other.x, other.y);
-        const overlap = this.size + other.size - d;
-        if (overlap > 0) {
-          const nx = d > 0 ? (this.x - other.x) / d : 1;
-          const ny = d > 0 ? (this.y - other.y) / d : 0;
-          const bothRiot = RIOT_NO_BOUNCE && this.isRiotTrap && other.isRiotTrap;
-          // Weight-based separation: heavier shape pushes lighter (riot weight 0 → effective 1 so it gets pushed, doesn't push)
-          const pw = effectiveWeight(this.weight);
-          const po = effectiveWeight(other.weight);
-          const totalWeight = pw + po;
-          const separation = Math.min(overlap / 2, MAX_SEPARATION_PER_FRAME);
-          const moveThis = separation * (po / totalWeight);
-          const moveOther = separation * (pw / totalWeight);
-          this.x += nx * moveThis;
-          this.y += ny * moveThis;
-          other.x -= nx * moveOther;
-          other.y -= ny * moveOther;
-
-          const bounce = !bothRiot && (this.bounceOnContact || other.bounceOnContact);
-          if (bounce) {
-            let start = this.contactStart.get(other);
-            if (start == null) {
-              start = now;
-              this.contactStart.set(other, start);
-              if (other.contactStart) other.contactStart.set(this, start);
-            }
-            if (now - start < BOUNCE_CONTACT_WINDOW) {
-              const strThis = displaceStrength(this.weight, other.weight);
-              const strOther = displaceStrength(other.weight, this.weight);
-              if (strThis > 0) {
-                other.vx -= nx * BOUNCE_STRENGTH;
-                other.vy -= ny * BOUNCE_STRENGTH;
-              }
-              if (strOther > 0) {
-                this.vx += nx * BOUNCE_STRENGTH;
-                this.vy += ny * BOUNCE_STRENGTH;
-              }
-            }
-          }
-          const relVx = this.vx - other.vx;
-          const relVy = this.vy - other.vy;
-          const tangent = -nx * relVy + ny * relVx;
-          const spin = (RIOT_NO_BOUNCE && this.isRiotTrap && other.isRiotTrap) ? 0.0012 : 0.0008;
-          this.angularVelocity += tangent * spin;
-          other.angularVelocity -= tangent * spin;
-        } else {
-          this.contactStart.delete(other);
-          if (other.contactStart) other.contactStart.delete(this);
-        }
-      }
+      // Skip expensive trap–food/beetle separation when many squares (e.g. Riot) to avoid freeze. Damage is still applied in Game.update.
+      const squareCount = game.squares ? game.squares.length : 0;
+      if (squareCount > 12) return;
 
       // Trap–food collision: separation and push by weight spectrum (1–100)
       for (const food of game.foods) {
@@ -201,6 +160,67 @@ export class Square {
 
   isExpired() {
     return this.duration <= 0 || this.hp <= 0;
+  }
+
+  /** Run square–square collision once per frame (each pair processed once). Call from Game before updating squares to avoid O(n²) per square and double separation. */
+  static runSquareSquareCollision(squares, dt) {
+    const now = Date.now();
+    for (let i = 0; i < squares.length; i++) {
+      const sq = squares[i];
+      if (now - sq.spawnedAt < TRAP_NO_COLLISION_MS) continue;
+      for (let j = i + 1; j < squares.length; j++) {
+        const other = squares[j];
+        if (now - other.spawnedAt < TRAP_NO_COLLISION_MS) continue;
+        const d = distance(sq.x, sq.y, other.x, other.y);
+        const overlap = sq.size + other.size - d;
+        if (overlap <= 0) {
+          sq.contactStart.delete(other);
+          if (other.contactStart) other.contactStart.delete(sq);
+          continue;
+        }
+        const nx = d > 0 ? (sq.x - other.x) / d : 1;
+        const ny = d > 0 ? (sq.y - other.y) / d : 0;
+        const bothRiot = RIOT_NO_BOUNCE && sq.isRiotTrap && other.isRiotTrap;
+        const pw = effectiveWeight(sq.weight);
+        const po = effectiveWeight(other.weight);
+        const totalWeight = pw + po;
+        const separation = Math.min(overlap / 2, MAX_SEPARATION_PER_FRAME);
+        const moveThis = separation * (po / totalWeight);
+        const moveOther = separation * (pw / totalWeight);
+        sq.x += nx * moveThis;
+        sq.y += ny * moveThis;
+        other.x -= nx * moveOther;
+        other.y -= ny * moveOther;
+
+        const bounce = !bothRiot && (sq.bounceOnContact || other.bounceOnContact);
+        if (bounce) {
+          let start = sq.contactStart.get(other);
+          if (start == null) {
+            start = now;
+            sq.contactStart.set(other, start);
+            if (other.contactStart) other.contactStart.set(sq, start);
+          }
+          if (now - start < BOUNCE_CONTACT_WINDOW) {
+            const strThis = displaceStrength(sq.weight, other.weight);
+            const strOther = displaceStrength(other.weight, sq.weight);
+            if (strThis > 0) {
+              other.vx -= nx * BOUNCE_STRENGTH;
+              other.vy -= ny * BOUNCE_STRENGTH;
+            }
+            if (strOther > 0) {
+              sq.vx += nx * BOUNCE_STRENGTH;
+              sq.vy += ny * BOUNCE_STRENGTH;
+            }
+          }
+        }
+        const relVx = sq.vx - other.vx;
+        const relVy = sq.vy - other.vy;
+        const tangent = -nx * relVy + ny * relVx;
+        const spin = (RIOT_NO_BOUNCE && sq.isRiotTrap && other.isRiotTrap) ? 0.0012 : 0.0008;
+        sq.angularVelocity += tangent * spin;
+        other.angularVelocity -= tangent * spin;
+      }
+    }
   }
 
   draw(ctx, scale) {

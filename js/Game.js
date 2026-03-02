@@ -9,6 +9,7 @@ const BEETLE_SPAWN_BATCH = 140;    // same as food
 import { Food } from './entities/Food.js';
 import { Beetle } from './entities/Beetle.js';
 import { Bullet } from './entities/Bullet.js';
+import { Square } from './entities/Square.js';
 import { distance, getRarityColor, darkenColor, drawRoundedHealthBar } from './utils.js';
 import { Player } from './Player.js';
 import { loadTankAssets, getLoadedTankAssets, getBodyIconUrlByRarity, getGunIconUrlByRarity, getPetalIconUrlByRarity } from './TankAssets.js';
@@ -34,6 +35,37 @@ const DROP_DESPAWN_MS = {
   super: 5 * 60 * 1000,
 };
 const INFERNO_PICKUP_DELAY_MS = 200;
+
+/** Build merged bullets for simulation: pending (Bullet instances) + server snapshot (plain objects with update no-op and collision fields). */
+function mergeBulletsForSimulation(pendingBullets, serverBullets) {
+  const list = (pendingBullets || []).map((e) => e.bullet).filter(Boolean);
+  for (const b of serverBullets || []) {
+    list.push({
+      ...b,
+      update() {},
+      hitTargets: b.hitTargets || new Set(),
+      speed: b.speed ?? 0.28,
+      damage: b.damage ?? 20,
+      weight: b.weight ?? 1,
+    });
+  }
+  return list;
+}
+
+/** Build merged squares for simulation: pending (Square instances) + server snapshot (plain objects with updatePosition/isExpired). */
+function mergeSquaresForSimulation(pendingSquares, serverSquares) {
+  const list = (pendingSquares || []).map((e) => e.sq).filter(Boolean);
+  for (const s of serverSquares || []) {
+    list.push({
+      ...s,
+      updatePosition() {},
+      isExpired() {
+        return (this.duration ?? 0) <= 0;
+      },
+    });
+  }
+  return list;
+}
 
 export class Game {
   constructor(gamemode = 'ffa') {
@@ -809,51 +841,6 @@ export class Game {
           }
         }
       }
-      const dtSec = dt / 1000;
-      for (const { sq } of this.pendingSquares) {
-        sq.x += (sq.vx || 0) * dtSec;
-        sq.y += (sq.vy || 0) * dtSec;
-        sq.rotation = (sq.rotation ?? 0) + (sq.angularVelocity ?? 0) * dtSec;
-        sq.angularVelocity = (sq.angularVelocity ?? 0) * 0.98;
-      }
-      // Square–square collision for pending traps (and vs server squares) so riot traps don't stack
-      const PENDING_TRAP_SEP = 2.5;
-      const effW = (w) => Math.max(1, Math.min(100, typeof w === 'number' ? w : 1));
-      const myId = this.multiplayerSocket?.id;
-      const serverSqs = (myId && this.serverSquares) ? this.serverSquares.filter((s) => s.ownerId === myId && (s.duration || 0) > 0) : [];
-      for (const { sq } of this.pendingSquares) {
-        const pw = effW(sq.weight);
-        const list = [
-          ...this.pendingSquares.filter((e) => e.sq !== sq).map((e) => e.sq),
-          ...serverSqs,
-        ];
-        for (const other of list) {
-          const ox = other.x ?? 0;
-          const oy = other.y ?? 0;
-          const osize = other.size ?? 14;
-          const d = distance(sq.x, sq.y, ox, oy);
-          const overlap = sq.size + osize - d;
-          if (overlap > 0 && d >= 1e-9) {
-            const nx = (sq.x - ox) / d;
-            const ny = (sq.y - oy) / d;
-            const po = effW(other.weight);
-            const total = pw + po;
-            const sep = Math.min(overlap / 2, PENDING_TRAP_SEP);
-            const moveThis = sep * (po / total);
-            sq.x += nx * moveThis;
-            sq.y += ny * moveThis;
-          }
-        }
-      }
-      // Update pending bullets (show immediately when shooting; server is authoritative for damage)
-      const PENDING_BULLET_MAX_MS = 400;
-      const nowBullet = Date.now();
-      for (const { bullet } of this.pendingBullets) {
-        bullet.update(dt);
-      }
-      this.pendingBullets = this.pendingBullets.filter(
-        (e) => e.bullet.lifetime > 0 && nowBullet - e.addedAt < PENDING_BULLET_MAX_MS
-      );
     }
 
     // Wall collision: use rect-based when custom map (exact match to drawn walls), else segment-based
@@ -1065,24 +1052,29 @@ export class Game {
 
     // Beetle–shape (square/trap) collision: push beetles out of overlapping squares
     const squaresForCollision = this.squares;
-    for (const beetle of this.beetles) {
-      if (beetle.hp <= 0) continue;
-      for (const sq of squaresForCollision) {
-        if (!sq || typeof sq.x !== 'number' || typeof sq.y !== 'number') continue;
-        const overlap = beetle.getEllipseOverlap(sq.x, sq.y, sq.size ?? 14);
-        if (overlap > 0) {
-          const d = distance(beetle.x, beetle.y, sq.x, sq.y);
-          const nx = d > 0 ? (beetle.x - sq.x) / d : 1;
-          const ny = d > 0 ? (beetle.y - sq.y) / d : 0;
-          const separation = Math.min(overlap / 2, BEETLE_SEPARATION_MAX);
-          beetle.x += nx * separation;
-          beetle.y += ny * separation;
+    if (squaresForCollision.length <= 12) {
+      for (const beetle of this.beetles) {
+        if (beetle.hp <= 0) continue;
+        for (const sq of squaresForCollision) {
+          if (!sq || typeof sq.x !== 'number' || typeof sq.y !== 'number') continue;
+          const overlap = beetle.getEllipseOverlap(sq.x, sq.y, sq.size ?? 14);
+          if (overlap > 0) {
+            const d = distance(beetle.x, beetle.y, sq.x, sq.y);
+            const nx = d > 0 ? (beetle.x - sq.x) / d : 1;
+            const ny = d > 0 ? (beetle.y - sq.y) / d : 0;
+            const separation = Math.min(overlap / 2, BEETLE_SEPARATION_MAX);
+            beetle.x += nx * separation;
+            beetle.y += ny * separation;
+          }
         }
       }
     }
 
     const bulletsToRemove = new Set();
-    if (!this.multiplayerSocket) {
+    if (this.multiplayerSocket) {
+      this.bullets = mergeBulletsForSimulation(this.pendingBullets, this.serverBullets);
+      this.squares = mergeSquaresForSimulation(this.pendingSquares, this.serverSquares);
+    }
     for (const bullet of this.bullets) {
       bullet.update(dt);
       if (bullet.lifetime <= 0) {
@@ -1109,12 +1101,10 @@ export class Game {
         for (const food of this.foods) {
           if (bullet.hp != null && bullet.hp <= 0) break;
           if (bullet.hitTargets.has(food)) continue;
-          if (distance(bullet.x, bullet.y, food.x, food.y) < bullet.size + food.size) {
+            if (distance(bullet.x, bullet.y, food.x, food.y) < bullet.size + food.size) {
             bullet.hitTargets.add(food);
-            if (!this.multiplayerSocket) {
-              food.hp -= bullet.damage;
-              if (food.hp <= 0) this.player.onKill(food, this);
-            }
+            food.hp -= bullet.damage;
+            if (food.hp <= 0 && this.player) this.player.onKill(food, this);
             const pushFactor = bulletDisplaceStrength(bullet.weight, food.weight);
             food.vx += Math.cos(bullet.angle) * bullet.speed * pushFactor;
             food.vy += Math.sin(bullet.angle) * bullet.speed * pushFactor;
@@ -1127,10 +1117,8 @@ export class Game {
           if (bullet.hitTargets.has(beetle)) continue;
           if (beetle.ellipseOverlapsCircle(bullet.x, bullet.y, bullet.size)) {
             bullet.hitTargets.add(beetle);
-            if (!this.multiplayerSocket) {
-              beetle.hp -= bullet.damage;
-              if (beetle.hp <= 0) this.player.onKill(beetle, this);
-            }
+            beetle.hp -= bullet.damage;
+            if (beetle.hp <= 0 && this.player) this.player.onKill(beetle, this);
             const pushFactor = bulletDisplaceStrength(bullet.weight, beetle.weight);
             beetle.vx += Math.cos(bullet.angle) * bullet.speed * pushFactor;
             beetle.vy += Math.sin(bullet.angle) * bullet.speed * pushFactor;
@@ -1154,10 +1142,8 @@ export class Game {
         if (!bulletsToRemove.has(bullet)) {
           for (const food of this.foods) {
             if (distance(bullet.x, bullet.y, food.x, food.y) < bullet.size + food.size) {
-              if (!this.multiplayerSocket) {
-                food.hp -= bullet.damage;
-                if (food.hp <= 0) this.player.onKill(food, this);
-              }
+              food.hp -= bullet.damage;
+              if (food.hp <= 0 && this.player) this.player.onKill(food, this);
               const pushFactor = bulletDisplaceStrength(bullet.weight, food.weight);
               food.vx += Math.cos(bullet.angle) * bullet.speed * pushFactor;
               food.vy += Math.sin(bullet.angle) * bullet.speed * pushFactor;
@@ -1169,10 +1155,8 @@ export class Game {
         if (!bulletsToRemove.has(bullet)) {
           for (const beetle of this.beetles) {
             if (beetle.ellipseOverlapsCircle(bullet.x, bullet.y, bullet.size)) {
-              if (!this.multiplayerSocket) {
-                beetle.hp -= bullet.damage;
-                if (beetle.hp <= 0) this.player.onKill(beetle, this);
-              }
+              beetle.hp -= bullet.damage;
+              if (beetle.hp <= 0 && this.player) this.player.onKill(beetle, this);
               const pushFactor = bulletDisplaceStrength(bullet.weight, beetle.weight);
               beetle.vx += Math.cos(bullet.angle) * bullet.speed * pushFactor;
               beetle.vy += Math.sin(bullet.angle) * bullet.speed * pushFactor;
@@ -1185,29 +1169,33 @@ export class Game {
     }
     this.bullets = this.bullets.filter(b => !bulletsToRemove.has(b));
 
+    // Update square positions first, then square–square once (each pair once), then trap–food/beetle and damage
+    for (const sq of this.squares) sq.updatePosition(dt);
+    Square.runSquareSquareCollision(this.squares, dt);
+
     for (const sq of this.squares) {
-      sq.update(dt, this);
+      sq.updateCollision(this);
       const sqDamage = sq.damage * dt / 1000;
+      const margin = (sq.size ?? 25) + 100;
+      const sqMinX = sq.x - margin, sqMaxX = sq.x + margin, sqMinY = sq.y - margin, sqMaxY = sq.y + margin;
       for (const food of this.foods) {
+        if (food.x < sqMinX || food.x > sqMaxX || food.y < sqMinY || food.y > sqMaxY) continue;
         const d = distance(sq.x, sq.y, food.x, food.y);
         if (d < sq.size + food.size) {
-          if (!this.multiplayerSocket) {
-            food.hp -= sqDamage;
-            if (food.hp <= 0) this.player.onKill(food, this);
-          }
+          food.hp -= sqDamage;
+          if (food.hp <= 0 && this.player) this.player.onKill(food, this);
         }
       }
       for (const beetle of this.beetles) {
+        if (beetle.x < sqMinX || beetle.x > sqMaxX || beetle.y < sqMinY || beetle.y > sqMaxY) continue;
         if (beetle.ellipseOverlapsCircle(sq.x, sq.y, sq.size)) {
-          if (!this.multiplayerSocket) {
-            beetle.hp -= sqDamage;
-            if (beetle.hp <= 0) this.player.onKill(beetle, this);
-          }
+          beetle.hp -= sqDamage;
+          if (beetle.hp <= 0 && this.player) this.player.onKill(beetle, this);
         }
       }
     }
     // Wall collision for shapes (squares/traps)
-    const wallFillsSq = getMergedWallFills();
+    const wallFillsSq = this.getWallFillsForGame();
     if (wallFillsSq.length > 0) {
       for (const sq of this.squares) {
         const margin = sq.size + 50;
@@ -1242,6 +1230,13 @@ export class Game {
       }
     }
     this.squares = this.squares.filter(s => !s.isExpired());
+    if (this.player && this.player.squares) this.player.squares = this.player.squares.filter(s => !s.isExpired());
+    if (this.multiplayerSocket) {
+      const nowB = Date.now();
+      const PENDING_BULLET_MAX_MS = 400;
+      this.pendingBullets = this.pendingBullets.filter(
+        (e) => e.bullet && e.bullet.lifetime > 0 && !bulletsToRemove.has(e.bullet) && nowB - (e.addedAt || 0) < PENDING_BULLET_MAX_MS
+      );
     }
 
     this.spawnTimer += dt;
@@ -1496,57 +1491,39 @@ export class Game {
       const cam = this.camera;
       const viewW = (ctx.canvas.width / scale) * 0.6;
       const viewH = (ctx.canvas.height / scale) * 0.6;
-      const bulletList = this.serverBullets.filter((b) =>
-        b.x >= cam.x - viewW && b.x <= cam.x + viewW && b.y >= cam.y - viewH && b.y <= cam.y + viewH
-      ).slice(0, 300);
-      for (const b of bulletList) {
-        ctx.save();
-        ctx.fillStyle = '#1ca8c9';
-        ctx.strokeStyle = '#4a4a4a';
-        ctx.lineWidth = Math.max(1, 3 / scale);
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, (b.size || 6) * 0.7, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        ctx.restore();
-      }
-      for (const { bullet } of this.pendingBullets) {
-        if (bullet.lifetime <= 0) continue;
-        bullet.draw(ctx, scale);
-      }
-      const squareList = this.serverSquares.filter((sq) => {
-        if (sq.x >= cam.x - viewW && sq.x <= cam.x + viewW && sq.y >= cam.y - viewH && sq.y <= cam.y + viewH) {
-          const isOurs = this.multiplayerSocket && sq.ownerId === this.multiplayerSocket.id;
-          const recent = sq.spawnedAt != null && (Date.now() - sq.spawnedAt) < 600;
-          if (isOurs && recent) return false;
-          return true;
-        }
-        return false;
-      }).slice(0, 200);
-      for (const sq of squareList) {
-        ctx.save();
-        ctx.translate(sq.x, sq.y);
-        ctx.rotate(sq.rotation ?? 0);
-        const fillColor = (sq.bodyColor && typeof sq.bodyColor === 'string') ? sq.bodyColor : getRarityColor(sq.rarity || 'common');
-        ctx.fillStyle = fillColor;
-        ctx.strokeStyle = '#4a4a4a';
-        ctx.lineWidth = 2 / scale;
-        ctx.fillRect(-sq.size, -sq.size, sq.size * 2, sq.size * 2);
-        ctx.strokeRect(-sq.size, -sq.size, sq.size * 2, sq.size * 2);
-        ctx.restore();
-      }
-      for (const { sq } of this.pendingSquares) {
+      for (const sq of this.squares) {
         if (sq.x < cam.x - viewW || sq.x > cam.x + viewW || sq.y < cam.y - viewH || sq.y > cam.y + viewH) continue;
-        ctx.save();
-        ctx.translate(sq.x, sq.y);
-        ctx.rotate(sq.rotation ?? 0);
-        const fillColor = (sq.bodyColor && typeof sq.bodyColor === 'string') ? sq.bodyColor : getRarityColor(sq.rarity || 'common');
-        ctx.fillStyle = fillColor;
-        ctx.strokeStyle = '#4a4a4a';
-        ctx.lineWidth = 2 / scale;
-        ctx.fillRect(-sq.size, -sq.size, sq.size * 2, sq.size * 2);
-        ctx.strokeRect(-sq.size, -sq.size, sq.size * 2, sq.size * 2);
-        ctx.restore();
+        if (typeof sq.draw === 'function') {
+          sq.draw(ctx, scale);
+        } else {
+          ctx.save();
+          ctx.translate(sq.x, sq.y);
+          ctx.rotate(sq.rotation ?? 0);
+          const fillColor = (sq.bodyColor && typeof sq.bodyColor === 'string') ? sq.bodyColor : getRarityColor(sq.rarity || 'common');
+          ctx.fillStyle = fillColor;
+          ctx.strokeStyle = '#4a4a4a';
+          ctx.lineWidth = 2 / scale;
+          ctx.fillRect(-sq.size, -sq.size, sq.size * 2, sq.size * 2);
+          ctx.strokeRect(-sq.size, -sq.size, sq.size * 2, sq.size * 2);
+          ctx.restore();
+        }
+      }
+      for (const bullet of this.bullets) {
+        if (bullet.x < cam.x - viewW || bullet.x > cam.x + viewW || bullet.y < cam.y - viewH || bullet.y > cam.y + viewH) continue;
+        if (bullet.lifetime <= 0) continue;
+        if (typeof bullet.draw === 'function') {
+          bullet.draw(ctx, scale);
+        } else {
+          ctx.save();
+          ctx.fillStyle = '#1ca8c9';
+          ctx.strokeStyle = '#4a4a4a';
+          ctx.lineWidth = Math.max(1, 3 / scale);
+          ctx.beginPath();
+          ctx.arc(bullet.x, bullet.y, (bullet.size || 6) * 0.7, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        }
       }
     } else {
     for (const sq of this.squares) {
