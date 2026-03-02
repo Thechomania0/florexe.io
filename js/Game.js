@@ -359,10 +359,10 @@ export class Game {
       }
     }
     const sid = mobId != null ? String(mobId) : null;
-    if (mobType === 'beetle' && sid) {
-      this.beetles = this.beetles.filter((b) => String(b.id) !== sid);
-    } else if (sid) {
+    // Remove by id from both lists so the mob always disappears (no dependency on pickup). Handles mobType mismatch.
+    if (sid) {
       this.foods = this.foods.filter((f) => String(f.id) !== sid);
+      this.beetles = this.beetles.filter((b) => String(b.id) !== sid);
     }
   }
 
