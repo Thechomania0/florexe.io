@@ -364,12 +364,14 @@ io.on('connection', (socket) => {
     const room = Array.from(socket.rooms).find(r => r !== socket.id && r.length > 0);
     if (!room) return;
     const prev = getRoomPlayers(room).get(socket.id) || {};
+    const dataMaxHp = typeof data?.maxHp === 'number' ? Math.max(1, data.maxHp) : null;
+    const maxHpIncreased = dataMaxHp != null && (prev.maxHp == null || dataMaxHp > prev.maxHp);
     const state = data && typeof data === 'object' ? {
       x: typeof data.x === 'number' ? data.x : prev.x,
       y: typeof data.y === 'number' ? data.y : prev.y,
       angle: typeof data.angle === 'number' ? data.angle : prev.angle,
-      hp: typeof prev.hp === 'number' ? prev.hp : (typeof data.hp === 'number' ? data.hp : 500),
-      maxHp: (typeof data.maxHp === 'number' ? Math.max(1, data.maxHp) : prev.maxHp) || 500,
+      hp: maxHpIncreased ? dataMaxHp : (typeof prev.hp === 'number' ? prev.hp : (typeof data.hp === 'number' ? data.hp : 500)),
+      maxHp: dataMaxHp ?? prev.maxHp ?? 500,
       level: typeof data.level === 'number' ? data.level : prev.level,
       displayName: typeof data.displayName === 'string' ? data.displayName.slice(0, 50) : (prev.displayName || 'Player'),
       equippedTank: data.equippedTank && typeof data.equippedTank === 'object' ? data.equippedTank : prev.equippedTank,
